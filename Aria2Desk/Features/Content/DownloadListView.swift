@@ -3,53 +3,11 @@ import SwiftUI
 struct DownloadListView: View {
     let downloads: [Download]
 
-    private var totalCount: Int { downloads.count }
-    private var activeCount: Int { downloads.filter { $0.status == .active }.count }
-    private var totalDownloadSpeed: Int64 { downloads.reduce(0) { $0 + $1.downloadSpeed } }
-
     var body: some View {
-        VStack(spacing: 0) {
-            summaryBar
-            List(downloads) { download in
-                DownloadRow(download: download)
-            }
-            .listStyle(.inset)
+        List(downloads) { download in
+            DownloadRow(download: download)
         }
-    }
-
-    private var summaryBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "square.stack.3d.down.right")
-                .foregroundStyle(.secondary)
-                .imageScale(.small)
-            Text("\(totalCount)")
-                .foregroundStyle(.primary)
-                .font(.system(size: 12, weight: .medium))
-
-            if activeCount > 0 {
-                Circle().fill(.blue).frame(width: 5, height: 5)
-                Text("\(activeCount)")
-                    .foregroundStyle(.blue)
-                    .font(.system(size: 12))
-            }
-
-            Spacer()
-
-            if totalDownloadSpeed > 0 {
-                HStack(spacing: 3) {
-                    Image(systemName: "arrow.down")
-                        .foregroundStyle(.secondary)
-                        .imageScale(.small)
-                    Text(formatSpeed(totalDownloadSpeed))
-                        .foregroundStyle(.secondary)
-                }
-                .font(.system(size: 12))
-            }
-
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .background(.fill.quaternary)
+        .listStyle(.inset)
     }
 }
 

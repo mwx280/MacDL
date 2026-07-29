@@ -27,6 +27,9 @@
         }
       }
     },
+    "Add" : {
+
+    },
     "All Downloads" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -60,6 +63,9 @@
           }
         }
       }
+    },
+    "Clear" : {
+
     },
     "Completed" : {
       "extractionState" : "manual",
@@ -282,6 +288,9 @@
         }
       }
     },
+    "Pause All" : {
+
+    },
     "Paused" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -332,6 +341,9 @@
           }
         }
       }
+    },
+    "Resume All" : {
+
     },
     "Running" : {
       "extractionState" : "manual",
