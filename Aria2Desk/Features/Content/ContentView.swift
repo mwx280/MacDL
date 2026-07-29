@@ -21,14 +21,12 @@ struct ContentView: View {
             detailView
         }
         .toolbar {
-            ToolbarItemGroup {
-                Button { addDownload() } label: { Label("Add", systemImage: "plus") }
-                Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") }
-                Button { resumeAll() } label: { Label("Resume All", systemImage: "play") }
-                Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") }
-            }
+            ToolbarItem { Button { addDownload() } label: { Label("Add", systemImage: "plus") } }
+            ToolbarItem { Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") } }
+            ToolbarItem { Button { resumeAll() } label: { Label("Resume All", systemImage: "play") } }
+            ToolbarItem { Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") } }
 
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .status) {
                 HStack(spacing: 8) {
                     Text("\(downloads.count)")
                     Divider().frame(height: 12)
