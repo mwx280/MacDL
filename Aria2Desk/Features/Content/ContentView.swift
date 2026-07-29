@@ -27,7 +27,7 @@ struct ContentView: View {
                     .disabled(!downloads.contains { selectedDownloads.contains($0.id) && $0.status == .active })
                 Button { resumeAll() } label: { Label("Resume", systemImage: "play") }
                     .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
-                Button { clearCompleted() } label: { Label("Delete", systemImage: "trash") }
+                Button { confirmDelete() } label: { Label("Delete", systemImage: "trash") }
                     .disabled(selectedDownloads.isEmpty)
                 Spacer()
                 HStack(spacing: 6) {
@@ -71,7 +71,30 @@ struct ContentView: View {
         selectedDownloads.removeAll()
     }
 
-    private func clearCompleted() {
+    private func confirmDelete() {
+        let alert = NSAlert()
+        alert.messageText = String(format: LanguageManager.shared.localized("Are you sure you want to delete %lld download(s)?"), selectedDownloads.count)
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: LanguageManager.shared.localized("Delete"))
+        alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+
+        let cb = NSButton(checkboxWithTitle: LanguageManager.shared.localized("Also remove downloaded files"), target: nil, action: nil)
+        cb.state = .on
+        alert.accessoryView = cb
+
+        let resp = alert.runModal()
+        if resp == .alertFirstButtonReturn {
+            clearCompleted(deleteFiles: cb.state == .on)
+        }
+    }
+
+    private func clearCompleted(deleteFiles: Bool = false) {
+        if deleteFiles {
+            let dir = Aria2RPCClient.shared.config.downloadDirectory
+            for d in downloads where selectedDownloads.contains(d.id) {
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+            }
+        }
         downloads.removeAll { selectedDownloads.contains($0.id) }
         selectedDownloads.removeAll()
     }
