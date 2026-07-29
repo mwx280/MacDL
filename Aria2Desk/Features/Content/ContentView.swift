@@ -33,6 +33,17 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup {
+                Picker(selection: Bindable(model).fileTypeFilter) {
+                    ForEach(FileTypeFilter.allCases, id: \.self) { f in
+                        Label(title: { LocalizedText(key: f.labelKey) }, icon: { Image(systemName: f.icon) })
+                            .tag(f)
+                    }
+                } label: { }
+                .labelsHidden()
+                .frame(width: 90)
+            }
+
+            ToolbarItemGroup {
                 Button { newDownloadURLs = ""; showNewDownloadSheet = true } label: { Label("New Download", systemImage: "plus") }
                     .help("New Download")
                 Button { model.pauseAll() } label: { Label("Pause", systemImage: "pause") }
@@ -44,17 +55,6 @@ struct ContentView: View {
                 Button { model.confirmDelete() } label: { Label("Delete", systemImage: "trash") }
                     .disabled(model.selectedDownloads.isEmpty)
                     .help("Delete")
-            }
-
-            ToolbarItemGroup {
-                Picker(selection: Bindable(model).fileTypeFilter) {
-                    ForEach(FileTypeFilter.allCases, id: \.self) { f in
-                        Label(title: { LocalizedText(key: f.labelKey) }, icon: { Image(systemName: f.icon) })
-                            .tag(f)
-                    }
-                } label: { }
-                .labelsHidden()
-                .frame(width: 90)
             }
 
             ToolbarItemGroup {
