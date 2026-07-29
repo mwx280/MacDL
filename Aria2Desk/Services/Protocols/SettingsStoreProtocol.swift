@@ -10,4 +10,5 @@ protocol SettingsStoreProtocol {
     var maxConnections: Int { get set }
     var maxConcurrentDownloads: Int { get set }
     var secretToken: String { get set }
+    var downloadPath: String { get set }
 }

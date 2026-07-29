@@ -33,4 +33,11 @@ final class SettingsStore: SettingsStoreProtocol {
         get { defaults.string(forKey: "rpcSecretToken") ?? "" }
         set { defaults.set(newValue, forKey: "rpcSecretToken") }
     }
+
+    var downloadPath: String {
+        get {
+            defaults.string(forKey: "downloadPath") ?? NSHomeDirectory() + "/Downloads"
+        }
+        set { defaults.set(newValue, forKey: "downloadPath") }
+    }
 }

@@ -60,9 +60,9 @@ struct ContentView: View {
         .sheet(isPresented: $showNewDownloadSheet) {
             NewDownloadView(
                 text: $newDownloadURLs,
-                onDownload: { urls in
+                onDownload: { urls, path, connections in
                     for url in urls.components(separatedBy: .newlines).map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
-                        model.addDownload(url: url)
+                        model.addDownload(url: url, savePath: path, connections: connections)
                     }
                 }
             )

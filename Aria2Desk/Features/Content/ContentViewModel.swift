@@ -53,7 +53,7 @@ final class ContentViewModel {
         }
     }
 
-    func addDownload(url: String) {
+    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let d = Download(
             id: UUID(),
@@ -64,7 +64,9 @@ final class ContentViewModel {
             downloadSpeed: Int64.random(in: 100_000...2_000_000),
             uploadSpeed: 0,
             status: .active,
-            addedAt: Date()
+            addedAt: Date(),
+            savePath: savePath,
+            connections: connections
         )
         downloads.append(d)
     }

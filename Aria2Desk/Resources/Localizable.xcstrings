@@ -240,6 +240,23 @@
     "Copyright © 2026 xiaowu" : {
 
     },
+    "Connections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connections"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接数"
+          }
+        }
+      }
+    },
     "Connecting to server..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -355,6 +372,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载速度: %@"
+          }
+        }
+      }
+    },
+    "Download URLs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download URLs"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载链接"
           }
         }
       }
@@ -718,6 +752,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "运行中"
+          }
+        }
+      }
+    },
+    "Save to" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存到"
+          }
+        }
+      }
+    },
+    "Select download folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select download folder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择下载目录"
           }
         }
       }

@@ -30,6 +30,8 @@ struct Download: Identifiable {
     var uploadSpeed: Int64
     var status: DownloadStatus
     var addedAt: Date
+    var savePath: String?
+    var connections: Int?
 
     var progress: Double {
         totalSize > 0 ? min(Double(downloadedSize) / Double(totalSize), 1.0) : 0
