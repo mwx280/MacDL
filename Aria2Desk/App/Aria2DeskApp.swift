@@ -69,6 +69,9 @@ private struct AboutView: View {
     @State private var terminalLines: [String] = []
     @State private var progress: Double = 0
     @State private var bgOpacity: Double = 0
+    @State private var showCursor = true
+    @State private var matrixChars: [(x: CGFloat, char: String, speed: Double)] = []
+    @State private var isComplete = false
 
     private let flashColors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
 
@@ -164,27 +167,60 @@ private struct AboutView: View {
     @ViewBuilder
     private var terminalScene: some View {
         ZStack {
-            Color.black.opacity(0.92 * bgOpacity)
+            Color.black.opacity(0.95 * bgOpacity)
 
-            VStack(alignment: .leading, spacing: 8) {
+            TimelineView(.animation(minimumInterval: 0.05)) { _ in
+                Canvas { ctx, size in
+                    for c in matrixChars {
+                        ctx.draw(Text(c.char).font(.system(size: 10, design: .monospaced)).foregroundColor(.green.opacity(0.15)), at: CGPoint(x: c.x, y: (CACurrentMediaTime() * c.speed * 30).truncatingRemainder(dividingBy: size.height + 20) - 10))
+                    }
+                }
+            }
+            .opacity(bgOpacity)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Spacer().frame(height: 12)
+
                 ForEach(Array(terminalLines.enumerated()), id: \.offset) { i, line in
-                    Text(line)
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(i == terminalLines.count - 1 && progress < 1
-                            ? .green.opacity(0.7)
-                            : .green)
-                        .opacity(i < terminalLines.count - 1 || progress >= 1 ? 1 : 0.7)
+                    HStack(spacing: 0) {
+                        Text(line)
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundStyle(.green)
+                            .glow(color: .green, radius: i == terminalLines.count - 1 && !isComplete ? 2 : 1)
+                        if i == terminalLines.count - 1 && showCursor && !isComplete {
+                            Text("█")
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundStyle(.green)
+                        }
+                    }
                 }
 
-                if !terminalLines.isEmpty {
+                if terminalLines.count >= 4 && !isComplete {
                     ProgressView(value: progress)
                         .tint(.green)
                         .frame(width: 280)
-                        .opacity(terminalLines.count >= 4 ? 1 : 0)
+                }
+
+                if isComplete {
+                    Spacer().frame(height: 8)
+                    Text("🖱  " + LanguageManager.shared.localized("Click anywhere to exit"))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.green.opacity(showCursor ? 0.8 : 0.3))
                 }
             }
-            .padding(24)
+            .padding(20)
+
+            VStack { Spacer(); scanlineOverlay; Spacer().frame(height: 0) }
         }
+        .onTapGesture { if isComplete { endTerminal() } }
+    }
+
+    private var scanlineOverlay: some View {
+        Rectangle()
+            .fill(.black.opacity(0.04))
+            .frame(height: 2)
+            .offset(y: CGFloat.random(in: -200...200))
+            .opacity(0.5)
     }
 
     private func sectionHeader(_ text: String) -> some View {
@@ -210,7 +246,20 @@ private struct AboutView: View {
         iconTapCount = 0
         terminalLines = []
         progress = 0
+        isComplete = false
+        matrixChars = (0..<25).map { _ in
+            (CGFloat.random(in: 10...370), String(UnicodeScalar(Int.random(in: 0x30A0...0x30FF))!), Double.random(in: 0.3...1))
+        }
+        showCursor = true
         phase = 1
+
+        Task {
+            while phase == 1 {
+                try? await Task.sleep(for: .milliseconds(500))
+                await MainActor.run { showCursor.toggle() }
+            }
+        }
+
         runTerminal()
     }
 
@@ -255,10 +304,10 @@ private struct AboutView: View {
             typeLine("> ████████████████ 100%")
             try? await Task.sleep(for: .milliseconds(500))
             typeLine("> Access granted.")
-            try? await Task.sleep(for: .milliseconds(800))
+            try? await Task.sleep(for: .milliseconds(600))
             typeLine("> 🎉 You found the easter egg!")
-            try? await Task.sleep(for: .seconds(2))
-            endTerminal()
+            try? await Task.sleep(for: .milliseconds(400))
+            isComplete = true
         }
     }
 
@@ -267,12 +316,13 @@ private struct AboutView: View {
     }
 
     private func endTerminal() {
+        phase = 0
         Task {
-            withAnimation(.easeOut(duration: 0.4)) { bgOpacity = 0 }
-            try? await Task.sleep(for: .milliseconds(500))
+            withAnimation(.easeOut(duration: 0.3)) { bgOpacity = 0 }
+            try? await Task.sleep(for: .milliseconds(300))
             terminalLines = []
             progress = 0
-            phase = 0
+            isComplete = false
         }
     }
 
@@ -280,6 +330,13 @@ private struct AboutView: View {
         let f = ByteCountFormatter()
         f.countStyle = .binary
         return f.string(fromByteCount: bytes) + "/s"
+    }
+}
+
+extension View {
+    func glow(color: Color, radius: CGFloat) -> some View {
+        self.shadow(color: color, radius: radius)
+            .shadow(color: color, radius: radius * 2)
     }
 }
 

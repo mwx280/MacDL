@@ -166,6 +166,23 @@
         }
       }
     },
+    "Click anywhere to exit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click anywhere to exit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击任意位置退出"
+          }
+        }
+      }
+    },
     "Completed" : {
       "extractionState" : "manual",
       "localizations" : {
