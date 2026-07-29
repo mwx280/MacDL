@@ -3,6 +3,7 @@ import AppKit
 
 struct ContentView: View {
     @State private var selected: SidebarItem? = .all
+    @State private var selectedDownloads = Set<UUID>()
     @State private var downloads = Download.mock
     @AppStorage("appearance") private var appearance: Appearance = .system
 
@@ -39,6 +40,7 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
             }
         }
+        .onChange(of: selected) { _, _ in selectedDownloads.removeAll() }
         .onChange(of: appearance) { _, new in new.apply() }
         .onAppear { appearance.apply() }
     }
@@ -102,7 +104,7 @@ struct ContentView: View {
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
         } else {
-            DownloadListView(downloads: filteredDownloads)
+            DownloadListView(downloads: filteredDownloads, selection: $selectedDownloads)
         }
     }
 }
