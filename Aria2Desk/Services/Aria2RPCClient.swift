@@ -60,7 +60,6 @@ final class Aria2RPCClient {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: enginePath)
         process.arguments = buildEngineArguments()
-        process.qualityOfService = .background
 
         do {
             try process.run()
@@ -159,6 +158,9 @@ final class Aria2RPCClient {
         let fm = FileManager.default
         for dir in [config.appSupportDirectory, config.downloadDirectory] {
             try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        }
+        if !fm.fileExists(atPath: config.aria2SessionPath) {
+            fm.createFile(atPath: config.aria2SessionPath, contents: nil)
         }
     }
 
