@@ -51,11 +51,12 @@ struct SettingsView: View {
     }
 
     private var generalSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(key: "General")
-
-            VStack(spacing: 1) {
-                pickerRow(icon: "globe", titleKey: "Language") {
+        GroupBox {
+            VStack(spacing: 12) {
+                HStack {
+                    Label(title: { LocalizedText(key: "Language") }, icon: { Image(systemName: "globe") })
+                        .foregroundStyle(.secondary)
+                    Spacer()
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
                             LocalizedText(key: l.displayKey).tag(l)
@@ -65,9 +66,12 @@ struct SettingsView: View {
                 }
                 .id(lang.selectedLanguage)
 
-                Divider().padding(.leading, 40)
+                Divider()
 
-                pickerRow(icon: "circle.lefthalf.filled", titleKey: "Appearance") {
+                HStack {
+                    Label(title: { LocalizedText(key: "Appearance") }, icon: { Image(systemName: "circle.lefthalf.filled") })
+                        .foregroundStyle(.secondary)
+                    Spacer()
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
                             LocalizedText(key: a.displayKey).tag(a)
@@ -76,95 +80,66 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
             }
-            .background(.quaternary.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.vertical, 4)
+        } label: {
+            Label(title: { LocalizedText(key: "General") }, icon: { Image(systemName: "gear") })
         }
     }
 
     private var rpcSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(key: "Engine")
-
-            VStack(spacing: 1) {
-                HStack(spacing: 16) {
-                    Image(systemName: "terminal")
-                        .frame(width: 20)
-                        .foregroundStyle(.secondary)
-                    LocalizedText(key: "Status")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(engineColor)
-                            .frame(width: 8, height: 8)
-                        LocalizedText(key: engineStatusKey)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-
+        GroupBox {
+            VStack(spacing: 12) {
+                engineStatusRow
                 Divider()
-
-                VStack(spacing: 8) {
-                    inputRow(labelKey: "Max Connections") {
-                        TextField("16", text: $maxConnections)
-                            .textFieldStyle(.plain)
-                            .onChange(of: maxConnections) { _, v in
-                                client.config.maxConnections = Int(v) ?? 16
-                            }
-                    }
-
-                    inputRow(labelKey: "Max Downloads") {
-                        TextField("5", text: $maxConcurrent)
-                            .textFieldStyle(.plain)
-                            .onChange(of: maxConcurrent) { _, v in
-                                client.config.maxConcurrentDownloads = Int(v) ?? 5
-                            }
-                    }
-
-                    HStack(spacing: 10) {
-                        Text("Changes require engine restart.")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.leading, 64)
+                labeledRow(labelKey: "Max Connections", systemImage: "number") {
+                    TextField("16", text: $maxConnections)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .onChange(of: maxConnections) { _, v in
+                            client.config.maxConnections = Int(v) ?? 16
+                        }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 12)
+                labeledRow(labelKey: "Max Downloads", systemImage: "arrow.down.to.line") {
+                    TextField("5", text: $maxConcurrent)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 80)
+                        .onChange(of: maxConcurrent) { _, v in
+                            client.config.maxConcurrentDownloads = Int(v) ?? 5
+                        }
+                }
+                HStack {
+                    Spacer()
+                    LocalizedText(key: "Changes require engine restart.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
-            .background(.quaternary.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.vertical, 4)
+        } label: {
+            Label(title: { LocalizedText(key: "Engine") }, icon: { Image(systemName: "gearshape.2") })
         }
     }
 
-    private func sectionHeader(key: String) -> some View {
-        LocalizedText(key: key)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .padding(.leading, 8)
-            .padding(.bottom, 6)
-    }
-
-    private func pickerRow<C: View>(icon: String, titleKey: String, @ViewBuilder content: () -> C) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .frame(width: 20)
+    private var engineStatusRow: some View {
+        HStack {
+            Label(title: { LocalizedText(key: "Status") }, icon: { Image(systemName: "antenna.radiowaves.left.and.right") })
                 .foregroundStyle(.secondary)
-            LocalizedText(key: titleKey)
-                .foregroundStyle(.primary)
             Spacer()
-            content()
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(engineColor)
+                    .frame(width: 8, height: 8)
+                LocalizedText(key: engineStatusKey)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 
-    private func inputRow<C: View>(labelKey: String, @ViewBuilder content: () -> C) -> some View {
-        HStack(spacing: 12) {
-            LocalizedText(key: labelKey)
+    private func labeledRow<C: View>(labelKey: String, systemImage: String, @ViewBuilder content: () -> C) -> some View {
+        HStack {
+            Label(title: { LocalizedText(key: labelKey) }, icon: { Image(systemName: systemImage) })
                 .foregroundStyle(.secondary)
-                .frame(width: 52, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             content()
         }
     }

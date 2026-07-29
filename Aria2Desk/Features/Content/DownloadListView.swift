@@ -99,21 +99,27 @@ private struct DownloadRow: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 6, height: 6)
-            Text(statusText)
-                .font(.caption)
-                .foregroundStyle(statusColor)
+            if download.status == .active && download.downloadSpeed > 0 {
+                Text(formatSpeed(download.downloadSpeed))
+                    .font(.caption)
+                    .foregroundStyle(statusColor)
+            } else {
+                LocalizedText(key: statusKey)
+                    .font(.caption)
+                    .foregroundStyle(statusColor)
+            }
         }
     }
 
-    private var statusText: String {
-        if download.status == .active {
-            return download.downloadSpeed > 0 ? formatSpeed(download.downloadSpeed) : "Active"
+    private var statusKey: String {
+        switch download.status {
+        case .active: "Active"
+        case .paused: "Paused"
+        case .waiting: "Waiting"
+        case .completed: "Completed"
+        case .stopped: "Stopped"
+        case .error: "Error"
         }
-        if download.status == .paused { return "Paused" }
-        if download.status == .waiting { return "Waiting" }
-        if download.status == .completed { return "Completed" }
-        if download.status == .stopped { return "Stopped" }
-        return "Error"
     }
 
     private var statusIcon: String {
