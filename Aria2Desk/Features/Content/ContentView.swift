@@ -23,12 +23,12 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button { addDownload() } label: { Label("Add", systemImage: "plus") }
-                Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") }
-                    .disabled(selectedDownloads.isEmpty)
-                Button { resumeAll() } label: { Label("Resume All", systemImage: "play") }
-                    .disabled(selectedDownloads.isEmpty)
-                Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") }
-                    .disabled(selectedDownloads.isEmpty)
+                Button { pauseAll() } label: { Label("Pause", systemImage: "pause") }
+                    .disabled(!downloads.contains { selectedDownloads.contains($0.id) && $0.status == .active })
+                Button { resumeAll() } label: { Label("Resume", systemImage: "play") }
+                    .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
+                Button { clearCompleted() } label: { Label("Delete", systemImage: "trash") }
+                    .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .completed || $0.status == .stopped || $0.status == .error) })
                 Spacer()
                 HStack(spacing: 6) {
                     Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
@@ -54,19 +54,27 @@ struct ContentView: View {
     }
 
     private func pauseAll() {
-        for i in downloads.indices where downloads[i].status == .active {
+        for id in selectedDownloads {
+            guard let i = downloads.firstIndex(where: { $0.id == id }),
+                  downloads[i].status == .active else { continue }
             downloads[i].status = .paused
         }
+        selectedDownloads.removeAll()
     }
 
     private func resumeAll() {
-        for i in downloads.indices where downloads[i].status == .paused || downloads[i].status == .waiting {
+        for id in selectedDownloads {
+            guard let i = downloads.firstIndex(where: { $0.id == id }),
+                  downloads[i].status == .paused || downloads[i].status == .waiting else { continue }
             downloads[i].status = .active
         }
+        selectedDownloads.removeAll()
     }
 
     private func clearCompleted() {
-        downloads.removeAll { $0.status == .completed || $0.status == .stopped || $0.status == .error }
+        let toRemove = Set(downloads.filter { selectedDownloads.contains($0.id) && ($0.status == .completed || $0.status == .stopped || $0.status == .error) }.map(\.id))
+        downloads.removeAll { toRemove.contains($0.id) }
+        selectedDownloads.subtract(toRemove)
     }
 
     private func addDownload() {
