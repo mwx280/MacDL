@@ -2,9 +2,8 @@ import SwiftUI
 import AppKit
 
 struct ContentView: View {
+    @State private var model = ContentViewModel()
     @State private var selected: SidebarItem? = .all
-    @State private var selectedDownloads = Set<UUID>()
-    @State private var downloads = PreviewContent.downloads
     @State private var showNewDownloadSheet = false
     @State private var newDownloadURLs = ""
     @AppStorage("appearance") private var appearance: Appearance = .system
@@ -20,28 +19,28 @@ struct ContentView: View {
             }
             .listStyle(.sidebar)
         } detail: {
-            detailView
+            if selected != nil { downloadsView }
         }
         .toolbar {
             ToolbarItemGroup {
                 Button { newDownloadURLs = ""; showNewDownloadSheet = true } label: { Label("New Download", systemImage: "plus") }
                     .help("New Download")
-                Button { pauseAll() } label: { Label("Pause", systemImage: "pause") }
-                    .disabled(!downloads.contains { selectedDownloads.contains($0.id) && $0.status == .active })
+                Button { model.pauseAll() } label: { Label("Pause", systemImage: "pause") }
+                    .disabled(!model.downloads.contains { model.selectedDownloads.contains($0.id) && $0.status == .active })
                     .help("Pause")
-                Button { resumeAll() } label: { Label("Resume", systemImage: "play") }
-                    .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
+                Button { model.resumeAll() } label: { Label("Resume", systemImage: "play") }
+                    .disabled(!model.downloads.contains { model.selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
                     .help("Resume")
-                Button { confirmDelete() } label: { Label("Delete", systemImage: "trash") }
-                    .disabled(selectedDownloads.isEmpty)
+                Button { model.confirmDelete() } label: { Label("Delete", systemImage: "trash") }
+                    .disabled(model.selectedDownloads.isEmpty)
                     .help("Delete")
                 Spacer()
                 HStack(spacing: 6) {
-                    Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
+                    Text(String(format: LanguageManager.shared.localized("Total %lld"), model.downloads.count))
                     Text("|").foregroundStyle(.tertiary)
-                    Text(String(format: LanguageManager.shared.localized("Down %@"), formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed })))
+                    Text(String(format: LanguageManager.shared.localized("Down %@"), formatSpeed(model.totalSpeed)))
                     Text("|").foregroundStyle(.tertiary)
-                    Text(String(format: LanguageManager.shared.localized("Up %@"), formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed })))
+                    Text(String(format: LanguageManager.shared.localized("Up %@"), formatSpeed(model.totalUpload)))
                 }
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -53,100 +52,25 @@ struct ContentView: View {
                 text: $newDownloadURLs,
                 onDownload: { urls in
                     for url in urls.components(separatedBy: .newlines).map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
-                        let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
-                        let d = Download(id: UUID(), filename: name, url: url, totalSize: Int64.random(in: 1_000_000...100_000_000), downloadedSize: 0, downloadSpeed: Int64.random(in: 100_000...2_000_000), uploadSpeed: 0, status: .active, addedAt: Date())
-                        downloads.append(d)
+                        model.addDownload(url: url)
                     }
                 }
             )
         }
-        .onChange(of: selected) { _, _ in selectedDownloads.removeAll() }
+        .onChange(of: selected) { _, _ in model.selectedDownloads.removeAll() }
         .onChange(of: appearance) { _, new in new.apply() }
         .onAppear { appearance.apply() }
     }
 
-    private func pauseAll() {
-        for id in selectedDownloads {
-            guard let i = downloads.firstIndex(where: { $0.id == id }),
-                  downloads[i].status == .active else { continue }
-            downloads[i].status = .paused
-        }
-    }
-
-    private func resumeAll() {
-        for id in selectedDownloads {
-            guard let i = downloads.firstIndex(where: { $0.id == id }),
-                  downloads[i].status == .paused || downloads[i].status == .waiting else { continue }
-            downloads[i].status = .active
-        }
-    }
-
-    private func confirmDelete() {
-        let alert = NSAlert()
-        alert.messageText = String(format: LanguageManager.shared.localized("Are you sure you want to delete %lld download(s)?"), selectedDownloads.count)
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: LanguageManager.shared.localized("Delete"))
-        alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-
-        let cb = NSButton(checkboxWithTitle: LanguageManager.shared.localized("Also remove downloaded files"), target: nil, action: nil)
-        cb.state = .on
-        alert.accessoryView = cb
-
-        let resp = alert.runModal()
-        if resp == .alertFirstButtonReturn {
-            clearCompleted(deleteFiles: cb.state == .on)
-        }
-    }
-
-    private func clearCompleted(deleteFiles: Bool = false) {
-        if deleteFiles {
-            let dir = Aria2RPCClient.shared.config.downloadDirectory
-            for d in downloads where selectedDownloads.contains(d.id) {
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
-            }
-        }
-        downloads.removeAll { selectedDownloads.contains($0.id) }
-        selectedDownloads.removeAll()
-    }
-
-    private func addDownload() {
-        let new = Download(
-            id: UUID(),
-            filename: "new-download-\(downloads.count + 1).zip",
-            url: "https://example.com/download\(downloads.count + 1).zip",
-            totalSize: Int64.random(in: 1_000_000...100_000_000),
-            downloadedSize: 0,
-            downloadSpeed: Int64.random(in: 100_000...2_000_000),
-            uploadSpeed: 0,
-            status: .active,
-            addedAt: Date()
-        )
-        downloads.append(new)
-    }
-
-    @ViewBuilder
-    private var detailView: some View {
-        if selected != nil { downloadsView }
-    }
-
-    private var filteredDownloads: [Download] {
-        switch selected {
-        case .none, .all: downloads
-        case .active: downloads.filter { $0.status == .active }
-        case .waiting: downloads.filter { $0.status == .waiting }
-        case .completed: downloads.filter { $0.status == .completed }
-        case .stopped: downloads.filter { $0.status == .stopped || $0.status == .error }
-        }
-    }
-
     @ViewBuilder
     private var downloadsView: some View {
-        if filteredDownloads.isEmpty {
+        let f = model.filteredDownloads(for: selected)
+        if f.isEmpty {
             LocalizedText(key: "No Downloads")
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
         } else {
-            DownloadListView(downloads: filteredDownloads, selection: $selectedDownloads)
+            DownloadListView(downloads: f, selection: $model.selectedDownloads)
         }
     }
 }
