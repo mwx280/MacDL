@@ -66,6 +66,7 @@ struct SettingsView: View {
                     } label: { }
                     .labelsHidden()
                 }
+                .id(lang.selectedLanguage)
 
                 Divider().padding(.leading, 40)
 
