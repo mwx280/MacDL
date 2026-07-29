@@ -1,0 +1,83 @@
+import Testing
+import Foundation
+@testable import Aria2Desk
+
+@Suite struct ContentViewModelTests {
+    @Test func filteredDownloadsAll() {
+        let vm = ContentViewModel()
+        let result = vm.filteredDownloads(for: .all)
+        #expect(result.count == vm.downloads.count)
+    }
+
+    @Test func filteredDownloadsActive() {
+        let vm = ContentViewModel()
+        let result = vm.filteredDownloads(for: .active)
+        #expect(result.allSatisfy { $0.status == .active })
+    }
+
+    @Test func filteredDownloadsCompleted() {
+        let vm = ContentViewModel()
+        let result = vm.filteredDownloads(for: .completed)
+        #expect(result.allSatisfy { $0.status == .completed })
+    }
+
+    @Test func pauseAllChangesStatus() {
+        let vm = ContentViewModel()
+        let activeIds = Set(vm.downloads.filter { $0.status == .active }.map(\.id))
+        guard !activeIds.isEmpty else { return }
+        vm.selectedDownloads = activeIds
+        vm.pauseAll()
+        for id in activeIds {
+            let d = vm.downloads.first { $0.id == id }
+            #expect(d?.status == .paused)
+        }
+    }
+
+    @Test func resumeAllChangesStatus() {
+        let vm = ContentViewModel()
+        let pausedIds = Set(vm.downloads.filter { $0.status == .paused || $0.status == .waiting }.map(\.id))
+        guard !pausedIds.isEmpty else { return }
+        vm.selectedDownloads = pausedIds
+        vm.resumeAll()
+        for id in pausedIds {
+            let d = vm.downloads.first { $0.id == id }
+            #expect(d?.status == .active)
+        }
+    }
+
+    @Test func addDownloadIncreasesCount() {
+        let vm = ContentViewModel()
+        let before = vm.downloads.count
+        vm.addDownload(url: "https://example.com/file.zip")
+        #expect(vm.downloads.count == before + 1)
+        #expect(vm.downloads.last?.filename == "file.zip")
+    }
+
+    @Test func addDownloadWithNoPathInURL() {
+        let vm = ContentViewModel()
+        let before = vm.downloads.count
+        vm.addDownload(url: "magnet:?xt=urn:btih:abc123")
+        #expect(vm.downloads.count == before + 1)
+    }
+
+    @Test func computeTotalSpeed() {
+        let vm = ContentViewModel()
+        let expected = vm.downloads.reduce(0) { $0 + $1.downloadSpeed }
+        #expect(vm.totalSpeed == expected)
+    }
+
+    @Test func computeTotalUpload() {
+        let vm = ContentViewModel()
+        let expected = vm.downloads.reduce(0) { $0 + $1.uploadSpeed }
+        #expect(vm.totalUpload == expected)
+    }
+
+    @Test func filteredDownloadsEmptyForInvalidSidebar() {
+        let vm = ContentViewModel()
+        vm.downloads = []
+        for item in SidebarItem.allCases {
+            let result = vm.filteredDownloads(for: item)
+            #expect(result.isEmpty)
+        }
+    }
+}
