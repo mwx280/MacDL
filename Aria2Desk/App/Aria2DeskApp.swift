@@ -50,6 +50,10 @@ private struct MenuBarContent: View {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Hide Window")) }, icon: { Image(systemName: "rectangle.dashed") })
         }
 
+        Button { NSApp.orderFrontStandardAboutPanel(nil) } label: {
+            Label(title: { Text(verbatim: LanguageManager.shared.localized("About")) }, icon: { Image(systemName: "info.circle") })
+        }
+
         Divider()
 
         SettingsLink {
