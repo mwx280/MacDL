@@ -82,7 +82,4 @@ struct SidebarItemTests {
         }
     }
 
-    @Test func settingsTitleKey() {
-        #expect(SidebarItem.settings.titleKey == "Settings")
-    }
 }

@@ -14,5 +14,10 @@ struct Aria2DeskApp: App {
                 .environment(LanguageManager.shared)
                 .environment(Aria2RPCClient.shared)
         }
+        Settings {
+            SettingsView()
+                .environment(LanguageManager.shared)
+                .environment(Aria2RPCClient.shared)
+        }
     }
 }

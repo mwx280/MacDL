@@ -25,20 +25,12 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if let selected {
-            switch selected {
-            case .settings:
-                SettingsView()
-            default:
-                downloadsView
-            }
-        }
+        if selected != nil { downloadsView }
     }
 
     private var filteredDownloads: [Download] {
         switch selected {
-        case .none, .settings: downloads
-        case .all: downloads
+        case .none, .all: downloads
         case .active: downloads.filter { $0.status == .active }
         case .waiting: downloads.filter { $0.status == .waiting }
         case .completed: downloads.filter { $0.status == .completed }

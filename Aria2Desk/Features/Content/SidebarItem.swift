@@ -4,7 +4,6 @@ enum SidebarItem: String, CaseIterable {
     case waiting
     case completed
     case stopped
-    case settings
 
     var icon: String {
         switch self {
@@ -13,7 +12,6 @@ enum SidebarItem: String, CaseIterable {
         case .waiting: "clock"
         case .completed: "checkmark.circle"
         case .stopped: "stop.circle"
-        case .settings: "gearshape"
         }
     }
 
@@ -24,7 +22,6 @@ enum SidebarItem: String, CaseIterable {
         case .waiting: "Waiting"
         case .completed: "Completed"
         case .stopped: "Stopped"
-        case .settings: "Settings"
         }
     }
 }
