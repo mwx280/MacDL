@@ -46,11 +46,11 @@ private struct MenuBarContent: View {
     var body: some View {
         Group {
             Button { Aria2DeskApp.showWindow() } label: {
-                Label(title: { Text(verbatim: t("Show Window")) }, icon: { Image(systemName: "rectangle.dashed") })
+                Text(verbatim: t("Show Window"))
             }
 
             Button { Aria2DeskApp.hideWindow() } label: {
-                Label(title: { Text(verbatim: t("Hide Window")) }, icon: { Image(systemName: "rectangle.on.rectangle.dashed") })
+                Label(title: { Text(verbatim: t("Hide Window")) }, icon: { Image(systemName: "rectangle.dashed") })
             }
 
             Divider()
