@@ -55,6 +55,7 @@ final class Aria2RPCClient {
         if case .running = engineState { return }
 
         engineState = .starting
+        killExistingInstances()
         ensureDirectories()
 
         let process = Process()
@@ -74,14 +75,25 @@ final class Aria2RPCClient {
 
     func restartEngine() {
         stopEngine()
+        Thread.sleep(forTimeInterval: 0.5)
         startEngine()
     }
 
     func stopEngine() {
         engineProcess?.terminate()
+        engineProcess?.waitUntilExit()
         engineProcess = nil
         engineState = .stopped
         status = .disconnected
+    }
+
+    private func killExistingInstances() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        task.arguments = ["-f", "aria2c.*--rpc-listen-port=\(config.port)"]
+        try? task.run()
+        task.waitUntilExit()
+        Thread.sleep(forTimeInterval: 0.3)
     }
 
     func testConnection() async -> Bool {
