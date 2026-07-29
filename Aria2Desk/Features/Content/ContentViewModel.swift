@@ -118,6 +118,20 @@ final class ContentViewModel {
         scheduleSave()
     }
 
+    func pauseAllDownloads() {
+        for i in downloads.indices where downloads[i].status == .active {
+            downloads[i].status = .paused
+        }
+        scheduleSave()
+    }
+
+    func resumeAllDownloads() {
+        for i in downloads.indices where downloads[i].status == .paused || downloads[i].status == .waiting {
+            downloads[i].status = .active
+        }
+        scheduleSave()
+    }
+
     private func clearCompleted(deleteFiles: Bool = false) {
         if deleteFiles {
             let dir = Aria2RPCClient.shared.config.downloadDirectory
