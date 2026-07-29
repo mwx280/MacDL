@@ -7,12 +7,14 @@ struct DownloadListView: View {
     var onResume: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetConnections: ((UUID, Int) -> Void)?
+    var onShowInFinder: ((UUID) -> Void)?
 
     var body: some View {
         List(downloads, selection: $selection) { download in
             DownloadRow(download: download,
                 onPause: onPause, onResume: onResume,
-                onDelete: onDelete, onSetConnections: onSetConnections)
+                onDelete: onDelete, onSetConnections: onSetConnections,
+                onShowInFinder: onShowInFinder)
         }
         .listStyle(.inset)
     }

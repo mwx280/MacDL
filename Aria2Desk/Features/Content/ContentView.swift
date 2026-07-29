@@ -84,7 +84,12 @@ struct ContentView: View {
                 onPause: { model.pauseDownload(id: $0) },
                 onResume: { model.resumeDownload(id: $0) },
                 onDelete: { model.deleteDownload(id: $0) },
-                onSetConnections: { model.setConnections(id: $0, connections: $1) }
+                onSetConnections: { model.setConnections(id: $0, connections: $1) },
+                onShowInFinder: { id in
+                    guard let d = model.downloads.first(where: { $0.id == id }) else { return }
+                    let path = d.savePath ?? SettingsStore.shared.downloadPath
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+                }
             )
         }
     }
