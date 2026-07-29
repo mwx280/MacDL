@@ -23,12 +23,16 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button { addDownload() } label: { Label("Add", systemImage: "plus") }
+                    .help("Add")
                 Button { pauseAll() } label: { Label("Pause", systemImage: "pause") }
                     .disabled(!downloads.contains { selectedDownloads.contains($0.id) && $0.status == .active })
+                    .help("Pause")
                 Button { resumeAll() } label: { Label("Resume", systemImage: "play") }
                     .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
+                    .help("Resume")
                 Button { confirmDelete() } label: { Label("Delete", systemImage: "trash") }
                     .disabled(selectedDownloads.isEmpty)
+                    .help("Delete")
                 Spacer()
                 HStack(spacing: 6) {
                     Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
