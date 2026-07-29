@@ -22,39 +22,56 @@ struct Aria2DeskApp: App {
         }
 
         MenuBarExtra {
-            Button { showWindow() } label: {
-                Label(title: { LocalizedText(key: "Show Window") }, icon: { Image(systemName: "macwindow") })
-            }
-
-            Button { hideWindow() } label: {
-                Label(title: { LocalizedText(key: "Hide Window") }, icon: { Image(systemName: "eye.slash") })
-            }
-
-            Divider()
-
-            SettingsLink {
-                Label(title: { LocalizedText(key: "Settings...") }, icon: { Image(systemName: "gearshape") })
-            }
-
-            Divider()
-
-            Button { NSApp.terminate(nil) } label: {
-                Label(title: { LocalizedText(key: "Quit") }, icon: { Image(systemName: "xmark.circle") })
-            }
+            MenuBarContent()
         } label: {
             Image(systemName: "arrow.down.circle")
         }
-        .environment(LanguageManager.shared)
     }
 
     @MainActor
-    private func showWindow() {
+    static func showWindow() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first?.makeKeyAndOrderFront(nil)
     }
 
     @MainActor
-    private func hideWindow() {
+    static func hideWindow() {
         NSApp.windows.first?.orderOut(nil)
+    }
+}
+
+private struct MenuBarContent: View {
+    @State private var langCode = LanguageManager.shared.selectedLanguage.rawValue
+
+    var body: some View {
+        Group {
+            Button { Aria2DeskApp.showWindow() } label: {
+                Label(title: { Text(verbatim: t("Show Window")) }, icon: { Image(systemName: "macwindow") })
+            }
+
+            Button { Aria2DeskApp.hideWindow() } label: {
+                Label(title: { Text(verbatim: t("Hide Window")) }, icon: { Image(systemName: "eye.slash") })
+            }
+
+            Divider()
+
+            SettingsLink {
+                Label(title: { Text(verbatim: t("Settings...")) }, icon: { Image(systemName: "gearshape") })
+            }
+
+            Divider()
+
+            Button { NSApp.terminate(nil) } label: {
+                Label(title: { Text(verbatim: t("Quit")) }, icon: { Image(systemName: "xmark.circle") })
+            }
+        }
+        .id("menu_\(langCode)")
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            langCode = LanguageManager.shared.selectedLanguage.rawValue
+        }
+    }
+
+    private func t(_ key: String) -> String {
+        LanguageManager.shared.localized(key)
     }
 }

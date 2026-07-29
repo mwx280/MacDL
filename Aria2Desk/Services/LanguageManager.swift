@@ -22,6 +22,7 @@ final class LanguageManager {
     var selectedLanguage: Language {
         didSet {
             UserDefaults.standard.set(selectedLanguage.rawValue, forKey: "appLanguage")
+            NotificationCenter.default.post(name: .languageChanged, object: nil)
         }
     }
 
@@ -47,4 +48,8 @@ final class LanguageManager {
     func localized(_ key: String) -> String {
         bundle.localizedString(forKey: key, value: key, table: nil)
     }
+}
+
+extension Notification.Name {
+    static let languageChanged = Notification.Name("com.xiaowu.languageChanged")
 }

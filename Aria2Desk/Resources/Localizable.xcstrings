@@ -180,9 +180,6 @@
         }
       }
     },
-    "Hide Window" : {
-
-    },
     "Language" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -285,9 +282,6 @@
         }
       }
     },
-    "Quit" : {
-
-    },
     "Running" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -321,12 +315,6 @@
           }
         }
       }
-    },
-    "Settings..." : {
-
-    },
-    "Show Window" : {
-
     },
     "Starting..." : {
       "extractionState" : "manual",
