@@ -203,6 +203,15 @@ private struct NewDownloadView: View {
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
         }
+        .onAppear {
+            guard text.isEmpty else { return }
+            let pasteboard = NSPasteboard.general
+            guard let str = pasteboard.string(forType: .string) else { return }
+            let hasURL = str.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .contains { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
+            if hasURL { text = str }
+        }
     }
 }
 
