@@ -30,6 +30,7 @@ struct ContentView: View {
                 Text("总下载: \(downloads.count)")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.secondary)
+                    .padding(.leading, 4)
                 Divider().frame(height: 12)
                 Text("下载: \(formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed }))")
                     .font(.system(size: 11, design: .monospaced))
@@ -38,6 +39,7 @@ struct ContentView: View {
                 Text("上传: \(formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed }))")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.secondary)
+                    .padding(.trailing, 4)
             }
         }
         .onChange(of: selected) { _, _ in selectedDownloads.removeAll() }
