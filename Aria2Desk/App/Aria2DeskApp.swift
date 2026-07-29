@@ -56,7 +56,7 @@ private struct MenuBarContent: View {
             Divider()
 
             SettingsLink {
-                Label(title: { Text(verbatim: t("Settings...")) }, icon: { Image(systemName: "gearshape") })
+                Label(title: { Text(verbatim: t("Preferences")) }, icon: { Image(systemName: "gearshape") })
             }
 
             Divider()
