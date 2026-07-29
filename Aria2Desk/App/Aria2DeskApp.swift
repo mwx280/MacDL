@@ -22,18 +22,18 @@ struct Aria2DeskApp: App {
         }
 
         MenuBarExtra {
-            Button("Show Window") { showWindow() }
-            Button("Hide Window") { hideWindow() }
+            Button { showWindow() } label: { Label("Show Window", systemImage: "macwindow") }
+            Button { hideWindow() } label: { Label("Hide Window", systemImage: "macwindow.badge.xmark") }
 
             Divider()
 
             SettingsLink {
-                Text("Settings...")
+                Label("Settings...", systemImage: "gearshape")
             }
 
             Divider()
 
-            Button("Quit") { NSApp.terminate(nil) }
+            Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "xmark.circle") }
         } label: {
             Image(systemName: "arrow.down.circle")
         }
