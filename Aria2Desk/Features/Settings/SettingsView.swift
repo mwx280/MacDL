@@ -40,78 +40,90 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                GroupBox {
+        ScrollView(.vertical) {
+            VStack(spacing: 24) {
+                generalSection
+                rpcSection
+            }
+            .padding(24)
+        }
+    }
+
+    private var generalSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("General")
+
+            VStack(spacing: 1) {
+                pickerRow(icon: "globe", title: "Language") {
                     Picker(selection: Bindable(lang).selectedLanguage) {
-                        ForEach(Language.allCases, id: \.self) { lang in
-                            Text(lang.displayName).tag(lang)
+                        ForEach(Language.allCases, id: \.self) { l in
+                            Text(l.displayName).tag(l)
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } label: {
-                    Label("Language", systemImage: "globe")
                 }
 
-                GroupBox {
+                Divider().padding(.leading, 40)
+
+                pickerRow(icon: "circle.lefthalf.filled", title: "Appearance") {
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
                             Text(a.displayName).tag(a)
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } label: {
-                    Label("Appearance", systemImage: "circle.lefthalf.filled")
                 }
+            }
+            .background(.quaternary.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
 
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(engineStatusColor)
-                                    .frame(width: 8, height: 8)
-                                Text(engineStatusText)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(connectionColor)
-                                    .frame(width: 8, height: 8)
-                                Text(connectionText)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+    private var rpcSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("RPC Connection")
 
-                        Divider()
+            VStack(spacing: 1) {
+                HStack(spacing: 16) {
+                    Image(systemName: "terminal")
+                        .frame(width: 20)
+                        .foregroundStyle(.secondary)
+                    Text("Engine")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(engineColor)
+                            .frame(width: 8, height: 8)
+                        Text(engineText)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
 
-                        fieldRow(label: "Host") {
-                            TextField("localhost", text: $rpcHost)
-                                .textFieldStyle(.roundedBorder)
-                                .onChange(of: rpcHost) { _, new in client.config.host = new }
-                        }
+                Divider()
 
-                        fieldRow(label: "Port") {
-                            TextField("6800", text: $rpcPort)
-                                .textFieldStyle(.roundedBorder)
-                                .onChange(of: rpcPort) { _, new in
-                                    client.config.port = Int(new) ?? 6800
-                                }
-                        }
+                VStack(spacing: 8) {
+                    inputRow(label: "Host") {
+                        TextField("localhost", text: $rpcHost)
+                            .textFieldStyle(.plain)
+                            .onChange(of: rpcHost) { _, v in client.config.host = v }
+                    }
 
-                        fieldRow(label: "Token") {
-                            SecureField("Secret Token", text: $rpcToken)
-                                .textFieldStyle(.roundedBorder)
-                                .onChange(of: rpcToken) { _, new in
-                                    client.config.secretToken = new
-                                }
-                        }
+                    inputRow(label: "Port") {
+                        TextField("6800", text: $rpcPort)
+                            .textFieldStyle(.plain)
+                            .onChange(of: rpcPort) { _, v in client.config.port = Int(v) ?? 6800 }
+                    }
 
+                    inputRow(label: "Token") {
+                        SecureField("Secret Token", text: $rpcToken)
+                            .textFieldStyle(.plain)
+                            .onChange(of: rpcToken) { _, v in client.config.secretToken = v }
+                    }
+
+                    HStack(spacing: 10) {
                         Button {
                             Task {
                                 isTesting = true
@@ -121,8 +133,7 @@ struct SettingsView: View {
                         } label: {
                             if isTesting {
                                 HStack(spacing: 6) {
-                                    ProgressView()
-                                        .controlSize(.small)
+                                    ProgressView().controlSize(.small)
                                     Text("Testing...")
                                 }
                             } else {
@@ -130,56 +141,86 @@ struct SettingsView: View {
                             }
                         }
                         .disabled(isTesting)
+
+                        HStack(spacing: 4) {
+                            Circle().fill(rpcColor).frame(width: 6, height: 6)
+                            Text(rpcText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .padding(4)
-                } label: {
-                    Label("RPC Connection", systemImage: "terminal")
+                    .padding(.leading, 64)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
             }
-            .padding(20)
+            .background(.quaternary.opacity(0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 
-    private func fieldRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .frame(width: 48, alignment: .trailing)
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 8)
+            .padding(.bottom, 6)
+    }
+
+    private func pickerRow<C: View>(icon: String, title: String, @ViewBuilder content: () -> C) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .frame(width: 20)
                 .foregroundStyle(.secondary)
+            Text(title)
+                .foregroundStyle(.primary)
+            Spacer()
+            content()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private func inputRow<C: View>(label: String, @ViewBuilder content: () -> C) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .leading)
             content()
         }
     }
 
-    private var connectionColor: Color {
-        switch client.status {
-        case .disconnected: .gray
-        case .connecting: .orange
-        case .connected: .green
-        }
-    }
-
-    private var engineStatusColor: Color {
+    private var engineColor: Color {
         switch client.engineState {
-        case .stopped: .gray
-        case .starting: .orange
         case .running: .green
+        case .starting: .orange
+        case .stopped: .gray
         case .error: .red
         }
     }
 
-    private var engineStatusText: String {
+    private var engineText: String {
         switch client.engineState {
-        case .stopped: "Engine Stopped"
-        case .starting: "Engine Starting..."
-        case .running: "Engine Running"
+        case .running: "Running"
+        case .starting: "Starting..."
+        case .stopped: "Stopped"
         case .error(let msg): msg
         }
     }
 
-    private var connectionText: String {
+    private var rpcColor: Color {
         switch client.status {
-        case .disconnected: "Disconnected"
-        case .connecting: "Connecting..."
+        case .connected: .green
+        case .connecting: .orange
+        case .disconnected: .gray
+        }
+    }
+
+    private var rpcText: String {
+        switch client.status {
         case .connected: "Connected"
+        case .connecting: "Connecting..."
+        case .disconnected: "Disconnected"
         }
     }
 }
