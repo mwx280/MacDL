@@ -16,7 +16,9 @@ struct Aria2DeskApp: App {
         }
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About Aria2Desk") { Aria2DeskApp.showAbout() }
+                Button { Aria2DeskApp.showAbout() } label: {
+                    Label("About Aria2Desk", systemImage: "info.circle")
+                }
             }
         }
 
