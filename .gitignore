@@ -15,3 +15,7 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Project docs (not source code)
+ARCHITECTURE.md
+TODO.md
