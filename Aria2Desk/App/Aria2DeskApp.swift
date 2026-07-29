@@ -52,7 +52,7 @@ struct Aria2DeskApp: App {
         let window = NSWindow(contentViewController: vc)
         window.title = LanguageManager.shared.localized("About")
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 400, height: 340))
+        window.setContentSize(NSSize(width: 380, height: 440))
         window.center()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -71,7 +71,7 @@ private struct AboutView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
                 .frame(width: 64, height: 64)
@@ -101,14 +101,12 @@ private struct AboutView: View {
                     .font(.system(size: 12))
             }
 
-            Button { NSWorkspace.shared.open(URL(string: "https://github.com/xiaowu")!) } label: {
-                Label(title: { Text("github.com/xiaowu") }, icon: { Image(systemName: "arrow.up.right.square") })
+            Button { NSWorkspace.shared.open(URL(string: "https://github.com/mwx280")!) } label: {
+                Label(title: { Text("github.com/mwx280") }, icon: { Image(systemName: "arrow.up.right.square") })
                     .font(.system(size: 12))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.tint)
-
-            Spacer()
 
             VStack(spacing: 4) {
                 Text("MIT License")
@@ -120,7 +118,7 @@ private struct AboutView: View {
             }
         }
         .padding(24)
-        .frame(width: 400, height: 340)
+        .frame(width: 380, height: 420)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()

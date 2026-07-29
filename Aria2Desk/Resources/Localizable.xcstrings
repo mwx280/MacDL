@@ -322,6 +322,9 @@
         }
       }
     },
+    "github.com/xiaowu" : {
+
+    },
     "Hide Window" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -406,6 +409,9 @@
           }
         }
       }
+    },
+    "MIT License" : {
+
     },
     "New Download" : {
       "extractionState" : "manual",
@@ -645,6 +651,9 @@
         }
       }
     },
+    "SwiftUI · Aria2" : {
+
+    },
     "Total %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -679,6 +688,16 @@
         }
       }
     },
+    "Version %@ (build %@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (build %2$@)"
+          }
+        }
+      }
+    },
     "Waiting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -695,9 +714,6 @@
           }
         }
       }
-    },
-    "xiaowu" : {
-
     },
     "中文" : {
       "extractionState" : "manual",
@@ -716,7 +732,7 @@
         }
       }
     },
-    "小舞" : {
+    "小舞 / xiaowu" : {
 
     }
   },
