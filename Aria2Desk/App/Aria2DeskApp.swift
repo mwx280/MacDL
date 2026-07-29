@@ -38,6 +38,58 @@ struct Aria2DeskApp: App {
     static func hideWindow() {
         NSApp.windows.first?.orderOut(nil)
     }
+
+    @MainActor
+    static func showAbout() {
+        let vc = NSHostingController(rootView: AboutView())
+        let window = NSWindow(contentViewController: vc)
+        window.title = LanguageManager.shared.localized("About")
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.setContentSize(NSSize(width: 360, height: 280))
+        window.center()
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+}
+
+private struct AboutView: View {
+    @State private var refresh = UUID()
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .frame(width: 64, height: 64)
+
+            Text("Aria2Desk")
+                .font(.system(size: 20, weight: .medium))
+
+            Text("xiaowu")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(spacing: 6) {
+                Label(title: { Text("小舞") }, icon: { Image(systemName: "person") })
+                    .font(.system(size: 13))
+                Label(title: { Text("xiaowu") }, icon: { Image(systemName: "link") })
+                    .font(.system(size: 13))
+            }
+
+            Spacer()
+
+            Text("Copyright © 2026 xiaowu")
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(24)
+        .frame(width: 360, height: 280)
+        .id(refresh)
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            refresh = UUID()
+        }
+    }
 }
 
 private struct MenuBarContent: View {
@@ -50,7 +102,7 @@ private struct MenuBarContent: View {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Hide Window")) }, icon: { Image(systemName: "rectangle.dashed") })
         }
 
-        Button { NSApp.orderFrontStandardAboutPanel(nil) } label: {
+        Button { Aria2DeskApp.showAbout() } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("About")) }, icon: { Image(systemName: "info.circle") })
         }
 
