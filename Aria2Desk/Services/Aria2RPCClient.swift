@@ -87,18 +87,25 @@ final class Aria2RPCClient {
     }
 
     func restartEngine() {
-        stopEngine()
-        Thread.sleep(forTimeInterval: 0.5)
-        startEngine()
-    }
-
-    func stopEngine() {
-        engineProcess?.terminationHandler = nil
         engineProcess?.terminate()
         engineProcess?.waitUntilExit()
         engineProcess = nil
         engineState = .stopped
         status = .disconnected
+        Thread.sleep(forTimeInterval: 0.3)
+        startEngine()
+    }
+
+    func stopEngine() {
+        guard let process = engineProcess else { return }
+        process.terminationHandler = nil
+        process.terminate()
+        engineProcess = nil
+        engineState = .stopped
+        status = .disconnected
+        DispatchQueue.global().async {
+            process.waitUntilExit()
+        }
     }
 
     private func findAvailablePort() -> Int {
