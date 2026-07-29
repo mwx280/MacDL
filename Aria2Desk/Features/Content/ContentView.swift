@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct ContentView: View {
     @State private var selected: SidebarItem? = .all
@@ -18,7 +19,8 @@ struct ContentView: View {
         } detail: {
             detailView
         }
-        .preferredColorScheme(appearance.colorScheme)
+        .onChange(of: appearance) { _, new in new.apply() }
+        .onAppear { appearance.apply() }
     }
 
     @ViewBuilder
