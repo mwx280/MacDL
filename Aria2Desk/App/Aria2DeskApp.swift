@@ -66,12 +66,9 @@ private struct AboutView: View {
 
     @State private var flashIndex = -1
     @State private var phase = 0
-    @State private var rocketY: CGFloat = 280
-    @State private var flameScale: CGFloat = 0
-    @State private var countdownText = ""
+    @State private var terminalLines: [String] = []
+    @State private var progress: Double = 0
     @State private var bgOpacity: Double = 0
-    @State private var stars: [(x: CGFloat, y: CGFloat, size: CGFloat)] = []
-    @State private var smokeOpacities: [Double] = Array(repeating: 0, count: 8)
 
     private let flashColors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
 
@@ -88,7 +85,7 @@ private struct AboutView: View {
     var body: some View {
         ZStack {
             contentView.opacity(phase == 0 ? 1 : 0.15)
-            if phase > 0 { launchScene }
+            if phase > 0 { terminalScene }
         }
         .frame(width: 380, height: 460)
         .id(refresh)
@@ -104,7 +101,7 @@ private struct AboutView: View {
                 .frame(width: 64, height: 64)
                 .onTapGesture {
                     iconTapCount += 1
-                    if iconTapCount >= 5 { triggerLaunch() }
+                    if iconTapCount >= 5 { triggerTerminal() }
                     else { flashOnce() }
                 }
 
@@ -165,43 +162,28 @@ private struct AboutView: View {
     }
 
     @ViewBuilder
-    private var launchScene: some View {
+    private var terminalScene: some View {
         ZStack {
-            Color.black.opacity(0.88 * bgOpacity)
+            Color.black.opacity(0.92 * bgOpacity)
 
-            ForEach(Array(stars.enumerated()), id: \.offset) { i, s in
-                Circle()
-                    .fill(.white)
-                    .frame(width: s.size, height: s.size)
-                    .position(x: s.x, y: s.y)
-            }
-
-            if phase == 1 {
-                Text(countdownText)
-                    .font(.system(size: 72, weight: .black))
-                    .foregroundStyle(.white)
-            }
-
-            if phase == 2 {
-                VStack(spacing: 0) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.orange)
-                        .scaleEffect(x: flameScale, y: flameScale + 0.3)
-                    Image(systemName: "rocket.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(terminalLines.enumerated()), id: \.offset) { i, line in
+                    Text(line)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(i == terminalLines.count - 1 && progress < 1
+                            ? .green.opacity(0.7)
+                            : .green)
+                        .opacity(i < terminalLines.count - 1 || progress >= 1 ? 1 : 0.7)
                 }
-                .offset(y: rocketY)
 
-                ForEach(Array(smokeOpacities.enumerated()), id: \.offset) { i, op in
-                    Circle()
-                        .fill(.white.opacity(0.3))
-                        .frame(width: CGFloat(i * 4 + 6))
-                        .position(x: 190 + CGFloat(i - 4) * 12, y: rocketY + 50)
-                        .opacity(op)
+                if !terminalLines.isEmpty {
+                    ProgressView(value: progress)
+                        .tint(.green)
+                        .frame(width: 280)
+                        .opacity(terminalLines.count >= 4 ? 1 : 0)
                 }
             }
+            .padding(24)
         }
     }
 
@@ -217,96 +199,87 @@ private struct AboutView: View {
         Task {
             for i in flashColors.indices {
                 flashIndex = i
-                try? await Task.sleep(for: .milliseconds(180 / flashColors.count))
+                try? await Task.sleep(for: .milliseconds(500 / flashColors.count))
             }
             flashIndex = -1
         }
     }
 
-    private func triggerLaunch() {
+    private func triggerTerminal() {
         guard phase == 0 else { return }
         iconTapCount = 0
-        stars = (0..<30).map { _ in
-            (CGFloat.random(in: 0...380), CGFloat.random(in: 0...460), CGFloat.random(in: 1...3))
-        }
+        terminalLines = []
+        progress = 0
         phase = 1
-        runLaunch()
+        runTerminal()
     }
 
-    private func runLaunch() {
+    private func runTerminal() {
         let speed = totalSpeed
-        let flyDuration: Double
-        let flameMax: CGFloat
-        let endY: CGFloat = -100
+        let barDuration: Double
+        let barSpeed: String
 
         if speed == 0 {
-            flyDuration = 0
-            flameMax = 0
+            barDuration = 5.0; barSpeed = "0 B/s"
         } else if speed < 500_000 {
-            flyDuration = 3.0
-            flameMax = 0.6
+            barDuration = 3.0; barSpeed = formatSpeed(speed)
         } else if speed < 5_000_000 {
-            flyDuration = 2.0
-            flameMax = 1.0
+            barDuration = 2.0; barSpeed = formatSpeed(speed)
         } else {
-            flyDuration = 1.2
-            flameMax = 1.5
+            barDuration = 1.0; barSpeed = formatSpeed(speed)
         }
 
         Task {
-            withAnimation(.easeIn(duration: 0.4)) { bgOpacity = 1 }
+            withAnimation(.easeIn(duration: 0.3)) { bgOpacity = 1 }
 
-            for (i, n) in ["3", "2", "1"].enumerated() {
-                countdownText = n
-                try? await Task.sleep(for: .milliseconds(500))
-                if i < 2 { countdownText = ""; try? await Task.sleep(for: .milliseconds(100)) }
-            }
-            countdownText = "🚀"
             try? await Task.sleep(for: .milliseconds(300))
-            countdownText = ""
-
-            guard speed > 0 else {
-                countdownText = "💤 No tasks..."
-                try? await Task.sleep(for: .seconds(1.5))
-                endLaunch()
-                return
-            }
-
-            phase = 2
-            rocketY = 280
-            withAnimation(.easeIn(duration: 0.15)) { flameScale = flameMax }
-
-            for i in smokeOpacities.indices {
-                smokeOpacities[i] = 0.6
-                try? await Task.sleep(for: .milliseconds(Int(80 / flameMax)))
-            }
-
-            withAnimation(.easeIn(duration: flyDuration)) {
-                rocketY = endY
-            }
-
-            try? await Task.sleep(for: .milliseconds(Int(flyDuration * 800)))
-
-            for i in smokeOpacities.indices {
-                withAnimation(.easeOut(duration: 0.3)) { smokeOpacities[i] = 0 }
-            }
-
+            typeLine("> Initializing download sequence...")
             try? await Task.sleep(for: .milliseconds(400))
-            endLaunch()
+            typeLine("> Connecting to server...")
+            try? await Task.sleep(for: .milliseconds(400))
+            typeLine("> Download speed: \(barSpeed)")
+            try? await Task.sleep(for: .milliseconds(300))
+            typeLine("> Downloading classified data...")
+
+            try? await Task.sleep(for: .milliseconds(200))
+
+            let start = CACurrentMediaTime()
+            while true {
+                let elapsed = CACurrentMediaTime() - start
+                let p = min(elapsed / barDuration, 1)
+                await MainActor.run { progress = p }
+                if p >= 1 { break }
+                try? await Task.sleep(for: .milliseconds(30))
+            }
+
+            typeLine("> ████████████████ 100%")
+            try? await Task.sleep(for: .milliseconds(500))
+            typeLine("> Access granted.")
+            try? await Task.sleep(for: .milliseconds(800))
+            typeLine("> 🎉 You found the easter egg!")
+            try? await Task.sleep(for: .seconds(2))
+            endTerminal()
         }
     }
 
-    private func endLaunch() {
+    private func typeLine(_ text: String) {
+        terminalLines.append(text)
+    }
+
+    private func endTerminal() {
         Task {
-            withAnimation(.easeOut(duration: 0.4)) {
-                bgOpacity = 0
-                flameScale = 0
-            }
+            withAnimation(.easeOut(duration: 0.4)) { bgOpacity = 0 }
             try? await Task.sleep(for: .milliseconds(500))
+            terminalLines = []
+            progress = 0
             phase = 0
-            countdownText = ""
-            rocketY = 280
         }
+    }
+
+    private func formatSpeed(_ bytes: Int64) -> String {
+        let f = ByteCountFormatter()
+        f.countStyle = .binary
+        return f.string(fromByteCount: bytes) + "/s"
     }
 }
 
