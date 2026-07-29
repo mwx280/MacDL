@@ -19,8 +19,65 @@ struct ContentView: View {
         } detail: {
             detailView
         }
+        .toolbar {
+            ToolbarItemGroup {
+                Button { addDownload() } label: { Label("Add", systemImage: "plus") }
+                Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") }
+                Button { resumeAll() } label: { Label("Resume All", systemImage: "play") }
+                Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") }
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 8) {
+                    Text("\(downloads.count)")
+                    Divider().frame(height: 12)
+                    Text(formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed }))
+                    Divider().frame(height: 12)
+                    Text(formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed }))
+                }
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+            }
+        }
         .onChange(of: appearance) { _, new in new.apply() }
         .onAppear { appearance.apply() }
+    }
+
+    private func formatSpeed(_ bytes: Int64) -> String {
+        let f = ByteCountFormatter()
+        f.countStyle = .binary
+        return f.string(fromByteCount: bytes) + "/s"
+    }
+
+    private func pauseAll() {
+        for i in downloads.indices where downloads[i].status == .active {
+            downloads[i].status = .paused
+        }
+    }
+
+    private func resumeAll() {
+        for i in downloads.indices where downloads[i].status == .paused || downloads[i].status == .waiting {
+            downloads[i].status = .active
+        }
+    }
+
+    private func clearCompleted() {
+        downloads.removeAll { $0.status == .completed || $0.status == .stopped || $0.status == .error }
+    }
+
+    private func addDownload() {
+        let new = Download(
+            id: UUID(),
+            filename: "new-download-\(downloads.count + 1).zip",
+            url: "https://example.com/download\(downloads.count + 1).zip",
+            totalSize: Int64.random(in: 1_000_000...100_000_000),
+            downloadedSize: 0,
+            downloadSpeed: Int64.random(in: 100_000...2_000_000),
+            uploadSpeed: 0,
+            status: .active,
+            addedAt: Date()
+        )
+        downloads.append(new)
     }
 
     @ViewBuilder
