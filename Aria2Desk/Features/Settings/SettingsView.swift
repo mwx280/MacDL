@@ -54,45 +54,48 @@ private struct GeneralPane: View {
 }
 
 private struct DownloadPane: View {
-    @Environment(Aria2RPCClient.self) var client
-    @State private var maxConnections: String
-    @State private var maxConcurrent: String
+    @State private var maxConnections: Int
+    @State private var maxConcurrent: Int
+
+    private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
+    private let concurrentOptions = [1, 2, 3, 5, 10, 20]
 
     init() {
-        _maxConnections = State(initialValue: String(SettingsStore.shared.maxConnections))
-        _maxConcurrent = State(initialValue: String(SettingsStore.shared.maxConcurrentDownloads))
+        _maxConnections = State(initialValue: SettingsStore.shared.maxConnections)
+        _maxConcurrent = State(initialValue: SettingsStore.shared.maxConcurrentDownloads)
     }
 
     var body: some View {
         VStack(spacing: 16) {
             card {
                 prefRow("number", "Max Connections") {
-                    TextField("16", text: $maxConnections)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 72)
-                        .multilineTextAlignment(.trailing)
-                        .onChange(of: maxConnections) { _, v in
-                            let filtered = v.filter { $0.isNumber }
-                            if filtered != v { maxConnections = filtered }
-                            SettingsStore.shared.maxConnections = Int(filtered) ?? 16
+                    Picker(selection: $maxConnections) {
+                        ForEach(connectionOptions, id: \.self) { n in
+                            Text("\(n)").tag(n)
                         }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 72)
+                    .onChange(of: maxConnections) { _, v in
+                        SettingsStore.shared.maxConnections = v
+                    }
                 }
 
                 divider
 
                 prefRow("arrow.down.to.line", "Max Downloads") {
-                    TextField("5", text: $maxConcurrent)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 72)
-                        .multilineTextAlignment(.trailing)
-                        .onChange(of: maxConcurrent) { _, v in
-                            let filtered = v.filter { $0.isNumber }
-                            if filtered != v { maxConcurrent = filtered }
-                            SettingsStore.shared.maxConcurrentDownloads = Int(filtered) ?? 5
+                    Picker(selection: $maxConcurrent) {
+                        ForEach(concurrentOptions, id: \.self) { n in
+                            Text("\(n)").tag(n)
                         }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 72)
+                    .onChange(of: maxConcurrent) { _, v in
+                        SettingsStore.shared.maxConcurrentDownloads = v
+                    }
                 }
             }
-
         }
         .padding(20)
     }

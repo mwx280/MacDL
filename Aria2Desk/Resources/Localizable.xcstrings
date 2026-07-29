@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
+    "%lld" : {
+
+    },
     "|" : {
 
     },
@@ -43,6 +49,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关于 Aria2Desk"
+          }
+        }
+      }
+    },
+    "Access granted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access granted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "访问已授权。"
           }
         }
       }
@@ -152,6 +175,9 @@
     "Aria2Desk" : {
 
     },
+    "Browse..." : {
+
+    },
     "Cancel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -165,40 +191,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
-          }
-        }
-      }
-    },
-    "Click anywhere to exit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Click anywhere to exit"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "点击任意位置退出"
-          }
-        }
-      }
-    },
-    "Access granted." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Access granted."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "访问已授权。"
           }
         }
       }
@@ -237,8 +229,22 @@
         }
       }
     },
-    "Copyright © 2026 xiaowu" : {
-
+    "Connecting to server..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to server..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在连接服务器..."
+          }
+        }
+      }
     },
     "Connections" : {
       "extractionState" : "manual",
@@ -257,22 +263,8 @@
         }
       }
     },
-    "Connecting to server..." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connecting to server..."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在连接服务器..."
-          }
-        }
-      }
+    "Copyright © 2026 xiaowu" : {
+
     },
     "Dark" : {
       "extractionState" : "manual",
