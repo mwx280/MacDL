@@ -1,0 +1,59 @@
+import SwiftUI
+
+struct NewDownloadView: View {
+    @Binding var text: String
+    let onDownload: (String) -> Void
+    @State private var refresh = UUID()
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "square.and.arrow.down")
+                .font(.system(size: 32))
+                .foregroundStyle(.tint)
+
+            Text(LanguageManager.shared.localized("New Download"))
+                .font(.headline)
+
+            TextEditor(text: $text)
+                .font(.system(size: 13, design: .monospaced))
+                .frame(height: 100)
+                .overlay {
+                    if text.isEmpty {
+                        Text(LanguageManager.shared.localized("One URL per line, multiple URLs supported"))
+                            .font(.system(size: 13))
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(6)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            HStack(spacing: 12) {
+                Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
+                    .keyboardShortcut(.escape)
+                Button(LanguageManager.shared.localized("Download")) {
+                    onDownload(text)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 380, height: 260)
+        .id(refresh)
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            refresh = UUID()
+        }
+        .onAppear {
+            guard text.isEmpty else { return }
+            let pasteboard = NSPasteboard.general
+            guard let str = pasteboard.string(forType: .string) else { return }
+            let hasURL = str.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .contains { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
+            if hasURL { text = str }
+        }
+    }
+}
