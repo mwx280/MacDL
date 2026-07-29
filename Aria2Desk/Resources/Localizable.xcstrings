@@ -64,9 +64,6 @@
         }
       }
     },
-    "Clear" : {
-
-    },
     "Completed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -100,6 +97,9 @@
           }
         }
       }
+    },
+    "Delete" : {
+
     },
     "Down %@" : {
       "extractionState" : "manual",
@@ -305,7 +305,7 @@
         }
       }
     },
-    "Pause All" : {
+    "Pause" : {
 
     },
     "Paused" : {
@@ -359,7 +359,7 @@
         }
       }
     },
-    "Resume All" : {
+    "Resume" : {
 
     },
     "Running" : {

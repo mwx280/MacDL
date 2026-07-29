@@ -28,7 +28,7 @@ struct ContentView: View {
                 Button { resumeAll() } label: { Label("Resume", systemImage: "play") }
                     .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
                 Button { clearCompleted() } label: { Label("Delete", systemImage: "trash") }
-                    .disabled(!downloads.contains { selectedDownloads.contains($0.id) && ($0.status == .completed || $0.status == .stopped || $0.status == .error) })
+                    .disabled(selectedDownloads.isEmpty)
                 Spacer()
                 HStack(spacing: 6) {
                     Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
@@ -72,9 +72,8 @@ struct ContentView: View {
     }
 
     private func clearCompleted() {
-        let toRemove = Set(downloads.filter { selectedDownloads.contains($0.id) && ($0.status == .completed || $0.status == .stopped || $0.status == .error) }.map(\.id))
-        downloads.removeAll { toRemove.contains($0.id) }
-        selectedDownloads.subtract(toRemove)
+        downloads.removeAll { selectedDownloads.contains($0.id) }
+        selectedDownloads.removeAll()
     }
 
     private func addDownload() {
