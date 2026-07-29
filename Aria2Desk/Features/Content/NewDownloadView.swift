@@ -15,7 +15,7 @@ struct NewDownloadView: View {
         _text = text
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
-        _connections = State(initialValue: 4)
+        _connections = State(initialValue: SettingsStore.shared.maxConnections)
     }
 
     var body: some View {
