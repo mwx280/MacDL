@@ -40,10 +40,10 @@ struct ContentView: View {
                     }
                 } label: { }
                 .labelsHidden()
-                .frame(width: 90)
-            }
+                .frame(width: 75)
 
-            ToolbarItemGroup {
+                Spacer()
+
                 Button { newDownloadURLs = ""; showNewDownloadSheet = true } label: { Label("New Download", systemImage: "plus") }
                     .help("New Download")
                 Button { model.pauseAll() } label: { Label("Pause", systemImage: "pause") }
@@ -55,9 +55,9 @@ struct ContentView: View {
                 Button { model.confirmDelete() } label: { Label("Delete", systemImage: "trash") }
                     .disabled(model.selectedDownloads.isEmpty)
                     .help("Delete")
-            }
 
-            ToolbarItemGroup {
+                Spacer()
+
                 Button { model.pauseAllDownloads() } label: { Label("Pause All", systemImage: "pause.rectangle") }
                     .disabled(!model.downloads.contains { $0.status == .active })
                     .help("Pause All")

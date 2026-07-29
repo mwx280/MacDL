@@ -27,9 +27,6 @@
         }
       }
     },
-    "|" : {
-
-    },
     "█" : {
 
     },
@@ -101,57 +98,6 @@
         }
       }
     },
-    "All" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部"
-          }
-        }
-      }
-    },
-    "Archive" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Archive"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "压缩包"
-          }
-        }
-      }
-    },
-    "Audio" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "音频"
-          }
-        }
-      }
-    },
     "Add" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -165,6 +111,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新建"
+          }
+        }
+      }
+    },
+    "All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部"
           }
         }
       }
@@ -220,6 +183,23 @@
         }
       }
     },
+    "Archive" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "压缩包"
+          }
+        }
+      }
+    },
     "Are you sure you want to delete %lld download(s)?" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -239,6 +219,23 @@
     },
     "Aria2Desk" : {
 
+    },
+    "Audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频"
+          }
+        }
+      }
     },
     "Browse..." : {
 
@@ -382,23 +379,6 @@
         }
       }
     },
-    "Delete" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除"
-          }
-        }
-      }
-    },
     "Default Max Connections" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -412,6 +392,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "默认最大连接数"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
           }
         }
       }
@@ -433,23 +430,6 @@
         }
       }
     },
-    "Down %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "↓ %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下载: %@"
-          }
-        }
-      }
-    },
     "Document" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -463,6 +443,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "文档"
+          }
+        }
+      }
+    },
+    "Down %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "↓ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载: %@"
           }
         }
       }
@@ -813,23 +810,6 @@
         }
       }
     },
-    "Pause All" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pause All"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部暂停"
-          }
-        }
-      }
-    },
     "Other" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -865,7 +845,21 @@
       }
     },
     "Pause All" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部暂停"
+          }
+        }
+      }
     },
     "Paused" : {
       "extractionState" : "manual",
@@ -918,23 +912,6 @@
         }
       }
     },
-    "Resume All" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resume All"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部继续"
-          }
-        }
-      }
-    },
     "Resume" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -953,7 +930,21 @@
       }
     },
     "Resume All" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部继续"
+          }
+        }
+      }
     },
     "Running" : {
       "extractionState" : "manual",
