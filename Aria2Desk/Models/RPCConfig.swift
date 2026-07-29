@@ -12,14 +12,6 @@ enum RPCConnectionStatus {
         case .connected: "circle.fill"
         }
     }
-
-    var color: String {
-        switch self {
-        case .disconnected: "red"
-        case .connecting: "yellow"
-        case .connected: "green"
-        }
-    }
 }
 
 struct RPCConfig {
@@ -41,7 +33,37 @@ struct RPCConfig {
         set { UserDefaults.standard.set(newValue, forKey: "rpcSecretToken") }
     }
 
+    var maxConnections: Int {
+        get {
+            let v = UserDefaults.standard.integer(forKey: "maxConnections")
+            return v == 0 ? 16 : v
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "maxConnections") }
+    }
+
+    var maxConcurrentDownloads: Int {
+        get {
+            let v = UserDefaults.standard.integer(forKey: "maxConcurrentDownloads")
+            return v == 0 ? 5 : v
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "maxConcurrentDownloads") }
+    }
+
     var baseURL: String {
         "http://\(host):\(port)/jsonrpc"
+    }
+
+    var appSupportDirectory: String {
+        let base = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/com.xiaowu.Aria2Desk")
+        return base.path
+    }
+
+    var aria2SessionPath: String {
+        appSupportDirectory + "/aria2.session"
+    }
+
+    var downloadDirectory: String {
+        appSupportDirectory + "/downloads"
     }
 }

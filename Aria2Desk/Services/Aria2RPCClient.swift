@@ -55,20 +55,11 @@ final class Aria2RPCClient {
         if case .running = engineState { return }
 
         engineState = .starting
+        ensureDirectories()
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: enginePath)
-
-        var args = [
-            "--enable-rpc",
-            "--rpc-listen-all=true",
-            "--rpc-allow-origin-all=true",
-            "--rpc-listen-port=\(config.port)",
-        ]
-        let token = config.secretToken.trimmingCharacters(in: .whitespaces)
-        if !token.isEmpty {
-            args.append("--rpc-secret=\(token)")
-        }
-        process.arguments = args
+        process.arguments = buildEngineArguments()
         process.qualityOfService = .background
 
         do {
@@ -76,9 +67,15 @@ final class Aria2RPCClient {
             engineProcess = process
             engineState = .running
             monitorProcess(process)
+            autoConnect()
         } catch {
             engineState = .error(error.localizedDescription)
         }
+    }
+
+    func restartEngine() {
+        stopEngine()
+        startEngine()
     }
 
     func stopEngine() {
@@ -134,6 +131,42 @@ final class Aria2RPCClient {
 
     func disconnect() {
         status = .disconnected
+    }
+
+    private func buildEngineArguments() -> [String] {
+        var args = [
+            "--enable-rpc",
+            "--rpc-listen-all=true",
+            "--rpc-allow-origin-all=true",
+            "--rpc-listen-port=\(config.port)",
+            "--max-connection-per-server=\(config.maxConnections)",
+            "--max-concurrent-downloads=\(config.maxConcurrentDownloads)",
+            "--dir=\(config.downloadDirectory)",
+            "--input-file=\(config.aria2SessionPath)",
+            "--save-session=\(config.aria2SessionPath)",
+            "--save-session-interval=30",
+            "--disable-ipv6=true",
+        ]
+
+        let token = config.secretToken.trimmingCharacters(in: .whitespaces)
+        if !token.isEmpty {
+            args.append("--rpc-secret=\(token)")
+        }
+        return args
+    }
+
+    private func ensureDirectories() {
+        let fm = FileManager.default
+        for dir in [config.appSupportDirectory, config.downloadDirectory] {
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        }
+    }
+
+    private func autoConnect() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            _ = await testConnection()
+        }
     }
 
     private func monitorProcess(_ process: Process) {

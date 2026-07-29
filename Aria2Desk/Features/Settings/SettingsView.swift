@@ -34,6 +34,8 @@ struct SettingsView: View {
     @State private var rpcHost: String
     @State private var rpcPort: String
     @State private var rpcToken: String
+    @State private var maxConnections: String
+    @State private var maxConcurrent: String
     @State private var isTesting = false
 
     init() {
@@ -41,6 +43,8 @@ struct SettingsView: View {
         _rpcHost = State(initialValue: config.host)
         _rpcPort = State(initialValue: String(config.port))
         _rpcToken = State(initialValue: config.secretToken)
+        _maxConnections = State(initialValue: String(config.maxConnections))
+        _maxConcurrent = State(initialValue: String(config.maxConcurrentDownloads))
     }
 
     var body: some View {
@@ -127,6 +131,29 @@ struct SettingsView: View {
                             .textFieldStyle(.plain)
                             .onChange(of: rpcToken) { _, v in client.config.secretToken = v }
                     }
+
+                    inputRow(labelKey: "Max Connections") {
+                        TextField("16", text: $maxConnections)
+                            .textFieldStyle(.plain)
+                            .onChange(of: maxConnections) { _, v in
+                                client.config.maxConnections = Int(v) ?? 16
+                            }
+                    }
+
+                    inputRow(labelKey: "Max Downloads") {
+                        TextField("5", text: $maxConcurrent)
+                            .textFieldStyle(.plain)
+                            .onChange(of: maxConcurrent) { _, v in
+                                client.config.maxConcurrentDownloads = Int(v) ?? 5
+                            }
+                    }
+
+                    HStack(spacing: 10) {
+                        Text("Changes require engine restart.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.leading, 64)
 
                     HStack(spacing: 10) {
                         Button {
