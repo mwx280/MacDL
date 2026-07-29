@@ -1,6 +1,6 @@
 import Foundation
 
-enum DownloadStatus: String {
+enum DownloadStatus: String, Codable {
     case active
     case paused
     case waiting
@@ -20,7 +20,7 @@ enum DownloadStatus: String {
     }
 }
 
-struct Download: Identifiable {
+struct Download: Identifiable, Codable {
     let id: UUID
     let filename: String
     let url: String

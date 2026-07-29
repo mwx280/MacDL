@@ -4,8 +4,27 @@ import Observation
 
 @Observable
 final class ContentViewModel {
-    var downloads: [Download] = PreviewContent.downloads
+    var downloads: [Download]
     var selectedDownloads = Set<UUID>()
+
+    private let persistence = DownloadPersistence.shared
+    private var termObserver: NSObjectProtocol?
+
+    init() {
+        downloads = persistence.load()
+        termObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.persistence.saveImmediately(self.downloads)
+        }
+    }
+
+    deinit {
+        if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
+    }
 
     var totalSpeed: Int64 { downloads.reduce(0) { $0 + $1.downloadSpeed } }
     var totalUpload: Int64 { downloads.reduce(0) { $0 + $1.uploadSpeed } }
@@ -26,6 +45,7 @@ final class ContentViewModel {
                   downloads[i].status == .active else { continue }
             downloads[i].status = .paused
         }
+        scheduleSave()
     }
 
     func resumeAll() {
@@ -34,6 +54,7 @@ final class ContentViewModel {
                   downloads[i].status == .paused || downloads[i].status == .waiting else { continue }
             downloads[i].status = .active
         }
+        scheduleSave()
     }
 
     func confirmDelete() {
@@ -69,27 +90,32 @@ final class ContentViewModel {
             connections: connections
         )
         downloads.append(d)
+        scheduleSave()
     }
 
     func pauseDownload(id: UUID) {
         guard let i = downloads.firstIndex(where: { $0.id == id }),
               downloads[i].status == .active else { return }
         downloads[i].status = .paused
+        scheduleSave()
     }
 
     func resumeDownload(id: UUID) {
         guard let i = downloads.firstIndex(where: { $0.id == id }),
               downloads[i].status == .paused || downloads[i].status == .waiting else { return }
         downloads[i].status = .active
+        scheduleSave()
     }
 
     func deleteDownload(id: UUID) {
         downloads.removeAll { $0.id == id }
+        scheduleSave()
     }
 
     func setConnections(id: UUID, connections: Int) {
         guard let i = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[i].connections = connections
+        scheduleSave()
     }
 
     private func clearCompleted(deleteFiles: Bool = false) {
@@ -101,5 +127,10 @@ final class ContentViewModel {
         }
         downloads.removeAll { selectedDownloads.contains($0.id) }
         selectedDownloads.removeAll()
+        scheduleSave()
+    }
+
+    private func scheduleSave() {
+        persistence.save(downloads)
     }
 }
