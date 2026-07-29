@@ -145,15 +145,4 @@ private struct DownloadRow: View {
         download.status == .active ? .blue : .secondary
     }
 
-    private func formatSize(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .binary
-        return formatter.string(fromByteCount: bytes)
-    }
-}
-
-private func formatSpeed(_ bytes: Int64) -> String {
-    let formatter = ByteCountFormatter()
-    formatter.countStyle = .binary
-    return formatter.string(fromByteCount: bytes) + "/s"
 }

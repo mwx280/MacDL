@@ -88,7 +88,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 58D1C377301A5755003A4EEB /* Build configuration list for PBXNativeTarget "Aria2Desk" */;
 			buildPhases = (
-				36BF48C8-86E1-4F6A-961A-8C0CFEE6E161 /* Copy Aria2 Engine */,
+				"36BF48C8-86E1-4F6A-961A-8C0CFEE6E161" /* Copy Aria2 Engine */,
 				58D1C368301A5754003A4EEB /* Sources */,
 				58D1C369301A5754003A4EEB /* Frameworks */,
 				58D1C36A301A5754003A4EEB /* Resources */,
@@ -157,20 +157,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		36BF48C8-86E1-4F6A-961A-8C0CFEE6E161 /* Copy Aria2 Engine */ = {
+		"36BF48C8-86E1-4F6A-961A-8C0CFEE6E161" /* Copy Aria2 Engine */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-			);
 			inputFileListPaths = (
 			);
+			inputPaths = (
+			);
 			name = "Copy Aria2 Engine";
+			outputFileListPaths = (
+			);
 			outputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/MacOS/aria2c",
-			);
-			outputFileListPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

@@ -325,12 +325,6 @@ private struct AboutView: View {
             isComplete = false
         }
     }
-
-    private func formatSpeed(_ bytes: Int64) -> String {
-        let f = ByteCountFormatter()
-        f.countStyle = .binary
-        return f.string(fromByteCount: bytes) + "/s"
-    }
 }
 
 extension View {

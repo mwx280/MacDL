@@ -65,12 +65,6 @@ struct ContentView: View {
         .onAppear { appearance.apply() }
     }
 
-    private func formatSpeed(_ bytes: Int64) -> String {
-        let f = ByteCountFormatter()
-        f.countStyle = .binary
-        return f.string(fromByteCount: bytes) + "/s"
-    }
-
     private func pauseAll() {
         for id in selectedDownloads {
             guard let i = downloads.firstIndex(where: { $0.id == id }),
