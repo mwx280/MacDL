@@ -41,37 +41,25 @@ struct Aria2DeskApp: App {
 }
 
 private struct MenuBarContent: View {
-    @State private var langCode = LanguageManager.shared.selectedLanguage.rawValue
-
     var body: some View {
-        Group {
-            Button { Aria2DeskApp.showWindow() } label: {
-                Label(title: { Text(verbatim: t("Show Window")) }, icon: { Image(systemName: "macwindow") })
-            }
-
-            Button { Aria2DeskApp.hideWindow() } label: {
-                Label(title: { Text(verbatim: t("Hide Window")) }, icon: { Image(systemName: "rectangle.dashed") })
-            }
-
-            Divider()
-
-            SettingsLink {
-                Label(title: { Text(verbatim: t("Preferences")) }, icon: { Image(systemName: "gearshape") })
-            }
-
-            Divider()
-
-            Button { NSApp.terminate(nil) } label: {
-                Label(title: { Text(verbatim: t("Quit")) }, icon: { Image(systemName: "xmark.rectangle") })
-            }
+        Button { Aria2DeskApp.showWindow() } label: {
+            Label(title: { Text(verbatim: LanguageManager.shared.localized("Show Window")) }, icon: { Image(systemName: "macwindow") })
         }
-        .id("menu_\(langCode)")
-        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
-            langCode = LanguageManager.shared.selectedLanguage.rawValue
-        }
-    }
 
-    private func t(_ key: String) -> String {
-        LanguageManager.shared.localized(key)
+        Button { Aria2DeskApp.hideWindow() } label: {
+            Label(title: { Text(verbatim: LanguageManager.shared.localized("Hide Window")) }, icon: { Image(systemName: "rectangle.dashed") })
+        }
+
+        Divider()
+
+        SettingsLink {
+            Label(title: { Text(verbatim: LanguageManager.shared.localized("Preferences")) }, icon: { Image(systemName: "gearshape") })
+        }
+
+        Divider()
+
+        Button { NSApp.terminate(nil) } label: {
+            Label(title: { Text(verbatim: LanguageManager.shared.localized("Quit")) }, icon: { Image(systemName: "xmark.rectangle") })
+        }
     }
 }

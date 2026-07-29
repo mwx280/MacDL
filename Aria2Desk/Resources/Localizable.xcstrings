@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%lld" : {
-
-    },
     "5" : {
 
     },
@@ -97,6 +94,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "深色"
+          }
+        }
+      }
+    },
+    "Down %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "↓ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载: %@"
           }
         }
       }
@@ -447,6 +461,40 @@
         }
       }
     },
+    "Total %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total: %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总下载: %lld"
+          }
+        }
+      }
+    },
+    "Up %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "↑ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传: %@"
+          }
+        }
+      }
+    },
     "Waiting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -463,6 +511,12 @@
           }
         }
       }
+    },
+    "上传: %@" : {
+
+    },
+    "下载: %@" : {
+
     },
     "中文" : {
       "extractionState" : "manual",
