@@ -6,7 +6,7 @@ enum Language: String, CaseIterable {
     case en = "en"
     case zh = "zh-Hans"
 
-    var displayName: LocalizedStringKey {
+    var displayKey: String {
         switch self {
         case .system: "Follow System"
         case .en: "English"

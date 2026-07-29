@@ -5,7 +5,7 @@ enum Appearance: String, CaseIterable {
     case light
     case dark
 
-    var displayName: LocalizedStringKey {
+    var displayKey: String {
         switch self {
         case .system: "Follow System"
         case .light: "Light"
@@ -57,7 +57,7 @@ struct SettingsView: View {
                 pickerRow(icon: "globe", titleKey: "Language") {
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
-                            Text(l.displayName).tag(l)
+                            LocalizedText(key: l.displayKey).tag(l)
                         }
                     } label: { }
                     .labelsHidden()
@@ -68,7 +68,7 @@ struct SettingsView: View {
                 pickerRow(icon: "circle.lefthalf.filled", titleKey: "Appearance") {
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
-                            Text(a.displayName).tag(a)
+                            LocalizedText(key: a.displayKey).tag(a)
                         }
                     } label: { }
                     .labelsHidden()
