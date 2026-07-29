@@ -49,7 +49,8 @@ struct ContentView: View {
             ToolbarItemGroup {
                 Picker(selection: Bindable(model).fileTypeFilter) {
                     ForEach(FileTypeFilter.allCases, id: \.self) { f in
-                        LocalizedText(key: f.labelKey).tag(f)
+                        Label(title: { LocalizedText(key: f.labelKey) }, icon: { Image(systemName: f.icon) })
+                            .tag(f)
                     }
                 } label: { }
                 .labelsHidden()

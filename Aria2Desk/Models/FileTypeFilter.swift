@@ -23,6 +23,19 @@ enum FileTypeFilter: String, CaseIterable {
         }
     }
 
+    var icon: String {
+        switch self {
+        case .all: "list.bullet"
+        case .video: "film"
+        case .document: "doc.text"
+        case .archive: "shippingbox"
+        case .image: "photo"
+        case .audio: "music.note"
+        case .code: "curlybraces"
+        case .other: "doc"
+        }
+    }
+
     func matches(_ file: Download) -> Bool {
         guard self != .all else { return true }
         let ext = (file.filename as NSString).pathExtension.lowercased()
