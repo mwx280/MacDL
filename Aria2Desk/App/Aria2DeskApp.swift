@@ -108,6 +108,18 @@ private struct AboutView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.tint)
 
+            VStack(spacing: 6) {
+                Label {
+                    Text(verbatim: LanguageManager.shared.localized("If you like this project, please give it a star ⭐"))
+                        .font(.system(size: 11))
+                } icon: {
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.yellow)
+                        .font(.system(size: 10))
+                }
+            }
+            .padding(.vertical, 4)
+
             VStack(spacing: 4) {
                 Text("MIT License")
                     .font(.system(size: 11))

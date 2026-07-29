@@ -359,6 +359,23 @@
         }
       }
     },
+    "If you like this project, please give it a star ⭐" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you like this project, please give it a star ⭐"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果觉得项目不错，欢迎点个 Star ⭐"
+          }
+        }
+      }
+    },
     "Language" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -671,23 +688,6 @@
     "SwiftUI · Aria2" : {
 
     },
-    "Total %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Total: %lld"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "总下载: %lld"
-          }
-        }
-      }
-    },
     "Tech Stack" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -701,6 +701,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "技术栈"
+          }
+        }
+      }
+    },
+    "Total %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total: %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总下载: %lld"
           }
         }
       }
@@ -722,16 +739,6 @@
         }
       }
     },
-    "Version %@ (build %@)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Version %1$@ (build %2$@)"
-          }
-        }
-      }
-    },
     "Waiting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -745,23 +752,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待中"
-          }
-        }
-      }
-    },
-    "Version %@ (build %@)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Version %@ (build %@)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "版本 %@ (构建 %@)"
           }
         }
       }
