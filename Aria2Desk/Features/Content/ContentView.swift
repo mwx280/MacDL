@@ -63,7 +63,6 @@ struct ContentView: View {
                   downloads[i].status == .active else { continue }
             downloads[i].status = .paused
         }
-        selectedDownloads.removeAll()
     }
 
     private func resumeAll() {
@@ -72,7 +71,6 @@ struct ContentView: View {
                   downloads[i].status == .paused || downloads[i].status == .waiting else { continue }
             downloads[i].status = .active
         }
-        selectedDownloads.removeAll()
     }
 
     private func confirmDelete() {
