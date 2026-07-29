@@ -39,7 +39,7 @@ struct SettingsView: View {
                     Label(title: { LocalizedText(key: "Download") }, icon: { Image(systemName: "arrow.down.circle") })
                 }
         }
-        .fixedSize()
+        .frame(width: 420, height: 180)
     }
 }
 
@@ -48,36 +48,33 @@ private struct GeneralPane: View {
     @AppStorage("appearance") private var appearance: Appearance = .system
 
     var body: some View {
-        VStack(spacing: 0) {
-            Form {
-                HStack {
-                    LocalizedText(key: "Language")
-                    Spacer()
+        VStack(spacing: 16) {
+            card {
+                prefRow("globe", "Language") {
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
                             LocalizedText(key: l.displayKey).tag(l)
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 120)
+                    .frame(width: 140)
                 }
                 .id(lang.selectedLanguage)
 
-                HStack {
-                    LocalizedText(key: "Appearance")
-                    Spacer()
+                divider
+
+                prefRow("circle.lefthalf.filled", "Appearance") {
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
                             LocalizedText(key: a.displayKey).tag(a)
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 120)
+                    .frame(width: 140)
                 }
             }
         }
         .padding(20)
-        .frame(width: 400, height: 180)
     }
 }
 
@@ -93,11 +90,9 @@ private struct DownloadPane: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Form {
-                HStack {
-                    LocalizedText(key: "Max Connections")
-                    Spacer()
+        VStack(spacing: 16) {
+            card {
+                prefRow("number", "Max Connections") {
                     TextField("16", text: $maxConnections)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -107,9 +102,9 @@ private struct DownloadPane: View {
                         }
                 }
 
-                HStack {
-                    LocalizedText(key: "Max Downloads")
-                    Spacer()
+                divider
+
+                prefRow("arrow.down.to.line", "Max Downloads") {
                     TextField("5", text: $maxConcurrent)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -120,16 +115,36 @@ private struct DownloadPane: View {
                 }
             }
 
-            Spacer()
-
-            LocalizedText(key: "Changes require engine restart.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+            HStack {
+                Spacer()
+                LocalizedText(key: "Changes require engine restart.")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+            }
         }
-        .padding(.top, 20)
-        .frame(width: 400, height: 160)
+        .padding(20)
     }
 }
+
+private func card(@ViewBuilder content: () -> some View) -> some View {
+    VStack(spacing: 0) { content() }
+        .background(.fill.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+}
+
+private func prefRow<C: View>(_ icon: String, _ label: String, @ViewBuilder control: () -> C) -> some View {
+    HStack(spacing: 10) {
+        Image(systemName: icon)
+            .font(.body)
+            .frame(width: 18)
+            .foregroundStyle(.secondary)
+        LocalizedText(key: label)
+            .font(.body)
+        Spacer()
+        control()
+    }
+    .padding(.horizontal, 14)
+    .padding(.vertical, 8)
+}
+
+private var divider: some View { Divider().padding(.leading, 42) }
