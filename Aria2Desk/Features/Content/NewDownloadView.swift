@@ -24,7 +24,7 @@ struct NewDownloadView: View {
                             .font(.system(size: 13))
                             .foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .padding(6)
+                            .padding(EdgeInsets(top: 3, leading: 5, bottom: 0, trailing: 0))
                             .allowsHitTesting(false)
                     }
                 }
