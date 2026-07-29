@@ -85,7 +85,7 @@ private struct DownloadPane: View {
 
                 divider
 
-                prefRow("arrow.down.to.line", "Default Max Downloads") {
+                prefRow("arrow.down.to.line", "Max Downloads") {
                     Picker(selection: $maxConcurrent) {
                         ForEach(concurrentOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -109,12 +109,10 @@ private struct DownloadPane: View {
                         LocalizedText(key: "Download Location")
                             .font(.body)
                         Spacer()
-                        Button { browsePath() } label: {
-                            Image(systemName: "folder")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Browse...")
+                        Button(LanguageManager.shared.localized("Select...")) { browsePath() }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint)
+                            .font(.system(size: 12))
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)

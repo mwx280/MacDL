@@ -348,23 +348,6 @@
         }
       }
     },
-    "Default Max Downloads" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Default Max Downloads"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "默认同时下载数"
-          }
-        }
-      }
-    },
     "Developer" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -866,6 +849,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择下载目录"
+          }
+        }
+      }
+    },
+    "Select..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择..."
           }
         }
       }
