@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import Observation
+import Darwin
 
 enum EngineState {
     case stopped
@@ -25,6 +26,7 @@ final class Aria2RPCClient {
     var config = RPCConfig()
     var status: RPCConnectionStatus = .disconnected
     var engineState: EngineState = .stopped
+    var rpcPort = 0
 
     private var engineProcess: Process?
     private var terminationObserver: NSObjectProtocol?
@@ -37,6 +39,10 @@ final class Aria2RPCClient {
         ) { [weak self] _ in
             self?.stopEngine()
         }
+    }
+
+    deinit {
+        stopEngine()
     }
 
     var enginePath: String {
@@ -55,18 +61,25 @@ final class Aria2RPCClient {
         if case .running = engineState { return }
 
         engineState = .starting
-        killExistingInstances()
+        rpcPort = findAvailablePort()
         ensureDirectories()
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: enginePath)
         process.arguments = buildEngineArguments()
+        process.terminationHandler = { [weak self] p in
+            DispatchQueue.main.async {
+                guard let self, self.engineProcess === p else { return }
+                self.engineProcess = nil
+                self.engineState = p.terminationStatus == 0 ? .stopped : .error("Exit code \(p.terminationStatus)")
+                self.status = .disconnected
+            }
+        }
 
         do {
             try process.run()
             engineProcess = process
             engineState = .running
-            monitorProcess(process)
             autoConnect()
         } catch {
             engineState = .error(error.localizedDescription)
@@ -80,6 +93,7 @@ final class Aria2RPCClient {
     }
 
     func stopEngine() {
+        engineProcess?.terminationHandler = nil
         engineProcess?.terminate()
         engineProcess?.waitUntilExit()
         engineProcess = nil
@@ -87,31 +101,32 @@ final class Aria2RPCClient {
         status = .disconnected
     }
 
-    private func killExistingInstances() {
-        let pkill = Process()
-        pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        pkill.arguments = ["-f", "aria2c.*--rpc-listen-port=\(config.port)"]
-        try? pkill.run()
-        pkill.waitUntilExit()
+    private func findAvailablePort() -> Int {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return 6800 }
+        defer { close(fd) }
 
-        let lsof = Process()
-        lsof.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        lsof.arguments = ["-ti", ":\(config.port)"]
-        let out = Pipe()
-        lsof.standardOutput = out
-        try? lsof.run()
-        lsof.waitUntilExit()
-        let data = out.fileHandleForReading.readDataToEndOfFile()
-        if let pids = String(data: data, encoding: .utf8) {
-            for pid in pids.split(whereSeparator: \.isNewline).filter({ !$0.isEmpty }) {
-                let kill = Process()
-                kill.executableURL = URL(fileURLWithPath: "/bin/kill")
-                kill.arguments = [String(pid)]
-                try? kill.run()
-                kill.waitUntilExit()
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = 0
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        guard withUnsafePointer(to: &addr, {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, len) == 0
             }
-        }
-        Thread.sleep(forTimeInterval: 0.3)
+        }) else { return 6800 }
+
+        var addrOut = sockaddr_in()
+        var addrLen = len
+        guard withUnsafeMutablePointer(to: &addrOut, {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getsockname(fd, $0, &addrLen) == 0
+            }
+        }) else { return 6800 }
+
+        return Int(addrOut.sin_port.bigEndian)
     }
 
     func testConnection() async -> Bool {
@@ -127,7 +142,7 @@ final class Aria2RPCClient {
             "params": secretParams([]),
         ]
 
-        guard let url = URL(string: config.baseURL),
+        guard let url = URL(string: "http://\(config.host):\(rpcPort)/jsonrpc"),
               let httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
         else {
             status = .disconnected
@@ -167,7 +182,7 @@ final class Aria2RPCClient {
             "--enable-rpc",
             "--rpc-listen-all=true",
             "--rpc-allow-origin-all=true",
-            "--rpc-listen-port=\(config.port)",
+            "--rpc-listen-port=\(rpcPort)",
             "--max-connection-per-server=\(config.maxConnections)",
             "--max-concurrent-downloads=\(config.maxConcurrentDownloads)",
             "--dir=\(config.downloadDirectory)",
@@ -198,24 +213,6 @@ final class Aria2RPCClient {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
             _ = await testConnection()
-        }
-    }
-
-    private func monitorProcess(_ process: Process) {
-        DispatchQueue.global().async { [weak self] in
-            process.waitUntilExit()
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if self.engineProcess === process {
-                    self.engineProcess = nil
-                    if process.terminationStatus != 0 {
-                        self.engineState = .error("Exit code \(process.terminationStatus)")
-                    } else {
-                        self.engineState = .stopped
-                    }
-                    self.status = .disconnected
-                }
-            }
         }
     }
 

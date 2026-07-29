@@ -20,14 +20,6 @@ struct RPCConfig {
         set { UserDefaults.standard.set(newValue, forKey: "rpcHost") }
     }
 
-    var port: Int {
-        get {
-            let v = UserDefaults.standard.integer(forKey: "rpcPort")
-            return v == 0 ? 6800 : v
-        }
-        set { UserDefaults.standard.set(newValue, forKey: "rpcPort") }
-    }
-
     var secretToken: String {
         get { UserDefaults.standard.string(forKey: "rpcSecretToken") ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: "rpcSecretToken") }
@@ -47,10 +39,6 @@ struct RPCConfig {
             return v == 0 ? 5 : v
         }
         set { UserDefaults.standard.set(newValue, forKey: "maxConcurrentDownloads") }
-    }
-
-    var baseURL: String {
-        "http://\(host):\(port)/jsonrpc"
     }
 
     var appSupportDirectory: String {

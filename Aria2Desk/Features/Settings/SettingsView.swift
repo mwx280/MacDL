@@ -96,18 +96,6 @@ private struct DownloadPane: View {
         VStack(spacing: 0) {
             Form {
                 HStack {
-                    LocalizedText(key: "Status")
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(engineColor)
-                            .frame(width: 8, height: 8)
-                        LocalizedText(key: engineStatusKey)
-                            .foregroundStyle(engineColor)
-                    }
-                }
-
-                HStack {
                     LocalizedText(key: "Max Connections")
                     Spacer()
                     TextField("16", text: $maxConnections)
@@ -142,24 +130,6 @@ private struct DownloadPane: View {
                 .padding(.bottom, 12)
         }
         .padding(.top, 20)
-        .frame(width: 400, height: 180)
-    }
-
-    private var engineColor: Color {
-        switch client.engineState {
-        case .running: .green
-        case .starting: .orange
-        case .stopped: .gray
-        case .error: .red
-        }
-    }
-
-    private var engineStatusKey: String {
-        switch client.engineState {
-        case .running: "Running"
-        case .starting: "Starting..."
-        case .stopped: "Stopped"
-        case .error: "Error"
-        }
+        .frame(width: 400, height: 160)
     }
 }
