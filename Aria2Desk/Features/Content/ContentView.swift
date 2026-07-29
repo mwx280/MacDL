@@ -8,6 +8,15 @@ struct ContentView: View {
     @State private var newDownloadURLs = ""
     @AppStorage("appearance") private var appearance: Appearance = .system
 
+    private var sidebarIdealWidth: CGFloat {
+        let font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        let maxWidth = SidebarItem.allCases.map { item -> CGFloat in
+            let text = LanguageManager.shared.localized(item.titleKey)
+            return (text as NSString).size(withAttributes: [.font: font]).width
+        }.max() ?? 100
+        return maxWidth + 56
+    }
+
     var body: some View {
         NavigationSplitView {
             List(SidebarItem.allCases, id: \.self, selection: $selected) { item in
@@ -18,6 +27,7 @@ struct ContentView: View {
                 }
             }
             .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 100, ideal: sidebarIdealWidth, max: 280)
         } detail: {
             if selected != nil { downloadsView }
         }
