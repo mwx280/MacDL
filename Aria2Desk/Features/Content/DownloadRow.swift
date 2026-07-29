@@ -50,12 +50,21 @@ struct DownloadRow: View {
             Divider()
             Menu {
                 ForEach(connectionOptions, id: \.self) { n in
-                    Button("\(n)") {
-                        onSetConnections?(download.id, n)
+                    let current = download.connections ?? SettingsStore.shared.maxConnections
+                    Button { onSetConnections?(download.id, n) } label: {
+                        if n == current {
+                            Label("\(n) (\(LanguageManager.shared.localized("Current")))", systemImage: "checkmark")
+                        } else {
+                            Text("\(n)")
+                        }
                     }
                 }
             } label: {
-                Label("Connections", systemImage: "number")
+                HStack(spacing: 4) {
+                    Image(systemName: "number")
+                    let c = download.connections ?? SettingsStore.shared.maxConnections
+                    Text("\(LanguageManager.shared.localized("Connections")): \(c)")
+                }
             }
             Divider()
             Button { onShowInFinder?(download.id) } label: { Label("Show in Finder", systemImage: "folder") }
