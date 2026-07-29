@@ -41,21 +41,10 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical) {
-            VStack(spacing: 24) {
-                generalSection
-                rpcSection
-            }
-            .padding(24)
-        }
-    }
-
-    private var generalSection: some View {
-        GroupBox {
-            VStack(spacing: 12) {
+        Form {
+            Section {
                 HStack {
-                    Label(title: { LocalizedText(key: "Language") }, icon: { Image(systemName: "globe") })
-                        .foregroundStyle(.secondary)
+                    LocalizedText(key: "Language")
                     Spacer()
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
@@ -66,11 +55,8 @@ struct SettingsView: View {
                 }
                 .id(lang.selectedLanguage)
 
-                Divider()
-
                 HStack {
-                    Label(title: { LocalizedText(key: "Appearance") }, icon: { Image(systemName: "circle.lefthalf.filled") })
-                        .foregroundStyle(.secondary)
+                    LocalizedText(key: "Appearance")
                     Spacer()
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
@@ -79,68 +65,61 @@ struct SettingsView: View {
                     } label: { }
                     .labelsHidden()
                 }
+            } header: {
+                LocalizedText(key: "General")
             }
-            .padding(.vertical, 4)
-        } label: {
-            Label(title: { LocalizedText(key: "General") }, icon: { Image(systemName: "gear") })
-        }
-    }
 
-    private var rpcSection: some View {
-        GroupBox {
-            VStack(spacing: 12) {
+            Section {
                 engineStatusRow
-                Divider()
-                labeledRow(labelKey: "Max Connections", systemImage: "number") {
+
+                HStack {
+                    LocalizedText(key: "Max Connections")
+                    Spacer()
                     TextField("16", text: $maxConnections)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
+                        .frame(width: 72)
+                        .multilineTextAlignment(.trailing)
                         .onChange(of: maxConnections) { _, v in
                             client.config.maxConnections = Int(v) ?? 16
                         }
                 }
-                labeledRow(labelKey: "Max Downloads", systemImage: "arrow.down.to.line") {
+
+                HStack {
+                    LocalizedText(key: "Max Downloads")
+                    Spacer()
                     TextField("5", text: $maxConcurrent)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
+                        .frame(width: 72)
+                        .multilineTextAlignment(.trailing)
                         .onChange(of: maxConcurrent) { _, v in
                             client.config.maxConcurrentDownloads = Int(v) ?? 5
                         }
                 }
-                HStack {
-                    Spacer()
-                    LocalizedText(key: "Changes require engine restart.")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
+            } header: {
+                LocalizedText(key: "Engine")
             }
-            .padding(.vertical, 4)
-        } label: {
-            Label(title: { LocalizedText(key: "Engine") }, icon: { Image(systemName: "gearshape.2") })
+
+            Section {
+                LocalizedText(key: "Changes require engine restart.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
+        .formStyle(.grouped)
     }
 
     private var engineStatusRow: some View {
         HStack {
-            Label(title: { LocalizedText(key: "Status") }, icon: { Image(systemName: "antenna.radiowaves.left.and.right") })
-                .foregroundStyle(.secondary)
+            LocalizedText(key: "Status")
             Spacer()
             HStack(spacing: 6) {
                 Circle()
                     .fill(engineColor)
                     .frame(width: 8, height: 8)
                 LocalizedText(key: engineStatusKey)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(engineColor)
             }
-        }
-    }
-
-    private func labeledRow<C: View>(labelKey: String, systemImage: String, @ViewBuilder content: () -> C) -> some View {
-        HStack {
-            Label(title: { LocalizedText(key: labelKey) }, icon: { Image(systemName: systemImage) })
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            content()
         }
     }
 
