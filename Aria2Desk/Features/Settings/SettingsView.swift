@@ -5,10 +5,14 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Picker("Language", selection: Bindable(lang).selectedLanguage) {
-                ForEach(Language.allCases, id: \.self) { lang in
-                    Text(lang.displayName).tag(lang)
-                }
+            LabeledContent {
+                Picker(selection: Bindable(lang).selectedLanguage) {
+                    ForEach(Language.allCases, id: \.self) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                } label: { }
+            } label: {
+                Label("Language", systemImage: "globe")
             }
         }
         .formStyle(.grouped)

@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		58D1C36C301A5754003A4EEB /* Aria2Desk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aria2Desk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F261E0EC-4C28-45E0-889C-A5CC7D7596E8 /* Aria2DeskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Aria2DeskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +17,22 @@
 			path = Aria2Desk;
 			sourceTree = "<group>";
 		};
+		90ACD8A8-6C56-40F7-9146-D5EC6E1DF9B4 /* Aria2DeskTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Aria2DeskTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		58D1C369301A5754003A4EEB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E1498D0A-E36F-411C-BAA2-DC929660E3A2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				58D1C36E301A5754003A4EEB /* Aria2Desk */,
+				90ACD8A8-6C56-40F7-9146-D5EC6E1DF9B4 /* Aria2DeskTests */,
 				58D1C36D301A5754003A4EEB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				58D1C36C301A5754003A4EEB /* Aria2Desk.app */,
+				F261E0EC-4C28-45E0-889C-A5CC7D7596E8 /* Aria2DeskTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +85,27 @@
 			productReference = 58D1C36C301A5754003A4EEB /* Aria2Desk.app */;
 			productType = "com.apple.product-type.application";
 		};
+		13A0D24E-6D14-499C-ACDB-AF2F079F3E23 /* Aria2DeskTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB0F415B-0A5A-4C86-A4E9-455D93037564 /* Build configuration list for PBXNativeTarget "Aria2DeskTests" */;
+			buildPhases = (
+				0E3D4D40-30F2-488C-8456-D34C8914C692 /* Sources */,
+				E1498D0A-E36F-411C-BAA2-DC929660E3A2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				90ACD8A8-6C56-40F7-9146-D5EC6E1DF9B4 /* Aria2DeskTests */,
+			);
+			name = Aria2DeskTests;
+			packageProductDependencies = (
+			);
+			productName = Aria2DeskTests;
+			productReference = F261E0EC-4C28-45E0-889C-A5CC7D7596E8 /* Aria2DeskTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +118,10 @@
 				TargetAttributes = {
 					58D1C36B301A5754003A4EEB = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					13A0D24E-6D14-499C-ACDB-AF2F079F3E23 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 58D1C36B301A5754003A4EEB;
 					};
 				};
 			};
@@ -100,6 +140,7 @@
 			projectRoot = "";
 			targets = (
 				58D1C36B301A5754003A4EEB /* Aria2Desk */,
+				13A0D24E-6D14-499C-ACDB-AF2F079F3E23 /* Aria2DeskTests */,
 			);
 		};
 /* End PBXProject section */
@@ -116,6 +157,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		58D1C368301A5754003A4EEB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E3D4D40-30F2-488C-8456-D34C8914C692 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -303,6 +351,44 @@
 			};
 			name = Release;
 		};
+		DF0ADBE1-47AA-45F8-9F25-2EA3517F135A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaowu.Aria2DeskTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Aria2Desk.app/Contents/MacOS/Aria2Desk";
+			};
+			name = Debug;
+		};
+		B6B8BA38-CC40-48D5-8E46-9FAF603351F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaowu.Aria2DeskTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Aria2Desk.app/Contents/MacOS/Aria2Desk";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -320,6 +406,15 @@
 			buildConfigurations = (
 				58D1C378301A5755003A4EEB /* Debug */,
 				58D1C379301A5755003A4EEB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB0F415B-0A5A-4C86-A4E9-455D93037564 /* Build configuration list for PBXNativeTarget "Aria2DeskTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF0ADBE1-47AA-45F8-9F25-2EA3517F135A /* Debug */,
+				B6B8BA38-CC40-48D5-8E46-9FAF603351F3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
