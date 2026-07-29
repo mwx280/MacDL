@@ -55,7 +55,7 @@ struct ContentView: View {
                     .help("Resume All")
             }
 
-            ToolbarItemGroup {
+            ToolbarItem(placement: .status) {
                 HStack(spacing: 6) {
                     Text(String(format: LanguageManager.shared.localized("Total %lld"), model.downloads.count))
                     Text("|").foregroundStyle(.tertiary)
