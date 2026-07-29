@@ -512,12 +512,6 @@
         }
       }
     },
-    "上传: %@" : {
-
-    },
-    "下载: %@" : {
-
-    },
     "中文" : {
       "extractionState" : "manual",
       "localizations" : {

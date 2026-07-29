@@ -27,19 +27,16 @@ struct ContentView: View {
                 Button { resumeAll() } label: { Label("Resume All", systemImage: "play") }
                 Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") }
                 Spacer()
-                Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 4)
-                Divider().frame(height: 12)
-                Text(String(format: LanguageManager.shared.localized("Down %@"), formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed })))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                Divider().frame(height: 12)
-                Text(String(format: LanguageManager.shared.localized("Up %@"), formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed })))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .padding(.trailing, 4)
+                HStack(spacing: 6) {
+                    Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
+                    Text("|").foregroundStyle(.tertiary)
+                    Text(String(format: LanguageManager.shared.localized("Down %@"), formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed })))
+                    Text("|").foregroundStyle(.tertiary)
+                    Text(String(format: LanguageManager.shared.localized("Up %@"), formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed })))
+                }
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
             }
         }
         .onChange(of: selected) { _, _ in selectedDownloads.removeAll() }
