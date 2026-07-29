@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selected: SidebarItem? = .all
     @State private var downloads = Download.mock
+    @AppStorage("appearance") private var appearance: Appearance = .system
 
     var body: some View {
         NavigationSplitView {
@@ -17,6 +18,7 @@ struct ContentView: View {
         } detail: {
             detailView
         }
+        .preferredColorScheme(appearance.colorScheme)
     }
 
     @ViewBuilder
