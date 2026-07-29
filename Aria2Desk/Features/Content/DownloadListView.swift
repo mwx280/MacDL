@@ -6,7 +6,6 @@ struct DownloadListView: View {
     private var totalCount: Int { downloads.count }
     private var activeCount: Int { downloads.filter { $0.status == .active }.count }
     private var totalDownloadSpeed: Int64 { downloads.reduce(0) { $0 + $1.downloadSpeed } }
-    private var totalUploadSpeed: Int64 { downloads.reduce(0) { $0 + $1.uploadSpeed } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,16 +46,6 @@ struct DownloadListView: View {
                 .font(.system(size: 12))
             }
 
-            if totalUploadSpeed > 0 {
-                HStack(spacing: 3) {
-                    Image(systemName: "arrow.up")
-                        .foregroundStyle(.secondary)
-                        .imageScale(.small)
-                    Text(formatSpeed(totalUploadSpeed))
-                        .foregroundStyle(.secondary)
-                }
-                .font(.system(size: 12))
-            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
