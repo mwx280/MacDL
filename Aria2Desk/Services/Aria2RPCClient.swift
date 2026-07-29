@@ -88,11 +88,29 @@ final class Aria2RPCClient {
     }
 
     private func killExistingInstances() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        task.arguments = ["-f", "aria2c.*--rpc-listen-port=\(config.port)"]
-        try? task.run()
-        task.waitUntilExit()
+        let pkill = Process()
+        pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        pkill.arguments = ["-f", "aria2c.*--rpc-listen-port=\(config.port)"]
+        try? pkill.run()
+        pkill.waitUntilExit()
+
+        let lsof = Process()
+        lsof.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        lsof.arguments = ["-ti", ":\(config.port)"]
+        let out = Pipe()
+        lsof.standardOutput = out
+        try? lsof.run()
+        lsof.waitUntilExit()
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        if let pids = String(data: data, encoding: .utf8) {
+            for pid in pids.split(whereSeparator: \.isNewline).filter({ !$0.isEmpty }) {
+                let kill = Process()
+                kill.executableURL = URL(fileURLWithPath: "/bin/kill")
+                kill.arguments = [String(pid)]
+                try? kill.run()
+                kill.waitUntilExit()
+            }
+        }
         Thread.sleep(forTimeInterval: 0.3)
     }
 
