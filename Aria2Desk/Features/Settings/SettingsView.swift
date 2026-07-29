@@ -24,35 +24,60 @@ enum Appearance: String, CaseIterable {
 
 struct SettingsView: View {
     @Environment(LanguageManager.self) var lang
+    @Environment(Aria2RPCClient.self) var client
     @AppStorage("appearance") private var appearance: Appearance = .system
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent {
-                    Picker(selection: Bindable(lang).selectedLanguage) {
-                        ForEach(Language.allCases, id: \.self) { lang in
-                            Text(lang.displayName).tag(lang)
-                        }
-                    } label: { }
-                } label: {
-                    Label("Language", systemImage: "globe")
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent {
+                        Picker(selection: Bindable(lang).selectedLanguage) {
+                            ForEach(Language.allCases, id: \.self) { lang in
+                                Text(lang.displayName).tag(lang)
+                            }
+                        } label: { }
+                    } label: {
+                        Label("Language", systemImage: "globe")
+                    }
                 }
-            }
 
-            Section {
-                LabeledContent {
-                    Picker(selection: $appearance) {
-                        ForEach(Appearance.allCases, id: \.self) { a in
-                            Text(a.displayName).tag(a)
+                Section {
+                    LabeledContent {
+                        Picker(selection: $appearance) {
+                            ForEach(Appearance.allCases, id: \.self) { a in
+                                Text(a.displayName).tag(a)
+                            }
+                        } label: { }
+                    } label: {
+                        Label("Appearance", systemImage: "circle.lefthalf.filled")
+                    }
+                }
+
+                Section {
+                    NavigationLink {
+                        RPCConfigView()
+                    } label: {
+                        HStack {
+                            Label("RPC Connection", systemImage: "terminal")
+                            Spacer()
+                            Circle()
+                                .fill(connectionColor)
+                                .frame(width: 8, height: 8)
                         }
-                    } label: { }
-                } label: {
-                    Label("Appearance", systemImage: "circle.lefthalf.filled")
+                    }
                 }
             }
+            .formStyle(.grouped)
+            .frame(maxWidth: 400)
         }
-        .formStyle(.grouped)
-        .frame(maxWidth: 400)
+    }
+
+    private var connectionColor: Color {
+        switch client.status {
+        case .disconnected: .gray
+        case .connecting: .orange
+        case .connected: .green
+        }
     }
 }
