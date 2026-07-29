@@ -24,8 +24,11 @@ struct ContentView: View {
             ToolbarItemGroup {
                 Button { addDownload() } label: { Label("Add", systemImage: "plus") }
                 Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") }
+                    .disabled(selectedDownloads.isEmpty)
                 Button { resumeAll() } label: { Label("Resume All", systemImage: "play") }
+                    .disabled(selectedDownloads.isEmpty)
                 Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") }
+                    .disabled(selectedDownloads.isEmpty)
                 Spacer()
                 HStack(spacing: 6) {
                     Text(String(format: LanguageManager.shared.localized("Total %lld"), downloads.count))
