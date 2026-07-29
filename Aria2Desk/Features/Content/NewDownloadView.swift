@@ -29,6 +29,10 @@ struct NewDownloadView: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(.separator, lineWidth: 1)
+                }
 
             HStack(spacing: 12) {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
