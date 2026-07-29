@@ -72,7 +72,9 @@ private struct DownloadPane: View {
                         .frame(width: 72)
                         .multilineTextAlignment(.trailing)
                         .onChange(of: maxConnections) { _, v in
-                            SettingsStore.shared.maxConnections = Int(v) ?? 16
+                            let filtered = v.filter { $0.isNumber }
+                            if filtered != v { maxConnections = filtered }
+                            SettingsStore.shared.maxConnections = Int(filtered) ?? 16
                         }
                 }
 
@@ -84,7 +86,9 @@ private struct DownloadPane: View {
                         .frame(width: 72)
                         .multilineTextAlignment(.trailing)
                         .onChange(of: maxConcurrent) { _, v in
-                            SettingsStore.shared.maxConcurrentDownloads = Int(v) ?? 5
+                            let filtered = v.filter { $0.isNumber }
+                            if filtered != v { maxConcurrent = filtered }
+                            SettingsStore.shared.maxConcurrentDownloads = Int(filtered) ?? 5
                         }
                 }
             }
