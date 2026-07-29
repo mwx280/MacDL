@@ -6,6 +6,7 @@ import Observation
 final class ContentViewModel {
     var downloads: [Download]
     var selectedDownloads = Set<UUID>()
+    var fileTypeFilter: FileTypeFilter = .all
 
     private let persistence = DownloadPersistence.shared
     private var termObserver: NSObjectProtocol?
@@ -30,13 +31,16 @@ final class ContentViewModel {
     var totalUpload: Int64 { downloads.reduce(0) { $0 + $1.uploadSpeed } }
 
     func filteredDownloads(for item: SidebarItem?) -> [Download] {
+        let statusFiltered: [Download]
         switch item {
-        case .none, .all: downloads
-        case .active: downloads.filter { $0.status == .active }
-        case .waiting: downloads.filter { $0.status == .waiting }
-        case .completed: downloads.filter { $0.status == .completed }
-        case .stopped: downloads.filter { $0.status == .stopped || $0.status == .error }
+        case .none, .all: statusFiltered = downloads
+        case .active: statusFiltered = downloads.filter { $0.status == .active }
+        case .waiting: statusFiltered = downloads.filter { $0.status == .waiting }
+        case .completed: statusFiltered = downloads.filter { $0.status == .completed }
+        case .stopped: statusFiltered = downloads.filter { $0.status == .stopped || $0.status == .error }
         }
+        guard fileTypeFilter != .all else { return statusFiltered }
+        return statusFiltered.filter { fileTypeFilter.matches($0) }
     }
 
     func pauseAll() {

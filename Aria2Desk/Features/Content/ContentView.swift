@@ -44,7 +44,19 @@ struct ContentView: View {
                 Button { model.confirmDelete() } label: { Label("Delete", systemImage: "trash") }
                     .disabled(model.selectedDownloads.isEmpty)
                     .help("Delete")
+            }
 
+            ToolbarItemGroup {
+                Picker(selection: Bindable(model).fileTypeFilter) {
+                    ForEach(FileTypeFilter.allCases, id: \.self) { f in
+                        LocalizedText(key: f.labelKey).tag(f)
+                    }
+                } label: { }
+                .labelsHidden()
+                .frame(width: 90)
+            }
+
+            ToolbarItemGroup {
                 Spacer()
 
                 Button { model.pauseAllDownloads() } label: { Label("Pause All", systemImage: "pause.rectangle") }
