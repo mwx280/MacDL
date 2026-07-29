@@ -10,6 +10,40 @@
     "16" : {
 
     },
+    "About" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        }
+      }
+    },
+    "About Aria2Desk" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About Aria2Desk"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于 Aria2Desk"
+          }
+        }
+      }
+    },
     "Active" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -57,23 +91,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "所有下载"
-          }
-        }
-      }
-    },
-    "About" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "About"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关于"
           }
         }
       }
@@ -129,6 +146,9 @@
         }
       }
     },
+    "Aria2Desk" : {
+
+    },
     "Cancel" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -162,6 +182,9 @@
           }
         }
       }
+    },
+    "Copyright © 2026 xiaowu" : {
+
     },
     "Dark" : {
       "extractionState" : "manual",
@@ -673,6 +696,9 @@
         }
       }
     },
+    "xiaowu" : {
+
+    },
     "中文" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -689,6 +715,9 @@
           }
         }
       }
+    },
+    "小舞" : {
+
     }
   },
   "version" : "1.0"

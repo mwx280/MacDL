@@ -14,6 +14,11 @@ struct Aria2DeskApp: App {
                 .environment(LanguageManager.shared)
                 .environment(Aria2RPCClient.shared)
         }
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About Aria2Desk") { Aria2DeskApp.showAbout() }
+            }
+        }
 
         Settings {
             SettingsView()
