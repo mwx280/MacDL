@@ -68,6 +68,28 @@ struct SettingsView: View {
 
                 GroupBox {
                     VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(engineStatusColor)
+                                    .frame(width: 8, height: 8)
+                                Text(engineStatusText)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(connectionColor)
+                                    .frame(width: 8, height: 8)
+                                Text(connectionText)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Divider()
+
                         fieldRow(label: "Host") {
                             TextField("localhost", text: $rpcHost)
                                 .textFieldStyle(.roundedBorder)
@@ -90,37 +112,24 @@ struct SettingsView: View {
                                 }
                         }
 
-                        HStack {
-                            Button {
-                                Task {
-                                    isTesting = true
-                                    _ = await client.testConnection()
-                                    isTesting = false
-                                }
-                            } label: {
-                                if isTesting {
-                                    HStack(spacing: 6) {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                        Text("Testing...")
-                                    }
-                                } else {
-                                    Text("Test Connection")
-                                }
+                        Button {
+                            Task {
+                                isTesting = true
+                                _ = await client.testConnection()
+                                isTesting = false
                             }
-                            .disabled(isTesting)
-
-                            Spacer()
-
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(connectionColor)
-                                    .frame(width: 8, height: 8)
-                                Text(connectionText)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
+                        } label: {
+                            if isTesting {
+                                HStack(spacing: 6) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                    Text("Testing...")
+                                }
+                            } else {
+                                Text("Test Connection")
                             }
                         }
+                        .disabled(isTesting)
                     }
                     .padding(4)
                 } label: {
@@ -145,6 +154,24 @@ struct SettingsView: View {
         case .disconnected: .gray
         case .connecting: .orange
         case .connected: .green
+        }
+    }
+
+    private var engineStatusColor: Color {
+        switch client.engineState {
+        case .stopped: .gray
+        case .starting: .orange
+        case .running: .green
+        case .error: .red
+        }
+    }
+
+    private var engineStatusText: String {
+        switch client.engineState {
+        case .stopped: "Engine Stopped"
+        case .starting: "Engine Starting..."
+        case .running: "Engine Running"
+        case .error(let msg): msg
         }
     }
 
