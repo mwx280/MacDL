@@ -21,21 +21,23 @@ struct ContentView: View {
             detailView
         }
         .toolbar {
-            ToolbarItem { Button { addDownload() } label: { Label("Add", systemImage: "plus") } }
-            ToolbarItem { Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") } }
-            ToolbarItem { Button { resumeAll() } label: { Label("Resume All", systemImage: "play") } }
-            ToolbarItem { Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") } }
-
-            ToolbarItem(placement: .status) {
-                HStack(spacing: 8) {
-                    Text("\(downloads.count)")
-                    Divider().frame(height: 12)
-                    Text(formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed }))
-                    Divider().frame(height: 12)
-                    Text(formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed }))
-                }
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(.secondary)
+            ToolbarItemGroup {
+                Button { addDownload() } label: { Label("Add", systemImage: "plus") }
+                Button { pauseAll() } label: { Label("Pause All", systemImage: "pause") }
+                Button { resumeAll() } label: { Label("Resume All", systemImage: "play") }
+                Button { clearCompleted() } label: { Label("Clear", systemImage: "trash") }
+                Spacer()
+                Text("总下载: \(downloads.count)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Divider().frame(height: 12)
+                Text("下载: \(formatSpeed(downloads.reduce(0) { $0 + $1.downloadSpeed }))")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Divider().frame(height: 12)
+                Text("上传: \(formatSpeed(downloads.reduce(0) { $0 + $1.uploadSpeed }))")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
             }
         }
         .onChange(of: selected) { _, _ in selectedDownloads.removeAll() }
