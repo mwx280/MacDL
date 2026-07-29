@@ -52,7 +52,7 @@ struct Aria2DeskApp: App {
         let window = NSWindow(contentViewController: vc)
         window.title = LanguageManager.shared.localized("About")
         window.styleMask = [.titled, .closable, .miniaturizable]
-        window.setContentSize(NSSize(width: 360, height: 280))
+        window.setContentSize(NSSize(width: 400, height: 340))
         window.center()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -61,41 +61,77 @@ struct Aria2DeskApp: App {
 
 private struct AboutView: View {
     @State private var refresh = UUID()
+    @State private var iconTapCount = 0
+
+    private var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
+    private var build: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
                 .frame(width: 64, height: 64)
+                .onTapGesture { iconTapCount += 1 }
 
             Text("Aria2Desk")
                 .font(.system(size: 20, weight: .medium))
 
-            Text("xiaowu")
-                .font(.system(size: 13))
+            Text("Version \(version) (build \(build))")
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
             Divider()
 
-            VStack(spacing: 6) {
-                Label(title: { Text("小舞") }, icon: { Image(systemName: "person") })
-                    .font(.system(size: 13))
-                Label(title: { Text("xiaowu") }, icon: { Image(systemName: "link") })
-                    .font(.system(size: 13))
+            VStack(spacing: 8) {
+                sectionHeader("Tech Stack")
+                Text("SwiftUI · Aria2")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
+
+            Divider()
+
+            VStack(spacing: 8) {
+                sectionHeader("Developer")
+                Label(title: { Text("小舞 / xiaowu") }, icon: { Image(systemName: "person") })
+                    .font(.system(size: 12))
+            }
+
+            Button { NSWorkspace.shared.open(URL(string: "https://github.com/xiaowu")!) } label: {
+                Label(title: { Text("github.com/xiaowu") }, icon: { Image(systemName: "arrow.up.right.square") })
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
 
             Spacer()
 
-            Text("Copyright © 2026 xiaowu")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
+            VStack(spacing: 4) {
+                Text("MIT License")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                Text("Copyright © 2026 xiaowu")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(24)
-        .frame(width: 360, height: 280)
+        .frame(width: 400, height: 340)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
         }
+    }
+
+    private func sectionHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.tertiary)
+            .textCase(.uppercase)
     }
 }
 
