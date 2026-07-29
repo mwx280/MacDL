@@ -115,12 +115,6 @@ private struct DownloadPane: View {
                 }
             }
 
-            HStack {
-                Spacer()
-                LocalizedText(key: "Changes require engine restart.")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-            }
         }
         .padding(20)
     }

@@ -58,23 +58,6 @@
         }
       }
     },
-    "Changes require engine restart." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes require engine restart."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "修改需重启引擎生效"
-          }
-        }
-      }
-    },
     "Completed" : {
       "extractionState" : "manual",
       "localizations" : {
