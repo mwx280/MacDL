@@ -47,16 +47,13 @@ struct ContentView: View {
             }
 
             ToolbarItemGroup {
+                Spacer()
                 Button { model.pauseAllDownloads() } label: { Label("Pause All", systemImage: "pause.rectangle") }
                     .disabled(!model.downloads.contains { $0.status == .active })
                     .help("Pause All")
                 Button { model.resumeAllDownloads() } label: { Label("Resume All", systemImage: "play.rectangle") }
                     .disabled(!model.downloads.contains { $0.status == .paused || $0.status == .waiting })
                     .help("Resume All")
-            }
-
-            ToolbarItemGroup {
-                Spacer()
                 HStack(spacing: 6) {
                     Text(String(format: LanguageManager.shared.localized("Total %lld"), model.downloads.count))
                     Text("|").foregroundStyle(.tertiary)
