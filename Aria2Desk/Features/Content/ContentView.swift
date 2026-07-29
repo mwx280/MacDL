@@ -59,4 +59,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(LanguageManager.shared)
+        .environment(Aria2RPCClient.shared)
 }

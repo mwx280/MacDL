@@ -88,6 +88,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 58D1C377301A5755003A4EEB /* Build configuration list for PBXNativeTarget "Aria2Desk" */;
 			buildPhases = (
+				36BF48C8-86E1-4F6A-961A-8C0CFEE6E161 /* Copy Aria2 Engine */,
 				58D1C368301A5754003A4EEB /* Sources */,
 				58D1C369301A5754003A4EEB /* Frameworks */,
 				58D1C36A301A5754003A4EEB /* Resources */,
@@ -154,6 +155,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		36BF48C8-86E1-4F6A-961A-8C0CFEE6E161 /* Copy Aria2 Engine */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			inputFileListPaths = (
+			);
+			name = "Copy Aria2 Engine";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/MacOS/aria2c",
+			);
+			outputFileListPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ARIA2_SRC=\"/opt/homebrew/bin/aria2c\"\nARIA2_DST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/MacOS/aria2c\"\n\nif [ -f \"$ARIA2_SRC\" ]; then\n  cp \"$ARIA2_SRC\" \"$ARIA2_DST\"\n  chmod +x \"$ARIA2_DST\"\n  echo \"Copied aria2c from Homebrew to ${ARIA2_DST}\"\nelse\n  echo \"warning: aria2c not found at ${ARIA2_SRC}, install via: brew install aria2\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		"0E3D4D40-30F2-488C-8456-D34C8914C692" /* Sources */ = {
