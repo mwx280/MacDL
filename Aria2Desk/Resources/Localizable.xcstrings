@@ -331,6 +331,40 @@
         }
       }
     },
+    "Default Max Connections" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Max Connections"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认最大连接数"
+          }
+        }
+      }
+    },
+    "Default Max Downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Max Downloads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认同时下载数"
+          }
+        }
+      }
+    },
     "Developer" : {
       "extractionState" : "manual",
       "localizations" : {

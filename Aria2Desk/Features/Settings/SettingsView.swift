@@ -70,7 +70,7 @@ private struct DownloadPane: View {
     var body: some View {
         VStack(spacing: 16) {
             card {
-                prefRow("number", "Max Connections") {
+                prefRow("number", "Default Max Connections") {
                     Picker(selection: $maxConnections) {
                         ForEach(connectionOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -85,7 +85,7 @@ private struct DownloadPane: View {
 
                 divider
 
-                prefRow("arrow.down.to.line", "Max Downloads") {
+                prefRow("arrow.down.to.line", "Default Max Downloads") {
                     Picker(selection: $maxConcurrent) {
                         ForEach(concurrentOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -110,7 +110,7 @@ private struct DownloadPane: View {
                             .font(.body)
                         Spacer()
                         Button { browsePath() } label: {
-                            Image(systemName: "ellipsis.circle")
+                            Image(systemName: "folder")
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
