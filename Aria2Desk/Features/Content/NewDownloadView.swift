@@ -15,24 +15,16 @@ struct NewDownloadView: View {
             Text(LanguageManager.shared.localized("New Download"))
                 .font(.headline)
 
-            TextEditor(text: $text)
-                .font(.system(size: 13, design: .monospaced))
-                .frame(height: 100)
-                .overlay {
-                    if text.isEmpty {
-                        Text(LanguageManager.shared.localized("One URL per line, multiple URLs supported"))
-                            .font(.system(size: 13))
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .padding(EdgeInsets(top: 3, leading: 5, bottom: 0, trailing: 0))
-                            .allowsHitTesting(false)
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(.separator, lineWidth: 1)
-                }
+            PlaceholderTextEditor(
+                text: $text,
+                placeholder: LanguageManager.shared.localized("One URL per line, multiple URLs supported")
+            )
+            .frame(height: 100)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(.separator, lineWidth: 1)
+            }
 
             HStack(spacing: 12) {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
