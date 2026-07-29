@@ -22,21 +22,29 @@ struct Aria2DeskApp: App {
         }
 
         MenuBarExtra {
-            Button { showWindow() } label: { Label("Show Window", systemImage: "macwindow") }
-            Button { hideWindow() } label: { Label("Hide Window", systemImage: "macwindow.badge.xmark") }
+            Button { showWindow() } label: {
+                Label(title: { LocalizedText(key: "Show Window") }, icon: { Image(systemName: "macwindow") })
+            }
 
-            Divider()
-
-            SettingsLink {
-                Label("Settings...", systemImage: "gearshape")
+            Button { hideWindow() } label: {
+                Label(title: { LocalizedText(key: "Hide Window") }, icon: { Image(systemName: "eye.slash") })
             }
 
             Divider()
 
-            Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "xmark.circle") }
+            SettingsLink {
+                Label(title: { LocalizedText(key: "Settings...") }, icon: { Image(systemName: "gearshape") })
+            }
+
+            Divider()
+
+            Button { NSApp.terminate(nil) } label: {
+                Label(title: { LocalizedText(key: "Quit") }, icon: { Image(systemName: "xmark.circle") })
+            }
         } label: {
             Image(systemName: "arrow.down.circle")
         }
+        .environment(LanguageManager.shared)
     }
 
     @MainActor
