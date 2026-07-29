@@ -56,6 +56,7 @@ private struct GeneralPane: View {
 private struct DownloadPane: View {
     @State private var maxConnections: Int
     @State private var maxConcurrent: Int
+    @State private var downloadPath: String
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
@@ -63,6 +64,7 @@ private struct DownloadPane: View {
     init() {
         _maxConnections = State(initialValue: SettingsStore.shared.maxConnections)
         _maxConcurrent = State(initialValue: SettingsStore.shared.maxConcurrentDownloads)
+        _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
     }
 
     var body: some View {
@@ -96,8 +98,51 @@ private struct DownloadPane: View {
                     }
                 }
             }
+
+            card {
+                VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "folder")
+                            .font(.body)
+                            .frame(width: 18)
+                            .foregroundStyle(.secondary)
+                        LocalizedText(key: "Download Location")
+                            .font(.body)
+                        Spacer()
+                        Button { browsePath() } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Browse...")
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+
+                    Text(downloadPath)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 10)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
         }
         .padding(20)
+    }
+
+    private func browsePath() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.message = LanguageManager.shared.localized("Select download folder")
+        panel.directoryURL = URL(fileURLWithPath: downloadPath)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        downloadPath = url.path
+        SettingsStore.shared.downloadPath = url.path
     }
 }
 

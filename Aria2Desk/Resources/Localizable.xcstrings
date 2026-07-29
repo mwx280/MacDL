@@ -13,12 +13,6 @@
     "█" : {
 
     },
-    "5" : {
-
-    },
-    "16" : {
-
-    },
     "About" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -364,6 +358,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载速度: %@"
+          }
+        }
+      }
+    },
+    "Download Location" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载位置"
           }
         }
       }
