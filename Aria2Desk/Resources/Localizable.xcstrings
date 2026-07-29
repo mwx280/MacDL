@@ -110,19 +110,19 @@
         }
       }
     },
-    "Engine" : {
+    "Download" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Engine"
+            "value" : "Download"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引擎"
+            "value" : "下载"
           }
         }
       }

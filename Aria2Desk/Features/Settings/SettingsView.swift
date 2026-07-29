@@ -27,10 +27,62 @@ enum Appearance: String, CaseIterable {
 }
 
 struct SettingsView: View {
+    var body: some View {
+        TabView {
+            GeneralPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "General") }, icon: { Image(systemName: "gear") })
+                }
+
+            DownloadPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Download") }, icon: { Image(systemName: "arrow.down.circle") })
+                }
+        }
+        .fixedSize()
+    }
+}
+
+private struct GeneralPane: View {
     @Environment(LanguageManager.self) var lang
-    @Environment(Aria2RPCClient.self) var client
     @AppStorage("appearance") private var appearance: Appearance = .system
 
+    var body: some View {
+        VStack(spacing: 0) {
+            Form {
+                HStack {
+                    LocalizedText(key: "Language")
+                    Spacer()
+                    Picker(selection: Bindable(lang).selectedLanguage) {
+                        ForEach(Language.allCases, id: \.self) { l in
+                            LocalizedText(key: l.displayKey).tag(l)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 120)
+                }
+                .id(lang.selectedLanguage)
+
+                HStack {
+                    LocalizedText(key: "Appearance")
+                    Spacer()
+                    Picker(selection: $appearance) {
+                        ForEach(Appearance.allCases, id: \.self) { a in
+                            LocalizedText(key: a.displayKey).tag(a)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 120)
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 400, height: 180)
+    }
+}
+
+private struct DownloadPane: View {
+    @Environment(Aria2RPCClient.self) var client
     @State private var maxConnections: String
     @State private var maxConcurrent: String
 
@@ -41,34 +93,23 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                settingsRow("globe", "Language") {
-                    Picker(selection: Bindable(lang).selectedLanguage) {
-                        ForEach(Language.allCases, id: \.self) { l in
-                            LocalizedText(key: l.displayKey).tag(l)
-                        }
-                    } label: { }
-                    .labelsHidden()
+        VStack(spacing: 0) {
+            Form {
+                HStack {
+                    LocalizedText(key: "Status")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(engineColor)
+                            .frame(width: 8, height: 8)
+                        LocalizedText(key: engineStatusKey)
+                            .foregroundStyle(engineColor)
+                    }
                 }
-                .id(lang.selectedLanguage)
 
-                settingsRow("circle.lefthalf.filled", "Appearance") {
-                    Picker(selection: $appearance) {
-                        ForEach(Appearance.allCases, id: \.self) { a in
-                            LocalizedText(key: a.displayKey).tag(a)
-                        }
-                    } label: { }
-                    .labelsHidden()
-                }
-            } header: {
-                LocalizedText(key: "General")
-            }
-
-            Section {
-                settingsRow("antenna.radiowaves.left.and.right", "Status") { engineStatusContent }
-
-                settingsRow("number", "Max Connections") {
+                HStack {
+                    LocalizedText(key: "Max Connections")
+                    Spacer()
                     TextField("16", text: $maxConnections)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -78,7 +119,9 @@ struct SettingsView: View {
                         }
                 }
 
-                settingsRow("arrow.down.to.line", "Max Downloads") {
+                HStack {
+                    LocalizedText(key: "Max Downloads")
+                    Spacer()
                     TextField("5", text: $maxConcurrent)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -87,40 +130,19 @@ struct SettingsView: View {
                             client.config.maxConcurrentDownloads = Int(v) ?? 5
                         }
                 }
-            } header: {
-                LocalizedText(key: "Engine")
             }
 
-            Section {
-                LocalizedText(key: "Changes require engine restart.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private func settingsRow<C: View>(_ icon: String, _ label: String, @ViewBuilder content: () -> C) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .frame(width: 16)
-                .foregroundStyle(.secondary)
-            LocalizedText(key: label)
             Spacer()
-            content()
-        }
-    }
 
-    @ViewBuilder
-    private var engineStatusContent: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(engineColor)
-                .frame(width: 8, height: 8)
-            LocalizedText(key: engineStatusKey)
-                .foregroundStyle(engineColor)
+            LocalizedText(key: "Changes require engine restart.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
         }
+        .padding(.top, 20)
+        .frame(width: 400, height: 180)
     }
 
     private var engineColor: Color {
@@ -140,5 +162,4 @@ struct SettingsView: View {
         case .error: "Error"
         }
     }
-
 }
