@@ -4,6 +4,9 @@
     "|" : {
 
     },
+    "█" : {
+
+    },
     "5" : {
 
     },
@@ -183,6 +186,40 @@
         }
       }
     },
+    "Access granted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access granted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "访问已授权。"
+          }
+        }
+      }
+    },
+    "Click anywhere to exit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click anywhere to exit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击任意位置退出"
+          }
+        }
+      }
+    },
     "Completed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -202,6 +239,23 @@
     },
     "Copyright © 2026 xiaowu" : {
 
+    },
+    "Connecting to server..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to server..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在连接服务器..."
+          }
+        }
+      }
     },
     "Dark" : {
       "extractionState" : "manual",
@@ -284,6 +338,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载"
+          }
+        }
+      }
+    },
+    "Download speed: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download speed: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载速度: %@"
+          }
+        }
+      }
+    },
+    "Downloading classified data..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading classified data..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在下载加密数据..."
           }
         }
       }
@@ -389,6 +477,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "如果觉得项目不错，欢迎点个 Star ⭐"
+          }
+        }
+      }
+    },
+    "Initializing download sequence..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initializing download sequence..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在初始化下载序列..."
           }
         }
       }
@@ -769,6 +874,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待中"
+          }
+        }
+      }
+    },
+    "You found the easter egg!" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You found the easter egg!"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你发现了彩蛋！"
           }
         }
       }

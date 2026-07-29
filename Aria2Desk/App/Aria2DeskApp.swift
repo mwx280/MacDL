@@ -282,13 +282,13 @@ private struct AboutView: View {
             withAnimation(.easeIn(duration: 0.3)) { bgOpacity = 1 }
 
             try? await Task.sleep(for: .milliseconds(300))
-            typeLine("> Initializing download sequence...")
+            typeLine("> \(LanguageManager.shared.localized("Initializing download sequence..."))")
             try? await Task.sleep(for: .milliseconds(400))
-            typeLine("> Connecting to server...")
+            typeLine("> \(LanguageManager.shared.localized("Connecting to server..."))")
             try? await Task.sleep(for: .milliseconds(400))
-            typeLine("> Download speed: \(barSpeed)")
+            typeLine("> " + String(format: LanguageManager.shared.localized("Download speed: %@"), barSpeed))
             try? await Task.sleep(for: .milliseconds(300))
-            typeLine("> Downloading classified data...")
+            typeLine("> \(LanguageManager.shared.localized("Downloading classified data..."))")
 
             try? await Task.sleep(for: .milliseconds(200))
 
@@ -303,9 +303,9 @@ private struct AboutView: View {
 
             typeLine("> ████████████████ 100%")
             try? await Task.sleep(for: .milliseconds(500))
-            typeLine("> Access granted.")
+            typeLine("> \(LanguageManager.shared.localized("Access granted."))")
             try? await Task.sleep(for: .milliseconds(600))
-            typeLine("> 🎉 You found the easter egg!")
+            typeLine("> \(LanguageManager.shared.localized("You found the easter egg!"))")
             try? await Task.sleep(for: .milliseconds(400))
             isComplete = true
         }
