@@ -43,9 +43,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                HStack {
-                    LocalizedText(key: "Language")
-                    Spacer()
+                settingsRow("globe", "Language") {
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
                             LocalizedText(key: l.displayKey).tag(l)
@@ -55,9 +53,7 @@ struct SettingsView: View {
                 }
                 .id(lang.selectedLanguage)
 
-                HStack {
-                    LocalizedText(key: "Appearance")
-                    Spacer()
+                settingsRow("circle.lefthalf.filled", "Appearance") {
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
                             LocalizedText(key: a.displayKey).tag(a)
@@ -70,11 +66,9 @@ struct SettingsView: View {
             }
 
             Section {
-                engineStatusRow
+                settingsRow("antenna.radiowaves.left.and.right", "Status") { engineStatusContent }
 
-                HStack {
-                    LocalizedText(key: "Max Connections")
-                    Spacer()
+                settingsRow("number", "Max Connections") {
                     TextField("16", text: $maxConnections)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -84,9 +78,7 @@ struct SettingsView: View {
                         }
                 }
 
-                HStack {
-                    LocalizedText(key: "Max Downloads")
-                    Spacer()
+                settingsRow("arrow.down.to.line", "Max Downloads") {
                     TextField("5", text: $maxConcurrent)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 72)
@@ -109,17 +101,25 @@ struct SettingsView: View {
         .formStyle(.grouped)
     }
 
-    private var engineStatusRow: some View {
-        HStack {
-            LocalizedText(key: "Status")
+    private func settingsRow<C: View>(_ icon: String, _ label: String, @ViewBuilder content: () -> C) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .frame(width: 16)
+                .foregroundStyle(.secondary)
+            LocalizedText(key: label)
             Spacer()
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(engineColor)
-                    .frame(width: 8, height: 8)
-                LocalizedText(key: engineStatusKey)
-                    .foregroundStyle(engineColor)
-            }
+            content()
+        }
+    }
+
+    @ViewBuilder
+    private var engineStatusContent: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(engineColor)
+                .frame(width: 8, height: 8)
+            LocalizedText(key: engineStatusKey)
+                .foregroundStyle(engineColor)
         }
     }
 
