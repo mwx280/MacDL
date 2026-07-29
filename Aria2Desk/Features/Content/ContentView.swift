@@ -22,8 +22,8 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup {
-                Button { addDownload() } label: { Label("Add", systemImage: "plus") }
-                    .help("Add")
+                Button { addDownload() } label: { Label("New Download", systemImage: "plus") }
+                    .help("New Download")
                 Button { pauseAll() } label: { Label("Pause", systemImage: "pause") }
                     .disabled(!downloads.contains { selectedDownloads.contains($0.id) && $0.status == .active })
                     .help("Pause")

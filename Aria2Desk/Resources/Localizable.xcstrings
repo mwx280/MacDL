@@ -367,6 +367,23 @@
         }
       }
     },
+    "New Download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建下载任务"
+          }
+        }
+      }
+    },
     "No Downloads" : {
       "extractionState" : "manual",
       "localizations" : {
