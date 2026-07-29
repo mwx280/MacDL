@@ -51,10 +51,10 @@ struct SettingsView: View {
 
     private var generalSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("General")
+            sectionHeader(key: "General")
 
             VStack(spacing: 1) {
-                pickerRow(icon: "globe", title: "Language") {
+                pickerRow(icon: "globe", titleKey: "Language") {
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
                             Text(l.displayName).tag(l)
@@ -65,7 +65,7 @@ struct SettingsView: View {
 
                 Divider().padding(.leading, 40)
 
-                pickerRow(icon: "circle.lefthalf.filled", title: "Appearance") {
+                pickerRow(icon: "circle.lefthalf.filled", titleKey: "Appearance") {
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
                             Text(a.displayName).tag(a)
@@ -81,21 +81,21 @@ struct SettingsView: View {
 
     private var rpcSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("RPC Connection")
+            sectionHeader(key: "RPC Connection")
 
             VStack(spacing: 1) {
                 HStack(spacing: 16) {
                     Image(systemName: "terminal")
                         .frame(width: 20)
                         .foregroundStyle(.secondary)
-                    Text("Engine")
+                    LocalizedText(key: "Engine")
                         .foregroundStyle(.secondary)
                     Spacer()
                     HStack(spacing: 6) {
                         Circle()
                             .fill(engineColor)
                             .frame(width: 8, height: 8)
-                        Text(engineText)
+                        LocalizedText(key: engineStatusKey)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -105,19 +105,19 @@ struct SettingsView: View {
                 Divider()
 
                 VStack(spacing: 8) {
-                    inputRow(label: "Host") {
+                    inputRow(labelKey: "Host") {
                         TextField("localhost", text: $rpcHost)
                             .textFieldStyle(.plain)
                             .onChange(of: rpcHost) { _, v in client.config.host = v }
                     }
 
-                    inputRow(label: "Port") {
+                    inputRow(labelKey: "Port") {
                         TextField("6800", text: $rpcPort)
                             .textFieldStyle(.plain)
                             .onChange(of: rpcPort) { _, v in client.config.port = Int(v) ?? 6800 }
                     }
 
-                    inputRow(label: "Token") {
+                    inputRow(labelKey: "Token") {
                         SecureField("Secret Token", text: $rpcToken)
                             .textFieldStyle(.plain)
                             .onChange(of: rpcToken) { _, v in client.config.secretToken = v }
@@ -134,17 +134,17 @@ struct SettingsView: View {
                             if isTesting {
                                 HStack(spacing: 6) {
                                     ProgressView().controlSize(.small)
-                                    Text("Testing...")
+                                    LocalizedText(key: "Testing...")
                                 }
                             } else {
-                                Text("Test Connection")
+                                LocalizedText(key: "Test Connection")
                             }
                         }
                         .disabled(isTesting)
 
                         HStack(spacing: 4) {
                             Circle().fill(rpcColor).frame(width: 6, height: 6)
-                            Text(rpcText)
+                            LocalizedText(key: rpcStatusKey)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -159,20 +159,20 @@ struct SettingsView: View {
         }
     }
 
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
+    private func sectionHeader(key: String) -> some View {
+        LocalizedText(key: key)
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.secondary)
             .padding(.leading, 8)
             .padding(.bottom, 6)
     }
 
-    private func pickerRow<C: View>(icon: String, title: String, @ViewBuilder content: () -> C) -> some View {
+    private func pickerRow<C: View>(icon: String, titleKey: String, @ViewBuilder content: () -> C) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .frame(width: 20)
                 .foregroundStyle(.secondary)
-            Text(title)
+            LocalizedText(key: titleKey)
                 .foregroundStyle(.primary)
             Spacer()
             content()
@@ -181,9 +181,9 @@ struct SettingsView: View {
         .padding(.vertical, 8)
     }
 
-    private func inputRow<C: View>(label: String, @ViewBuilder content: () -> C) -> some View {
+    private func inputRow<C: View>(labelKey: String, @ViewBuilder content: () -> C) -> some View {
         HStack(spacing: 12) {
-            Text(label)
+            LocalizedText(key: labelKey)
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .leading)
             content()
@@ -199,12 +199,12 @@ struct SettingsView: View {
         }
     }
 
-    private var engineText: String {
+    private var engineStatusKey: String {
         switch client.engineState {
         case .running: "Running"
         case .starting: "Starting..."
         case .stopped: "Stopped"
-        case .error(let msg): msg
+        case .error: "Error"
         }
     }
 
@@ -216,7 +216,7 @@ struct SettingsView: View {
         }
     }
 
-    private var rpcText: String {
+    private var rpcStatusKey: String {
         switch client.status {
         case .connected: "Connected"
         case .connecting: "Connecting..."
