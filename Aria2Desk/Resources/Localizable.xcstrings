@@ -220,6 +220,23 @@
         }
       }
     },
+    "Developer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Developer"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开发者"
+          }
+        }
+      }
+    },
     "Down %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -322,7 +339,7 @@
         }
       }
     },
-    "github.com/xiaowu" : {
+    "github.com/mwx280" : {
 
     },
     "Hide Window" : {
@@ -671,6 +688,23 @@
         }
       }
     },
+    "Tech Stack" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tech Stack"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "技术栈"
+          }
+        }
+      }
+    },
     "Up %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -711,6 +745,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待中"
+          }
+        }
+      }
+    },
+    "Version %@ (build %@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ (build %@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@ (构建 %@)"
           }
         }
       }

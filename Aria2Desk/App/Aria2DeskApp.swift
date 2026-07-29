@@ -80,14 +80,14 @@ private struct AboutView: View {
             Text("Aria2Desk")
                 .font(.system(size: 20, weight: .medium))
 
-            Text("Version \(version) (build \(build))")
+            Text(String(format: LanguageManager.shared.localized("Version %@ (build %@)"), version, build))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
             Divider()
 
             VStack(spacing: 8) {
-                sectionHeader("Tech Stack")
+                sectionHeader(LanguageManager.shared.localized("Tech Stack"))
                 Text("SwiftUI · Aria2")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -96,7 +96,7 @@ private struct AboutView: View {
             Divider()
 
             VStack(spacing: 8) {
-                sectionHeader("Developer")
+                sectionHeader(LanguageManager.shared.localized("Developer"))
                 Label(title: { Text("小舞 / xiaowu") }, icon: { Image(systemName: "person") })
                     .font(.system(size: 12))
             }
@@ -126,7 +126,7 @@ private struct AboutView: View {
     }
 
     private func sectionHeader(_ text: String) -> some View {
-        Text(text)
+        Text(verbatim: text)
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(.tertiary)
             .textCase(.uppercase)
