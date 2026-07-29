@@ -46,7 +46,7 @@ private struct MenuBarContent: View {
     var body: some View {
         Group {
             Button { Aria2DeskApp.showWindow() } label: {
-                Text(verbatim: t("Show Window"))
+                Label(title: { Text(verbatim: t("Show Window")) }, icon: { Image(systemName: "macwindow") })
             }
 
             Button { Aria2DeskApp.hideWindow() } label: {
