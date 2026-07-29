@@ -82,7 +82,7 @@ private struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
     private var totalSpeed: Int64 {
-        Download.mock.reduce(0) { $0 + $1.downloadSpeed }
+        PreviewContent.downloads.reduce(0) { $0 + $1.downloadSpeed }
     }
 
     var body: some View {

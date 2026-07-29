@@ -4,7 +4,7 @@ import AppKit
 struct ContentView: View {
     @State private var selected: SidebarItem? = .all
     @State private var selectedDownloads = Set<UUID>()
-    @State private var downloads = Download.mock
+    @State private var downloads = PreviewContent.downloads
     @State private var showNewDownloadSheet = false
     @State private var newDownloadURLs = ""
     @AppStorage("appearance") private var appearance: Appearance = .system

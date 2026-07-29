@@ -15,31 +15,7 @@ enum RPCConnectionStatus {
 }
 
 struct RPCConfig {
-    var host: String {
-        get { UserDefaults.standard.string(forKey: "rpcHost") ?? "localhost" }
-        set { UserDefaults.standard.set(newValue, forKey: "rpcHost") }
-    }
-
-    var secretToken: String {
-        get { UserDefaults.standard.string(forKey: "rpcSecretToken") ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: "rpcSecretToken") }
-    }
-
-    var maxConnections: Int {
-        get {
-            let v = UserDefaults.standard.integer(forKey: "maxConnections")
-            return v == 0 ? 16 : v
-        }
-        set { UserDefaults.standard.set(newValue, forKey: "maxConnections") }
-    }
-
-    var maxConcurrentDownloads: Int {
-        get {
-            let v = UserDefaults.standard.integer(forKey: "maxConcurrentDownloads")
-            return v == 0 ? 5 : v
-        }
-        set { UserDefaults.standard.set(newValue, forKey: "maxConcurrentDownloads") }
-    }
+    var host: String = "localhost"
 
     var appSupportDirectory: String {
         let base = FileManager.default.homeDirectoryForCurrentUser

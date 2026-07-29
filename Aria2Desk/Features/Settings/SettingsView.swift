@@ -59,9 +59,8 @@ private struct DownloadPane: View {
     @State private var maxConcurrent: String
 
     init() {
-        let config = Aria2RPCClient.shared.config
-        _maxConnections = State(initialValue: String(config.maxConnections))
-        _maxConcurrent = State(initialValue: String(config.maxConcurrentDownloads))
+        _maxConnections = State(initialValue: String(SettingsStore.shared.maxConnections))
+        _maxConcurrent = State(initialValue: String(SettingsStore.shared.maxConcurrentDownloads))
     }
 
     var body: some View {
@@ -73,7 +72,7 @@ private struct DownloadPane: View {
                         .frame(width: 72)
                         .multilineTextAlignment(.trailing)
                         .onChange(of: maxConnections) { _, v in
-                            client.config.maxConnections = Int(v) ?? 16
+                            SettingsStore.shared.maxConnections = Int(v) ?? 16
                         }
                 }
 
@@ -85,7 +84,7 @@ private struct DownloadPane: View {
                         .frame(width: 72)
                         .multilineTextAlignment(.trailing)
                         .onChange(of: maxConcurrent) { _, v in
-                            client.config.maxConcurrentDownloads = Int(v) ?? 5
+                            SettingsStore.shared.maxConcurrentDownloads = Int(v) ?? 5
                         }
                 }
             }

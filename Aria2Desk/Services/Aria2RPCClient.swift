@@ -190,8 +190,8 @@ final class Aria2RPCClient {
             "--rpc-listen-all=true",
             "--rpc-allow-origin-all=true",
             "--rpc-listen-port=\(rpcPort)",
-            "--max-connection-per-server=\(config.maxConnections)",
-            "--max-concurrent-downloads=\(config.maxConcurrentDownloads)",
+            "--max-connection-per-server=\(SettingsStore.shared.maxConnections)",
+            "--max-concurrent-downloads=\(SettingsStore.shared.maxConcurrentDownloads)",
             "--dir=\(config.downloadDirectory)",
             "--input-file=\(config.aria2SessionPath)",
             "--save-session=\(config.aria2SessionPath)",
@@ -199,7 +199,7 @@ final class Aria2RPCClient {
             "--disable-ipv6=true",
         ]
 
-        let token = config.secretToken.trimmingCharacters(in: .whitespaces)
+        let token = SettingsStore.shared.secretToken.trimmingCharacters(in: .whitespaces)
         if !token.isEmpty {
             args.append("--rpc-secret=\(token)")
         }
@@ -224,7 +224,7 @@ final class Aria2RPCClient {
     }
 
     private func secretParams(_ params: [Any]) -> [Any] {
-        let token = config.secretToken.trimmingCharacters(in: .whitespaces)
+        let token = SettingsStore.shared.secretToken.trimmingCharacters(in: .whitespaces)
         if token.isEmpty { return params }
         return ["token:\(token)"] + params
     }
