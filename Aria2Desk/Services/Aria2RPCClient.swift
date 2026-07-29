@@ -1,231 +1,52 @@
 import Foundation
-import AppKit
 import Observation
-import Darwin
-
-enum EngineState {
-    case stopped
-    case starting
-    case running
-    case error(String)
-
-    var label: String {
-        switch self {
-        case .stopped: "Stopped"
-        case .starting: "Starting..."
-        case .running: "Running"
-        case .error: "Error"
-        }
-    }
-}
 
 @Observable
 final class Aria2RPCClient {
-    static let shared = Aria2RPCClient()
+    static let shared = Aria2RPCClient(
+        engine: Aria2Engine.shared,
+        transport: RPCTransport.shared
+    )
 
-    var config = RPCConfig()
-    var status: RPCConnectionStatus = .disconnected
-    var engineState: EngineState = .stopped
-    var rpcPort = 0
+    let engine: EngineServiceProtocol
+    let transport: RPCTransport
 
-    private var engineProcess: Process?
-    private var terminationObserver: NSObjectProtocol?
+    var engineState: EngineState { engine.engineState }
+    var status: RPCConnectionStatus { transport.status }
+    var rpcPort: Int { engine.rpcPort }
+    var config: RPCConfig { transport.config }
 
-    private init() {
-        terminationObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.stopEngine()
-        }
-    }
-
-    deinit {
-        stopEngine()
-    }
-
-    var enginePath: String {
-        Bundle.main.bundlePath + "/Contents/MacOS/aria2c"
-    }
-
-    var engineExists: Bool {
-        FileManager.default.isExecutableFile(atPath: enginePath)
+    init(engine: EngineServiceProtocol, transport: RPCTransport) {
+        self.engine = engine
+        self.transport = transport
     }
 
     func startEngine() {
-        guard engineExists else {
-            engineState = .error("Engine not found")
-            return
-        }
-        if case .running = engineState { return }
-
-        engineState = .starting
-        rpcPort = findAvailablePort()
-        ensureDirectories()
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: enginePath)
-        process.arguments = buildEngineArguments()
-        process.terminationHandler = { [weak self] p in
-            DispatchQueue.main.async {
-                guard let self, self.engineProcess === p else { return }
-                self.engineProcess = nil
-                self.engineState = p.terminationStatus == 0 ? .stopped : .error("Exit code \(p.terminationStatus)")
-                self.status = .disconnected
-            }
-        }
-
-        do {
-            try process.run()
-            engineProcess = process
-            engineState = .running
-            autoConnect()
-        } catch {
-            engineState = .error(error.localizedDescription)
+        engine.start()
+        if case .running = engine.engineState {
+            transport.rpcPort = engine.rpcPort
+            transport.autoConnect()
         }
     }
 
     func restartEngine() {
-        engineProcess?.terminate()
-        engineProcess?.waitUntilExit()
-        engineProcess = nil
-        engineState = .stopped
-        status = .disconnected
-        Thread.sleep(forTimeInterval: 0.3)
-        startEngine()
+        engine.restart()
+        if case .running = engine.engineState {
+            transport.rpcPort = engine.rpcPort
+            transport.autoConnect()
+        }
     }
 
     func stopEngine() {
-        guard let process = engineProcess else { return }
-        process.terminationHandler = nil
-        process.terminate()
-        engineProcess = nil
-        engineState = .stopped
-        status = .disconnected
-        DispatchQueue.global().async {
-            process.waitUntilExit()
-        }
-    }
-
-    private func findAvailablePort() -> Int {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        guard fd >= 0 else { return 6800 }
-        defer { close(fd) }
-
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = 0
-        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
-
-        let len = socklen_t(MemoryLayout<sockaddr_in>.size)
-        guard withUnsafePointer(to: &addr, {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(fd, $0, len) == 0
-            }
-        }) else { return 6800 }
-
-        var addrOut = sockaddr_in()
-        var addrLen = len
-        guard withUnsafeMutablePointer(to: &addrOut, {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                getsockname(fd, $0, &addrLen) == 0
-            }
-        }) else { return 6800 }
-
-        return Int(addrOut.sin_port.bigEndian)
+        engine.stop()
+        transport.disconnect()
     }
 
     func testConnection() async -> Bool {
-        status = .connecting
-        defer {
-            if status == .connecting { status = .disconnected }
-        }
-
-        let requestBody: [String: Any] = [
-            "jsonrpc": "2.0",
-            "id": UUID().uuidString,
-            "method": "aria2.getVersion",
-            "params": secretParams([]),
-        ]
-
-        guard let url = URL(string: "http://\(config.host):\(rpcPort)/jsonrpc"),
-              let httpBody = try? JSONSerialization.data(withJSONObject: requestBody)
-        else {
-            status = .disconnected
-            return false
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = httpBody
-        request.timeoutInterval = 5
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  json["error"] == nil
-            else {
-                status = .disconnected
-                return false
-            }
-            status = .connected
-            return true
-        } catch {
-            status = .disconnected
-            return false
-        }
+        await transport.testConnection()
     }
 
     func disconnect() {
-        status = .disconnected
-    }
-
-    private func buildEngineArguments() -> [String] {
-        var args = [
-            "--enable-rpc",
-            "--rpc-listen-all=true",
-            "--rpc-allow-origin-all=true",
-            "--rpc-listen-port=\(rpcPort)",
-            "--max-connection-per-server=\(SettingsStore.shared.maxConnections)",
-            "--max-concurrent-downloads=\(SettingsStore.shared.maxConcurrentDownloads)",
-            "--dir=\(config.downloadDirectory)",
-            "--input-file=\(config.aria2SessionPath)",
-            "--save-session=\(config.aria2SessionPath)",
-            "--save-session-interval=30",
-            "--disable-ipv6=true",
-        ]
-
-        let token = SettingsStore.shared.secretToken.trimmingCharacters(in: .whitespaces)
-        if !token.isEmpty {
-            args.append("--rpc-secret=\(token)")
-        }
-        return args
-    }
-
-    private func ensureDirectories() {
-        let fm = FileManager.default
-        for dir in [config.appSupportDirectory, config.downloadDirectory] {
-            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        }
-        if !fm.fileExists(atPath: config.aria2SessionPath) {
-            fm.createFile(atPath: config.aria2SessionPath, contents: nil)
-        }
-    }
-
-    private func autoConnect() {
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            _ = await testConnection()
-        }
-    }
-
-    private func secretParams(_ params: [Any]) -> [Any] {
-        let token = SettingsStore.shared.secretToken.trimmingCharacters(in: .whitespaces)
-        if token.isEmpty { return params }
-        return ["token:\(token)"] + params
+        transport.disconnect()
     }
 }
