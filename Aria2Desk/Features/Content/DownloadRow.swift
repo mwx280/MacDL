@@ -2,6 +2,9 @@ import SwiftUI
 
 struct DownloadRow: View {
     let download: Download
+    var onPause: ((UUID) -> Void)?
+    var onResume: ((UUID) -> Void)?
+    var onDelete: ((UUID) -> Void)?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -33,6 +36,16 @@ struct DownloadRow: View {
             }
         }
         .padding(.vertical, 4)
+        .contextMenu {
+            if download.status == .active {
+                Button { onPause?(download.id) } label: { Label("Pause", systemImage: "pause") }
+            }
+            if download.status == .paused || download.status == .waiting {
+                Button { onResume?(download.id) } label: { Label("Resume", systemImage: "play") }
+            }
+            Divider()
+            Button { onDelete?(download.id) } label: { Label("Delete", systemImage: "trash") }
+        }
     }
 
     private var fileIcon: some View {

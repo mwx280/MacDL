@@ -70,7 +70,11 @@ struct ContentView: View {
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
         } else {
-            DownloadListView(downloads: f, selection: $model.selectedDownloads)
+            DownloadListView(downloads: f, selection: $model.selectedDownloads,
+                onPause: { model.pauseDownload(id: $0) },
+                onResume: { model.resumeDownload(id: $0) },
+                onDelete: { model.deleteDownload(id: $0) }
+            )
         }
     }
 }

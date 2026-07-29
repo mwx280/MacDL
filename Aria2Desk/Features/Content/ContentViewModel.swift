@@ -69,6 +69,22 @@ final class ContentViewModel {
         downloads.append(d)
     }
 
+    func pauseDownload(id: UUID) {
+        guard let i = downloads.firstIndex(where: { $0.id == id }),
+              downloads[i].status == .active else { return }
+        downloads[i].status = .paused
+    }
+
+    func resumeDownload(id: UUID) {
+        guard let i = downloads.firstIndex(where: { $0.id == id }),
+              downloads[i].status == .paused || downloads[i].status == .waiting else { return }
+        downloads[i].status = .active
+    }
+
+    func deleteDownload(id: UUID) {
+        downloads.removeAll { $0.id == id }
+    }
+
     private func clearCompleted(deleteFiles: Bool = false) {
         if deleteFiles {
             let dir = Aria2RPCClient.shared.config.downloadDirectory
