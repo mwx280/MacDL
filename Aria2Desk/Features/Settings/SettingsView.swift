@@ -110,9 +110,7 @@ private struct DownloadPane: View {
                             .font(.body)
                         Spacer()
                         Button(LanguageManager.shared.localized("Select...")) { browsePath() }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.tint)
-                            .font(.system(size: 12))
+                            .controlSize(.small)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
