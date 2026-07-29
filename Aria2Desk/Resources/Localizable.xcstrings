@@ -711,6 +711,9 @@
         }
       }
     },
+    "Pause All" : {
+
+    },
     "Paused" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -779,6 +782,9 @@
         }
       }
     },
+    "Resume All" : {
+
+    },
     "Running" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -830,23 +836,6 @@
         }
       }
     },
-    "Show in Finder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show in Finder"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在访达中显示"
-          }
-        }
-      }
-    },
     "Settings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -865,7 +854,21 @@
       }
     },
     "Show in Finder" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Finder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在访达中显示"
+          }
+        }
+      }
     },
     "Show Window" : {
       "extractionState" : "manual",
