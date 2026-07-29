@@ -4,8 +4,28 @@
     "" : {
 
     },
+    "%@: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$lld"
+          }
+        }
+      }
+    },
     "%lld" : {
 
+    },
+    "%lld (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld (%2$@)"
+          }
+        }
+      }
     },
     "|" : {
 
@@ -362,23 +382,6 @@
         }
       }
     },
-    "Download speed: %@" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download speed: %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下载速度: %@"
-          }
-        }
-      }
-    },
     "Download Location" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -392,6 +395,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载位置"
+          }
+        }
+      }
+    },
+    "Download speed: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download speed: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载速度: %@"
           }
         }
       }
@@ -810,6 +830,23 @@
         }
       }
     },
+    "Show in Finder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Finder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在访达中显示"
+          }
+        }
+      }
+    },
     "Settings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -826,6 +863,9 @@
           }
         }
       }
+    },
+    "Show in Finder" : {
+
     },
     "Show Window" : {
       "extractionState" : "manual",
