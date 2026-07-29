@@ -83,7 +83,8 @@ struct ContentView: View {
             DownloadListView(downloads: f, selection: $model.selectedDownloads,
                 onPause: { model.pauseDownload(id: $0) },
                 onResume: { model.resumeDownload(id: $0) },
-                onDelete: { model.deleteDownload(id: $0) }
+                onDelete: { model.deleteDownload(id: $0) },
+                onSetConnections: { model.setConnections(id: $0, connections: $1) }
             )
         }
     }

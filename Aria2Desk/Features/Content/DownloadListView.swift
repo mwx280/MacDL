@@ -6,10 +6,13 @@ struct DownloadListView: View {
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
+    var onSetConnections: ((UUID, Int) -> Void)?
 
     var body: some View {
         List(downloads, selection: $selection) { download in
-            DownloadRow(download: download, onPause: onPause, onResume: onResume, onDelete: onDelete)
+            DownloadRow(download: download,
+                onPause: onPause, onResume: onResume,
+                onDelete: onDelete, onSetConnections: onSetConnections)
         }
         .listStyle(.inset)
     }

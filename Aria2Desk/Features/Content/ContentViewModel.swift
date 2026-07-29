@@ -87,6 +87,11 @@ final class ContentViewModel {
         downloads.removeAll { $0.id == id }
     }
 
+    func setConnections(id: UUID, connections: Int) {
+        guard let i = downloads.firstIndex(where: { $0.id == id }) else { return }
+        downloads[i].connections = connections
+    }
+
     private func clearCompleted(deleteFiles: Bool = false) {
         if deleteFiles {
             let dir = Aria2RPCClient.shared.config.downloadDirectory

@@ -5,6 +5,9 @@ struct DownloadRow: View {
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
+    var onSetConnections: ((UUID, Int) -> Void)?
+
+    private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
 
     var body: some View {
         HStack(spacing: 12) {
@@ -42,6 +45,16 @@ struct DownloadRow: View {
             }
             if download.status == .paused || download.status == .waiting {
                 Button { onResume?(download.id) } label: { Label("Resume", systemImage: "play") }
+            }
+            Divider()
+            Menu {
+                ForEach(connectionOptions, id: \.self) { n in
+                    Button("\(n)") {
+                        onSetConnections?(download.id, n)
+                    }
+                }
+            } label: {
+                Label("Connections", systemImage: "number")
             }
             Divider()
             Button { onDelete?(download.id) } label: { Label("Delete", systemImage: "trash") }
