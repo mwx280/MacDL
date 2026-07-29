@@ -31,18 +31,11 @@ struct SettingsView: View {
     @Environment(Aria2RPCClient.self) var client
     @AppStorage("appearance") private var appearance: Appearance = .system
 
-    @State private var rpcHost: String
-    @State private var rpcPort: String
-    @State private var rpcToken: String
     @State private var maxConnections: String
     @State private var maxConcurrent: String
-    @State private var isTesting = false
 
     init() {
         let config = Aria2RPCClient.shared.config
-        _rpcHost = State(initialValue: config.host)
-        _rpcPort = State(initialValue: String(config.port))
-        _rpcToken = State(initialValue: config.secretToken)
         _maxConnections = State(initialValue: String(config.maxConnections))
         _maxConcurrent = State(initialValue: String(config.maxConcurrentDownloads))
     }
@@ -90,14 +83,14 @@ struct SettingsView: View {
 
     private var rpcSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(key: "RPC Connection")
+            sectionHeader(key: "Engine")
 
             VStack(spacing: 1) {
                 HStack(spacing: 16) {
                     Image(systemName: "terminal")
                         .frame(width: 20)
                         .foregroundStyle(.secondary)
-                    LocalizedText(key: "Engine")
+                    LocalizedText(key: "Status")
                         .foregroundStyle(.secondary)
                     Spacer()
                     HStack(spacing: 6) {
@@ -114,24 +107,6 @@ struct SettingsView: View {
                 Divider()
 
                 VStack(spacing: 8) {
-                    inputRow(labelKey: "Host") {
-                        TextField("localhost", text: $rpcHost)
-                            .textFieldStyle(.plain)
-                            .onChange(of: rpcHost) { _, v in client.config.host = v }
-                    }
-
-                    inputRow(labelKey: "Port") {
-                        TextField("6800", text: $rpcPort)
-                            .textFieldStyle(.plain)
-                            .onChange(of: rpcPort) { _, v in client.config.port = Int(v) ?? 6800 }
-                    }
-
-                    inputRow(labelKey: "Token") {
-                        SecureField("Secret Token", text: $rpcToken)
-                            .textFieldStyle(.plain)
-                            .onChange(of: rpcToken) { _, v in client.config.secretToken = v }
-                    }
-
                     inputRow(labelKey: "Max Connections") {
                         TextField("16", text: $maxConnections)
                             .textFieldStyle(.plain)
@@ -152,34 +127,6 @@ struct SettingsView: View {
                         Text("Changes require engine restart.")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
-                    }
-                    .padding(.leading, 64)
-
-                    HStack(spacing: 10) {
-                        Button {
-                            Task {
-                                isTesting = true
-                                _ = await client.testConnection()
-                                isTesting = false
-                            }
-                        } label: {
-                            if isTesting {
-                                HStack(spacing: 6) {
-                                    ProgressView().controlSize(.small)
-                                    LocalizedText(key: "Testing...")
-                                }
-                            } else {
-                                LocalizedText(key: "Test Connection")
-                            }
-                        }
-                        .disabled(isTesting)
-
-                        HStack(spacing: 4) {
-                            Circle().fill(rpcColor).frame(width: 6, height: 6)
-                            LocalizedText(key: rpcStatusKey)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                     }
                     .padding(.leading, 64)
                 }
@@ -240,19 +187,4 @@ struct SettingsView: View {
         }
     }
 
-    private var rpcColor: Color {
-        switch client.status {
-        case .connected: .green
-        case .connecting: .orange
-        case .disconnected: .gray
-        }
-    }
-
-    private var rpcStatusKey: String {
-        switch client.status {
-        case .connected: "Connected"
-        case .connecting: "Connecting..."
-        case .disconnected: "Disconnected"
-        }
-    }
 }

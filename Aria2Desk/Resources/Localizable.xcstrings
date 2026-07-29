@@ -7,9 +7,6 @@
     "16" : {
 
     },
-    "6800" : {
-
-    },
     "Active" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -95,40 +92,7 @@
         }
       }
     },
-    "Connected" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connected"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已连接"
-          }
-        }
-      }
-    },
-    "Connecting..." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connecting..."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连接中..."
-          }
-        }
-      }
-    },
+
     "Dark" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -142,23 +106,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "深色"
-          }
-        }
-      }
-    },
-    "Disconnected" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Disconnected"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已断开"
           }
         }
       }
@@ -248,23 +195,6 @@
         }
       }
     },
-    "Host" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Host"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "主机"
-          }
-        }
-      }
-    },
     "Language" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -298,9 +228,6 @@
           }
         }
       }
-    },
-    "localhost" : {
-
     },
     "Max Connections" : {
       "extractionState" : "manual",
@@ -353,40 +280,7 @@
         }
       }
     },
-    "Port" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Port"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "端口"
-          }
-        }
-      }
-    },
-    "RPC Connection" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPC Connection"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RPC 连接"
-          }
-        }
-      }
-    },
+
     "Running" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -400,23 +294,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "运行中"
-          }
-        }
-      }
-    },
-    "Secret Token" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Secret Token"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "密钥"
           }
         }
       }
@@ -472,53 +349,19 @@
         }
       }
     },
-    "Test Connection" : {
+    "Status" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test Connection"
+            "value" : "Status"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "测试连接"
-          }
-        }
-      }
-    },
-    "Testing..." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Testing..."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "测试中..."
-          }
-        }
-      }
-    },
-    "Token" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Token"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "令牌"
+            "value" : "状态"
           }
         }
       }
