@@ -214,9 +214,11 @@ private struct AboutView: View {
 
     private func flashOnce() {
         guard flashIndex < 0 else { return }
-        flashIndex = 0
         Task {
-            try? await Task.sleep(for: .milliseconds(60))
+            for i in flashColors.indices {
+                flashIndex = i
+                try? await Task.sleep(for: .milliseconds(180 / flashColors.count))
+            }
             flashIndex = -1
         }
     }
