@@ -34,6 +34,7 @@ final class DownloadTask: NSObject {
     private var speedSamples: [(Date, Int64)] = []
     private var throttleStartTime: Date = .distantPast
     private var throttleStartBytes: Int64 = 0
+    private var isThrottled = false
     private(set) var isPaused = false
     private(set) var isCompleted = false
 
@@ -172,6 +173,12 @@ final class DownloadTask: NSObject {
         fileHandle?.write(data)
         totalBytesWritten += Int64(data.count)
     }
+
+    func resetThrottle() {
+        throttleStartTime = Date()
+        throttleStartBytes = totalBytesWritten
+        isThrottled = false
+    }
 }
 
 // MARK: - URLSessionDataDelegate
@@ -242,14 +249,17 @@ extension DownloadTask: URLSessionDataDelegate {
             lastCheckTime = now
         }
 
-        if speedLimit > 0 {
+        if speedLimit > 0, !isThrottled {
             let expectedElapsed = Double(totalBytesWritten - throttleStartBytes) / Double(speedLimit)
             let actualElapsed = now.timeIntervalSince(throttleStartTime)
             let ahead = expectedElapsed - actualElapsed
             if ahead > 0 {
+                isThrottled = true
                 task?.suspend()
-                DispatchQueue.main.asyncAfter(deadline: .now() + min(ahead, 0.5)) { [weak self] in
-                    self?.task?.resume()
+                DispatchQueue.main.asyncAfter(deadline: .now() + min(ahead, 2.0)) { [weak self] in
+                    guard let self else { return }
+                    self.isThrottled = false
+                    self.task?.resume()
                 }
             }
         }
