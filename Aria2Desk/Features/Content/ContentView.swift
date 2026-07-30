@@ -40,7 +40,8 @@ struct ContentView: View {
                     }
                 } label: { }
                 .labelsHidden()
-                .frame(width: 75)
+                .frame(width: 60)
+                .help("Filter")
 
                 Spacer()
 
