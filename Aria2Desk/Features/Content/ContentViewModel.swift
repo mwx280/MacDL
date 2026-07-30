@@ -18,7 +18,7 @@ final class ContentViewModel {
     init() {
         downloads = persistence.load()
         for i in downloads.indices where downloads[i].status == .active {
-            downloads[i].status = .waiting
+            downloads[i].status = .paused
         }
         termObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
