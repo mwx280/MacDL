@@ -105,6 +105,41 @@ final class ContentViewModel {
 
     func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
+        let dir = savePath ?? RPCConfig.defaultDownloadDir
+
+        if let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? RPCConfig.defaultDownloadDir) == dir) }) {
+            let alert = NSAlert()
+            switch existing.status {
+            case .active, .waiting:
+                alert.messageText = LanguageManager.shared.localized("Duplicate URL")
+                alert.informativeText = LanguageManager.shared.localized("The URL is already in the download queue")
+                alert.addButton(withTitle: LanguageManager.shared.localized("OK"))
+                alert.runModal()
+                return
+            case .paused:
+                alert.messageText = LanguageManager.shared.localized("Paused Download")
+                alert.informativeText = LanguageManager.shared.localized("A paused download for this file already exists. Resume it?")
+                alert.addButton(withTitle: LanguageManager.shared.localized("Resume"))
+                alert.addButton(withTitle: LanguageManager.shared.localized("New Download"))
+                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+                let resp = alert.runModal()
+                if resp == .alertFirstButtonReturn { resumeDownload(id: existing.id) }
+                if resp != .alertSecondButtonReturn { return }
+            case .completed:
+                alert.messageText = LanguageManager.shared.localized("Completed Download")
+                alert.informativeText = LanguageManager.shared.localized("This file has already been downloaded. Download again?")
+                alert.addButton(withTitle: LanguageManager.shared.localized("Download Again"))
+                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+                if alert.runModal() != .alertFirstButtonReturn { return }
+            case .error, .stopped:
+                alert.messageText = LanguageManager.shared.localized("Failed Download")
+                let reason = existing.errorMessage ?? LanguageManager.shared.localized("Unknown error")
+                alert.informativeText = String(format: LanguageManager.shared.localized("Previous download failed: %@. Retry?"), reason)
+                alert.addButton(withTitle: LanguageManager.shared.localized("Retry"))
+                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+                if alert.runModal() != .alertFirstButtonReturn { return }
+            }
+        }
 
         let d = Download(
             filename: name,
