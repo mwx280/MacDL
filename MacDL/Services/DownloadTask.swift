@@ -34,6 +34,7 @@ final class DownloadTask: NSObject {
     private var speedSamples: [(Date, Int64)] = []
     private var throttleStartTime: Date = .distantPast
     private var throttleStartBytes: Int64 = 0
+    private var isThrottled = false
     private(set) var isPaused = false
     private(set) var isCompleted = false
 
@@ -176,6 +177,7 @@ final class DownloadTask: NSObject {
     func resetThrottle() {
         throttleStartTime = Date()
         throttleStartBytes = totalBytesWritten
+        isThrottled = false
     }
 }
 
@@ -247,22 +249,29 @@ extension DownloadTask: URLSessionDataDelegate {
             lastCheckTime = now
         }
 
-        if speedLimit > 0 {
-            let expectedElapsed = Double(totalBytesWritten - throttleStartBytes) / Double(speedLimit)
-            let actualElapsed = now.timeIntervalSince(throttleStartTime)
-            let ahead = expectedElapsed - actualElapsed
-            if ahead > 0 {
-                Thread.sleep(forTimeInterval: ahead)
+        if now.timeIntervalSince(progressThrottleTime) >= 0.2 {
+            progressThrottleTime = now
+            let capturedWritten = totalBytesWritten
+            let capturedExpected = totalBytesExpected
+            let capturedSpeed = downloadSpeed
+            DispatchQueue.main.async { [weak self] in
+                self?.onProgress?(capturedWritten, capturedExpected, capturedSpeed)
             }
         }
 
-        guard now.timeIntervalSince(progressThrottleTime) >= 0.2 else { return }
-        progressThrottleTime = now
-        let capturedWritten = totalBytesWritten
-        let capturedExpected = totalBytesExpected
-        let capturedSpeed = downloadSpeed
-        DispatchQueue.main.async { [weak self] in
-            self?.onProgress?(capturedWritten, capturedExpected, capturedSpeed)
+        if speedLimit > 0, !isThrottled {
+            let expectedElapsed = Double(totalBytesWritten - throttleStartBytes) / Double(speedLimit)
+            let actualElapsed = now.timeIntervalSince(throttleStartTime)
+            let ahead = expectedElapsed - actualElapsed
+            if ahead > 0.01 {
+                isThrottled = true
+                task?.suspend()
+                DispatchQueue.main.asyncAfter(deadline: .now() + ahead) { [weak self] in
+                    guard let self else { return }
+                    self.isThrottled = false
+                    self.task?.resume()
+                }
+            }
         }
     }
 
