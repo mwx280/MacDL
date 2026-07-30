@@ -171,6 +171,12 @@ final class Aria2RPCClient {
             filename = info["name"] as? String ?? "unknown"
         }
 
+        var errorMessage: String?
+        if status == .error, let codeStr = dict["errorCode"] as? String, let code = Int(codeStr) {
+            let msg = dict["errorMessage"] as? String
+            errorMessage = Self.errorDescription(code: code, message: msg)
+        }
+
         return Download(
             gid: gid,
             filename: filename,
@@ -181,7 +187,41 @@ final class Aria2RPCClient {
             uploadSpeed: uploadSpeed,
             status: status,
             savePath: dir,
-            connections: connections
+            connections: connections,
+            errorMessage: errorMessage
         )
+    }
+
+    private static func errorDescription(code: Int, message: String?) -> String {
+        let fallback = message ?? ""
+        switch code {
+        case 0: return fallback
+        case 1: return fallback.isEmpty ? "Unknown error" : fallback
+        case 2: return "Timeout"
+        case 3: return "Resource not found (404)"
+        case 4: return "Server does not support resume"
+        case 5: return "Could not connect to server"
+        case 6: return "Socket problem"
+        case 7: return "Could not resolve hostname"
+        case 8: return "Checksum validation failed"
+        case 9: return "Peer not found"
+        case 10: return "Already downloaded"
+        case 11: return "Download aborted"
+        case 12: return "Could not create directory"
+        case 13: return "Could not open file"
+        case 14: return "Download too slow"
+        case 15: return "Transport error (SSL/TLS)"
+        case 16: return "Could not parse metalink"
+        case 17: return "Command not found"
+        case 18: return "Disk full"
+        case 19: return "Duplicate download"
+        case 20: return "URI too long"
+        case 21: return "File not found in BitTorrent"
+        case 22: return "HTTP response not OK"
+        case 23: return "IP address blocked"
+        case 24: return "Proxy connection failed"
+        case 25: return "GeoIP blocked"
+        default: return fallback.isEmpty ? "Error (\(code))" : fallback
+        }
     }
 }

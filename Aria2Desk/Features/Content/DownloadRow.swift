@@ -23,6 +23,13 @@ struct DownloadRow: View {
                 Text(download.filename)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if download.status == .error, let msg = download.errorMessage {
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
 
                 ProgressView(value: download.progress)
                     .tint(progressTint)
