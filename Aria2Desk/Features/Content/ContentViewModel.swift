@@ -87,7 +87,7 @@ final class ContentViewModel {
     }
 
     private func hideAria2File(for download: Download) {
-        let path = downloadDir(for: download) + "/" + download.filename + ".aria2desk.aria2"
+        let path = downloadDir(for: download) + "/" + download.filename + ".aria2desk/" + download.filename + ".aria2"
         let url = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: path) else { return }
         try? (url as NSURL).setResourceValue(true, forKey: .isHiddenKey)
@@ -193,15 +193,16 @@ final class ContentViewModel {
 
     private func finalizeDownload(_ d: inout Download) async {
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-        let downloadPath = dir + "/" + d.filename + ".aria2desk"
-        let finalPath = dir + "/" + d.filename
+        let packageDir = dir + "/" + d.filename + ".aria2desk"
+        let sourcePath = packageDir + "/" + d.filename
+        let targetPath = dir + "/" + d.filename
 
         let fm = FileManager.default
         try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        if fm.fileExists(atPath: downloadPath) {
-            try? fm.moveItem(atPath: downloadPath, toPath: finalPath)
+        if fm.fileExists(atPath: sourcePath) {
+            try? fm.moveItem(atPath: sourcePath, toPath: targetPath)
         }
-        try? fm.removeItem(atPath: downloadPath + ".aria2")
+        try? fm.removeItem(atPath: packageDir)
     }
 
     // MARK: - Download Actions
@@ -320,9 +321,7 @@ final class ContentViewModel {
 
     private func removeFiles(for d: Download) {
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-        let filePath = dir + "/" + d.filename + ".aria2desk"
-        try? FileManager.default.removeItem(atPath: filePath)
-        try? FileManager.default.removeItem(atPath: filePath + ".aria2")
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
     }
 
     private func clearSelected(deleteFiles: Bool = false) {
@@ -340,7 +339,6 @@ final class ContentViewModel {
                     try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
                 }
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk" + ".aria2")
             }
         }
 

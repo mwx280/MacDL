@@ -61,9 +61,16 @@ final class Aria2RPCClient {
 
     func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) async -> String? {
         let filename = URL(string: url)?.lastPathComponent ?? "download"
+        let dir = savePath ?? RPCConfig.defaultDownloadDir
+        let packageDir = dir + "/" + filename + ".aria2desk"
+
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: packageDir, withIntermediateDirectories: true)
+        try? (URL(fileURLWithPath: packageDir) as NSURL).setResourceValue(true, forKey: .isPackageKey)
+
         var options: [String: Any] = [
-            "out": filename + ".aria2desk",
-            "dir": savePath ?? RPCConfig.defaultDownloadDir,
+            "out": filename,
+            "dir": packageDir,
         ]
         if let connections { options["max-connection-per-server"] = "\(connections)" }
         for _ in 0..<5 {
@@ -137,8 +144,10 @@ final class Aria2RPCClient {
             let path = first["path"] as? String ?? ""
             if !path.isEmpty {
                 filename = URL(fileURLWithPath: path).lastPathComponent
-                if filename.hasSuffix(".aria2desk") { filename = String(filename.dropLast(11)) }
                 if dir == nil { dir = URL(fileURLWithPath: path).deletingLastPathComponent().path }
+            }
+            if let d = dir, d.hasSuffix(".aria2desk") {
+                dir = URL(fileURLWithPath: d).deletingLastPathComponent().path
             }
             if let uris = first["uris"] as? [[String: Any]], let firstUri = uris.first {
                 extractedURL = firstUri["uri"] as? String ?? ""
