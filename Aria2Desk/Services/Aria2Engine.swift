@@ -117,7 +117,7 @@ final class Aria2Engine: EngineServiceProtocol {
             "--save-session-interval=30",
             "--disable-ipv6=true",
             "--connect-timeout=10",
-            "--max-tries=2",
+            "--max-tries=1",
             "--max-download-result=100",
         ]
 

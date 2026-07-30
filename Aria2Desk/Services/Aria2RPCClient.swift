@@ -222,7 +222,7 @@ final class Aria2RPCClient {
         case 24: return loc("Proxy error")
         case 25: return loc("GeoIP blocked")
         default:
-            if let msg = message, !msg.isEmpty { return loc("Unknown error") }
+            if let msg = message, !msg.isEmpty { return msg }
             return "\(loc("Error")) (\(code))"
         }
     }
