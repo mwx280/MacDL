@@ -87,7 +87,7 @@ struct ContentView: View {
         let f = model.filteredDownloads(for: selected)
         if f.isEmpty {
             VStack(spacing: 12) {
-                Image(systemName: "arrow.down.circle")
+                Image(systemName: "square.and.arrow.down")
                     .font(.system(size: 48))
                     .foregroundStyle(.secondary)
                 LocalizedText(key: "No Downloads")
