@@ -28,7 +28,7 @@ final class DownloadPersistence {
             guard let data = try? Data(contentsOf: url),
                   let list = try? JSONDecoder().decode([Download].self, from: data)
             else { print("📖 load: no file or decode failed at \(url.path)"); return [] }
-            print("📖 load: \(list.count) downloads, first=\(list.first?.filename ?? "nil") totalSize=\(list.first?.totalSize ?? -1)")
+            print("📖 load: \(list.count) downloads, file=\(list.first?.filename ?? "nil") ts=\(list.first?.totalSize ?? -1) ds=\(list.first?.downloadedSize ?? -1)")
             return list
         }
     }
@@ -58,7 +58,8 @@ final class DownloadPersistence {
         try? data.write(to: url, options: .atomic)
         let first = downloads.first
         let ts = first?.totalSize ?? -1
-        print("📝 save: count=\(downloads.count) file=\(first?.filename ?? "nil") ts=\(ts) caller=\(caller)")
+        let ds = first?.downloadedSize ?? -1
+        print("📝 save: count=\(downloads.count) file=\(first?.filename ?? "nil") ts=\(ts) ds=\(ds) caller=\(caller)")
         if ts == 0 && downloads.count > 0 {
             print("📝 save: 👇 caller stack:")
             for frame in Thread.callStackSymbols.prefix(6) { print("  " + frame) }
