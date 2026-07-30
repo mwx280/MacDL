@@ -1,7 +1,11 @@
 import Foundation
 
 final class DownloadPersistence {
-    static let shared = DownloadPersistence()
+    static let shared: DownloadPersistence = {
+        let p = DownloadPersistence()
+        p.migrateFromCaches()
+        return p
+    }()
 
     private let queue = DispatchQueue(label: "com.xiaowu.persistence", qos: .utility)
 
@@ -11,7 +15,7 @@ final class DownloadPersistence {
             base = FileManager.default.temporaryDirectory
                 .appendingPathComponent("com.xiaowu.Aria2Desk-tests")
         } else {
-            base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
                 .appendingPathComponent("com.xiaowu.Aria2Desk")
         }
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
@@ -34,6 +38,17 @@ final class DownloadPersistence {
 
     func saveImmediately(_ downloads: [Download]) {
         write(downloads)
+    }
+
+    private func migrateFromCaches() {
+        let old = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("com.xiaowu.Aria2Desk/downloads.json")
+        let new = fileURL
+        guard FileManager.default.fileExists(atPath: old.path),
+              !FileManager.default.fileExists(atPath: new.path)
+        else { return }
+        try? FileManager.default.createDirectory(at: new.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? FileManager.default.moveItem(at: old, to: new)
     }
 
     private func write(_ downloads: [Download]) {
