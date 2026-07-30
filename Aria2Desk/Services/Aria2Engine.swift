@@ -111,7 +111,7 @@ final class Aria2Engine: EngineServiceProtocol {
             "--rpc-listen-port=\(rpcPort)",
             "--max-connection-per-server=\(SettingsStore.shared.maxConnections)",
             "--max-concurrent-downloads=\(SettingsStore.shared.maxConcurrentDownloads)",
-            "--dir=\(config.downloadDirectory)",
+            "--dir=\(config.stagingDirectory)",
             "--input-file=\(config.aria2SessionPath)",
             "--save-session=\(config.aria2SessionPath)",
             "--save-session-interval=30",
@@ -135,7 +135,7 @@ final class Aria2Engine: EngineServiceProtocol {
     private func ensureDirectories() {
         let config = RPCConfig()
         let fm = FileManager.default
-        for dir in [config.appSupportDirectory, config.downloadDirectory] {
+        for dir in [config.appSupportDirectory, config.downloadDirectory, config.stagingDirectory] {
             try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
         }
         if !fm.fileExists(atPath: config.aria2SessionPath) {

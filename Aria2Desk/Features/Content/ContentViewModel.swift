@@ -91,6 +91,7 @@ final class ContentViewModel {
 
             if let existing = gidToDownload[gid] {
                 var updated = existing
+                let prevStatus = existing.status
                 updated.totalSize = remote.totalSize
                 updated.downloadedSize = remote.downloadedSize
                 updated.downloadSpeed = remote.downloadSpeed
@@ -98,6 +99,9 @@ final class ContentViewModel {
                 updated.status = remote.status
                 if updated.filename == "unknown" || updated.filename.isEmpty {
                     updated.filename = remote.filename
+                }
+                if prevStatus != .completed && remote.status == .completed {
+                    await finalizeDownload(&updated)
                 }
                 merged.append(updated)
             } else {
@@ -115,6 +119,20 @@ final class ContentViewModel {
 
         downloads = merged
         persistence.save(downloads)
+    }
+
+    private func finalizeDownload(_ d: inout Download) async {
+        let stagingDir = rpc.config.stagingDirectory
+        let sourcePath = stagingDir + "/" + d.filename + ".download"
+        let targetDir = d.savePath ?? SettingsStore.shared.downloadPath
+        let targetPath = targetDir + "/" + d.filename
+
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
+        if fm.fileExists(atPath: sourcePath) {
+            try? fm.moveItem(atPath: sourcePath, toPath: targetPath)
+        }
+        try? fm.removeItem(atPath: sourcePath + ".aria2")
     }
 
     // MARK: - Download Actions
@@ -172,6 +190,7 @@ final class ContentViewModel {
         if let gid = d.gid {
             Task { await rpc.removeDownload(gid: gid, status: d.status) }
         }
+        removeStagingFiles(for: d)
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
     }
@@ -228,6 +247,13 @@ final class ContentViewModel {
         }
     }
 
+    private func removeStagingFiles(for d: Download) {
+        let stagingDir = rpc.config.stagingDirectory
+        let stagingPath = stagingDir + "/" + d.filename + ".download"
+        try? FileManager.default.removeItem(atPath: stagingPath)
+        try? FileManager.default.removeItem(atPath: stagingPath + ".aria2")
+    }
+
     private func clearSelected(deleteFiles: Bool = false) {
         let toDelete = downloads.filter { selectedDownloads.contains($0.id) }
 
@@ -236,12 +262,16 @@ final class ContentViewModel {
                 if let gid = d.gid {
                     await rpc.removeDownload(gid: gid, status: d.status)
                 }
-                if deleteFiles {
-                    let dir = d.savePath ?? Aria2RPCClient.shared.config.downloadDirectory
-                    let filePath = dir + "/" + d.filename
-                    try? FileManager.default.removeItem(atPath: filePath)
-                    try? FileManager.default.removeItem(atPath: filePath + ".aria2")
+
+                if deleteFiles, d.status == .completed {
+                    let targetDir = d.savePath ?? SettingsStore.shared.downloadPath
+                    try? FileManager.default.removeItem(atPath: targetDir + "/" + d.filename)
                 }
+
+                let stagingDir = rpc.config.stagingDirectory
+                let stagingPath = stagingDir + "/" + d.filename + ".download"
+                try? FileManager.default.removeItem(atPath: stagingPath)
+                try? FileManager.default.removeItem(atPath: stagingPath + ".aria2")
             }
         }
 

@@ -30,4 +30,8 @@ struct RPCConfig {
     var downloadDirectory: String {
         appSupportDirectory + "/downloads"
     }
+
+    var stagingDirectory: String {
+        appSupportDirectory + "/.staging"
+    }
 }

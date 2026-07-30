@@ -60,8 +60,11 @@ final class Aria2RPCClient {
     // MARK: - Download Operations
 
     func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) async -> String? {
-        var options: [String: Any] = [:]
-        if let savePath { options["dir"] = savePath }
+        let filename = URL(string: url)?.lastPathComponent ?? "download"
+        var options: [String: Any] = [
+            "out": filename + ".download",
+            "dir": config.stagingDirectory,
+        ]
         if let connections { options["max-connection-per-server"] = "\(connections)" }
         for _ in 0..<5 {
             if let gid = await transport.addUri(uri: url, options: options) {
@@ -134,6 +137,7 @@ final class Aria2RPCClient {
             let path = first["path"] as? String ?? ""
             if !path.isEmpty {
                 filename = URL(fileURLWithPath: path).lastPathComponent
+                if filename.hasSuffix(".download") { filename = String(filename.dropLast(9)) }
                 if dir == nil { dir = URL(fileURLWithPath: path).deletingLastPathComponent().path }
             }
             if let uris = first["uris"] as? [[String: Any]], let firstUri = uris.first {
