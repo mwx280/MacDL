@@ -15,18 +15,11 @@ final class Aria2RPCClient {
     var status: RPCConnectionStatus { transport.status }
     var rpcPort: Int { engine.rpcPort }
     var config: RPCConfig { transport.config }
-    var isConnected: Bool {
-        guard transport.status == .connected else { return false }
-        if case .running = engine.engineState { return true }
-        return false
-    }
 
     init(engine: EngineServiceProtocol, transport: RPCTransport) {
         self.engine = engine
         self.transport = transport
     }
-
-    // MARK: - Engine Lifecycle
 
     func startEngine() {
         engine.start()
@@ -55,98 +48,5 @@ final class Aria2RPCClient {
 
     func disconnect() {
         transport.disconnect()
-    }
-
-    // MARK: - Download Operations
-
-    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) async -> String? {
-        var options: [String: Any] = [:]
-        if let savePath { options["dir"] = savePath }
-        if let connections { options["max-connection-per-server"] = "\(connections)" }
-        return await transport.addUri(uri: url, options: options)
-    }
-
-    func fetchAllDownloads() async -> [Download] {
-        let active = await transport.tellActive()
-        let waiting = await transport.tellWaiting()
-        let stopped = await transport.tellStopped()
-        return (active + waiting + stopped).compactMap { download(from: $0) }
-    }
-
-    func pauseDownload(gid: String) async -> Bool {
-        await transport.pause(gid: gid)
-    }
-
-    func pauseAll() async -> Bool {
-        await transport.pauseAll()
-    }
-
-    func resumeDownload(gid: String) async -> Bool {
-        await transport.unpause(gid: gid)
-    }
-
-    func resumeAll() async -> Bool {
-        await transport.unpauseAll()
-    }
-
-    func removeDownload(gid: String, force: Bool = false) async -> Bool {
-        if force {
-            return await transport.forceRemove(gid: gid)
-        }
-        return await transport.remove(gid: gid)
-    }
-
-    func changeConnections(gid: String, connections: Int) async -> Bool {
-        await transport.changeOption(gid: gid, options: ["max-connection-per-server": "\(connections)"])
-    }
-
-    // MARK: - Mapping
-
-    private func download(from dict: [String: Any]) -> Download? {
-        guard let gid = dict["gid"] as? String,
-              let statusStr = dict["status"] as? String,
-              let status = DownloadStatus(aria2Status: statusStr)
-        else { return nil }
-
-        let totalLength = Int64(dict["totalLength"] as? String ?? "") ?? 0
-        let completedLength = Int64(dict["completedLength"] as? String ?? "") ?? 0
-        let downloadSpeed = Int64(dict["downloadSpeed"] as? String ?? "") ?? 0
-        let uploadSpeed = Int64(dict["uploadSpeed"] as? String ?? "") ?? 0
-        let connections = (dict["connections"] as? String).flatMap(Int.init)
-
-        var filename = "unknown"
-        var dir = dict["dir"] as? String
-        var extractedURL = ""
-
-        if let files = dict["files"] as? [[String: Any]], let first = files.first {
-            let path = first["path"] as? String ?? ""
-            if !path.isEmpty {
-                filename = URL(fileURLWithPath: path).lastPathComponent
-                if dir == nil { dir = URL(fileURLWithPath: path).deletingLastPathComponent().path }
-            }
-            if let uris = first["uris"] as? [[String: Any]], let firstUri = uris.first {
-                extractedURL = firstUri["uri"] as? String ?? ""
-            }
-        }
-
-        if filename == "unknown", let bt = dict["bittorrent"] as? [String: Any], let info = bt["info"] as? [String: Any] {
-            filename = info["name"] as? String ?? "unknown"
-        }
-
-        let addedAt = Date()
-
-        return Download(
-            gid: gid,
-            filename: filename,
-            url: extractedURL,
-            totalSize: totalLength,
-            downloadedSize: completedLength,
-            downloadSpeed: downloadSpeed,
-            uploadSpeed: uploadSpeed,
-            status: status,
-            addedAt: addedAt,
-            savePath: dir,
-            connections: connections
-        )
     }
 }
