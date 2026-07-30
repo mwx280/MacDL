@@ -138,6 +138,7 @@ final class ContentViewModel {
         else { return }
         p.totalUnitCount = max(d.totalSize, 1)
         p.completedUnitCount = d.downloadedSize
+        p.isCancellable = d.status == .active
     }
 
     private func unpublishProgress(for id: UUID) {
