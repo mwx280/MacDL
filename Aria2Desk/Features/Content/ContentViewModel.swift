@@ -4,6 +4,8 @@ import Observation
 
 @Observable
 final class ContentViewModel {
+    static weak var current: ContentViewModel?
+
     var downloads: [Download] = []
     var selectedDownloads = Set<UUID>()
     var fileTypeFilter: FileTypeFilter = .all
@@ -16,6 +18,7 @@ final class ContentViewModel {
     private var engineTrackedDownloads: Set<UUID> = []
 
     init() {
+        Self.current = self
         downloads = persistence.load()
         for i in downloads.indices where downloads[i].status == .active {
             downloads[i].status = .paused

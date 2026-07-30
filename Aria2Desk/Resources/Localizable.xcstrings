@@ -2237,6 +2237,40 @@
           }
         }
       }
+    },
+    "Active Downloads": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active Downloads"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有活跃下载"
+          }
+        }
+      }
+    },
+    "There are %lld active downloads. Quit anyway?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There are %lld active downloads. Quit anyway?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有 %lld 个活跃下载，确定退出吗？"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
