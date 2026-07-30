@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 final class DownloadTask: NSObject {
 
@@ -42,26 +43,37 @@ final class DownloadTask: NSObject {
     // MARK: - Public control方法
     func start() {
         session = makeSession()
+        os_log("[DownloadTask] start %{public}@", url.absoluteString)
         let fileSize = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64) ?? 0
         if fileSize > 0 {
-            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
-            fileHandle?.seekToEndOfFile()
+            guard let fh = FileHandle(forWritingAtPath: destinationURL.path) else {
+                os_log("[DownloadTask] can't open existing file, starting fresh")
+                return startFresh()
+            }
+            fileHandle = fh
+            fh.seekToEndOfFile()
             totalBytesWritten = fileSize
             lastCheckTime = Date()
             lastCheckBytes = fileSize
             speedSamples = [(Date(), fileSize)]
             var req = URLRequest(url: url)
             req.setValue("bytes=\(fileSize)-", forHTTPHeaderField: "Range")
+            os_log("[DownloadTask] resuming at offset %lld", fileSize)
             task = session?.dataTask(with: req)
         } else {
-            FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
-            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
-            lastCheckTime = Date()
-            lastCheckBytes = 0
-            speedSamples = [(Date(), 0)]
-            task = session?.dataTask(with: url)
+            startFresh()
         }
         task?.resume()
+    }
+
+    private func startFresh() {
+        FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
+        fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
+        lastCheckTime = Date()
+        lastCheckBytes = 0
+        speedSamples = [(Date(), 0)]
+        os_log("[DownloadTask] starting fresh")
+        task = session?.dataTask(with: url)
     }
 
     func resume(from offset: Int64) {
