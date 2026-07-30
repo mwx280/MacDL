@@ -14,6 +14,8 @@ final class ContentViewModel {
     private var pollingTask: Task<Void, Never>?
     private var termObserver: NSObjectProtocol?
     private var progressMap: [UUID: Progress] = [:]
+    private var prevSize: [UUID: Int64] = [:]
+    private var prevTime: [UUID: Date] = [:]
 
     init() {
         downloads = persistence.load()
@@ -149,7 +151,15 @@ final class ContentViewModel {
                 let prevStatus = existing.status
                 updated.totalSize = remote.totalSize
                 updated.downloadedSize = remote.downloadedSize
-                updated.downloadSpeed = remote.downloadSpeed
+                let now = Date()
+                let prevBytes = prevSize[updated.id] ?? remote.downloadedSize
+                let prevTs = prevTime[updated.id] ?? now
+                let interval = now.timeIntervalSince(prevTs)
+                if interval > 0 {
+                    updated.downloadSpeed = Int64(Double(remote.downloadedSize - prevBytes) / interval)
+                }
+                prevSize[updated.id] = remote.downloadedSize
+                prevTime[updated.id] = now
                 updated.uploadSpeed = remote.uploadSpeed
                 updated.status = remote.status
                 updated.errorMessage = remote.errorMessage
@@ -180,7 +190,15 @@ final class ContentViewModel {
                 let prevStatus = updated.status
                 updated.totalSize = remote.totalSize
                 updated.downloadedSize = remote.downloadedSize
-                updated.downloadSpeed = remote.downloadSpeed
+                let now = Date()
+                let prevBytes = prevSize[updated.id] ?? remote.downloadedSize
+                let prevTs = prevTime[updated.id] ?? now
+                let interval = now.timeIntervalSince(prevTs)
+                if interval > 0 {
+                    updated.downloadSpeed = Int64(Double(remote.downloadedSize - prevBytes) / interval)
+                }
+                prevSize[updated.id] = remote.downloadedSize
+                prevTime[updated.id] = now
                 updated.uploadSpeed = remote.uploadSpeed
                 updated.status = remote.status
                 updated.errorMessage = remote.errorMessage
