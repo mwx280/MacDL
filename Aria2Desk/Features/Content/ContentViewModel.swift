@@ -216,7 +216,9 @@ final class ContentViewModel {
             url: url,
             status: .waiting,
             savePath: savePath,
-            connections: connections
+            connections: connections,
+            downloadLimit: dlLimit > 0 ? dlLimit : nil,
+            uploadLimit: ulLimit > 0 ? ulLimit : nil
         )
         downloads.append(d)
         persistence.save(downloads)
