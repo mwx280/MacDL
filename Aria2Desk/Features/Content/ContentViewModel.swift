@@ -149,6 +149,7 @@ final class ContentViewModel {
                 updated.downloadSpeed = remote.downloadSpeed
                 updated.uploadSpeed = remote.uploadSpeed
                 updated.status = remote.status
+                updated.errorMessage = remote.errorMessage
                 if updated.filename == "unknown" || updated.filename.isEmpty {
                     updated.filename = remote.filename
                 }
