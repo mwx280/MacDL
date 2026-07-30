@@ -107,7 +107,7 @@ final class ContentViewModel {
             }
         }
 
-        for d in downloads where d.status != .active && d.status != .waiting {
+        for d in downloads where d.status != .active || d.status != .waiting {
             if let gid = d.gid, !seenGIDs.contains(gid) {
                 merged.append(d)
             }
@@ -138,12 +138,8 @@ final class ContentViewModel {
 
         Task {
             let gid = await rpc.addDownload(url: url, savePath: savePath, connections: connections)
-            if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
-                if let gid {
-                    downloads[idx].gid = gid
-                } else {
-                    downloads[idx].status = .error
-                }
+            if let gid, let idx = downloads.firstIndex(where: { $0.id == d.id }) {
+                downloads[idx].gid = gid
                 persistence.save(downloads)
             }
         }

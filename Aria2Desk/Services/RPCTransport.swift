@@ -52,13 +52,7 @@ final class RPCTransport: RPCTransportProtocol {
         var params: [Any] = [[uri]]
         if !options.isEmpty { params.append(options) }
         if let position { params.append(position) }
-        for _ in 0..<5 {
-            if let result: String = await call(method: "aria2.addUri", params: params) {
-                return result
-            }
-            try? await Task.sleep(for: .seconds(1))
-        }
-        return nil
+        return await call(method: "aria2.addUri", params: params)
     }
 
     func tellActive() async -> [[String: Any]] {
