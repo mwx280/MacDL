@@ -63,12 +63,23 @@ extension Download {
         return result
     }
 
-    func activeChunkCount(in chunks: [Chunk]) -> Int {
-        chunks.filter { $0.status == .downloading }.count
-    }
-
-    func calcDownloadedSize(from chunks: [Chunk]) -> Int64 {
-        chunks.filter { $0.status == .completed }.reduce(0) { $0 + $1.size } +
-        chunks.filter { $0.status == .downloading }.reduce(0) { $0 + $1.downloadedSize }
+    func ensureChunks() -> [Chunk] {
+        guard chunks.isEmpty else { return chunks }
+        guard totalSize > 0 else { return [] }
+        var result = buildChunks()
+        var remaining = downloadedSize
+        for i in result.indices {
+            let take = min(remaining, result[i].size)
+            if take >= result[i].size {
+                result[i].status = .completed
+                result[i].downloadedSize = result[i].size
+            } else if take > 0 {
+                result[i].status = .pending
+                result[i].downloadedSize = take
+            }
+            remaining -= take
+            if remaining <= 0 { break }
+        }
+        return result
     }
 }

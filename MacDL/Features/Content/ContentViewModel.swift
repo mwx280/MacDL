@@ -164,9 +164,11 @@ final class ContentViewModel {
         let dest = destinationURL(for: src)
 
         engineTrackedDownloads.insert(id)
+        let chunks = downloads[idx ?? 0].ensureChunks()
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
                      chunkSize: downloads[idx ?? 0].chunkSize,
-                     maxConcurrent: downloads[idx ?? 0].maxConcurrentChunks)
+                     maxConcurrent: downloads[idx ?? 0].maxConcurrentChunks,
+                     chunks: chunks)
         if let idx {
             downloads[idx].downloadedSize = 0
             downloads[idx].totalSize = 0
@@ -286,9 +288,11 @@ final class ContentViewModel {
 
         let dest = destinationURL(for: downloads[idx])
         let persisted = downloads[idx].downloadedSize
+        let chunks = downloads[idx].ensureChunks()
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0), resumeFrom: persisted,
                      chunkSize: downloads[idx].chunkSize,
-                     maxConcurrent: downloads[idx].maxConcurrentChunks)
+                     maxConcurrent: downloads[idx].maxConcurrentChunks,
+                     chunks: chunks)
 
         engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 

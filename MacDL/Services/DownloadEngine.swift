@@ -9,11 +9,16 @@ final class DownloadEngine {
 
     private init() {}
 
-    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, resumeFrom: Int64 = 0, chunkSize: Int64 = 262144, maxConcurrent: Int = 4) {
+    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, resumeFrom: Int64 = 0, chunkSize: Int64 = 262144, maxConcurrent: Int = 4, chunks: [Chunk] = []) {
         let manager = ChunkManager(id: id, url: url, destinationURL: destinationURL, chunkSize: chunkSize, maxConcurrent: maxConcurrent)
         manager.setSpeedLimit(speedLimit)
         syncQueue.sync { managers[id] = manager }
-        manager.start()
+        if chunks.isEmpty {
+            manager.start()
+        } else {
+            let totalSize = chunks.last?.endOffset ?? resumeFrom
+            manager.start(withChunks: chunks, totalSize: totalSize)
+        }
     }
 
     func resume(id: UUID) -> Bool {

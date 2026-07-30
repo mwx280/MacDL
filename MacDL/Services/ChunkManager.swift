@@ -20,6 +20,9 @@ final class ChunkManager {
     private var lastLogBytes: Int64 = 0
     private var lastLogTime: Date = .distantPast
 
+    private var tokens: Double = 0
+    private var lastTokenTime: Date = Date()
+
     var onProgress: ((Int64, Int64, Int64) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
 
@@ -29,6 +32,7 @@ final class ChunkManager {
         self.destinationURL = destinationURL
         self.chunkSize = chunkSize
         self.maxConcurrent = maxConcurrent
+        tokens = Double(chunkSize) * Double(maxConcurrent)
     }
 
     // MARK: - Public control
@@ -37,6 +41,22 @@ final class ChunkManager {
         os_log("[ChunkManager] start probe chunkSize=%lld maxConcurrent=%d", chunkSize, maxConcurrent)
         startLogTimer()
         syncQueue.async { self.startProbe() }
+    }
+
+    func start(withChunks existing: [Chunk], totalSize: Int64) {
+        self.totalSize = totalSize
+        self.chunks = existing
+        for i in chunks.indices where chunks[i].status != .completed {
+            chunks[i].status = .pending
+        }
+        pendingIndices = chunks.filter { $0.status == .pending }.map(\.index)
+        lastTokenTime = Date()
+        tokens = speedLimit > 0 ? 0 : Double(chunkSize) * Double(maxConcurrent)
+        os_log("[ChunkManager] resume chunks=%d pending=%d completed=%d total=%lld",
+               chunks.count, pendingIndices.count,
+               chunks.filter { $0.status == .completed }.count, totalSize)
+        startLogTimer()
+        syncQueue.async { self.dispatchNext() }
     }
 
     private func startProbe() {
@@ -55,6 +75,8 @@ final class ChunkManager {
                 self.chunks[0].status = .downloading
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
+                self.lastTokenTime = Date()
+                self.tokens = self.speedLimit > 0 ? 0 : Double(self.chunkSize) * Double(self.maxConcurrent)
                 self.dispatchNext()
             }
         }
@@ -98,7 +120,17 @@ final class ChunkManager {
 
     func setSpeedLimit(_ limit: Int64) {
         speedLimit = limit
-        os_log("[ChunkManager] speedLimit=%lld/s", limit)
+        let now = Date()
+        let elapsed = now.timeIntervalSince(lastTokenTime)
+        if elapsed > 0, speedLimit > 0 {
+            tokens += Double(speedLimit) * elapsed
+            tokens = min(tokens, Double(chunkSize) * Double(maxConcurrent))
+        } else if speedLimit == 0 {
+            tokens = Double(chunkSize) * Double(maxConcurrent)
+        }
+        lastTokenTime = now
+        os_log("[ChunkManager] speedLimit=%lld/s tokens=%.1f", limit, tokens)
+        syncQueue.async { self.dispatchNext() }
     }
 
     func setMaxConcurrent(_ max: Int) {
@@ -133,15 +165,31 @@ final class ChunkManager {
     // MARK: - Scheduling
 
     private func dispatchNext() {
+        let now = Date()
+        if speedLimit > 0 {
+            let elapsed = now.timeIntervalSince(lastTokenTime)
+            if elapsed > 0 {
+                tokens += Double(speedLimit) * elapsed
+                tokens = min(tokens, Double(chunkSize) * Double(maxConcurrent))
+                lastTokenTime = now
+            }
+        } else {
+            tokens = Double(chunkSize) * Double(maxConcurrent)
+        }
+
         let activeCount = activeTasks.count
         let canStart = max(0, maxConcurrent - activeCount)
 
         if canStart > 0 && !pendingIndices.isEmpty {
             var started = 0
             while started < canStart && !pendingIndices.isEmpty {
+                if speedLimit > 0, tokens < Double(chunkSize) {
+                    break
+                }
                 let idx = pendingIndices.removeFirst()
                 guard idx < chunks.count, chunks[idx].status != .completed else { continue }
                 chunks[idx].status = .downloading
+                tokens = max(0, tokens - Double(chunkSize))
 
                 let chunk = chunks[idx]
                 let task = ChunkDownloadTask(
@@ -159,7 +207,7 @@ final class ChunkManager {
         }
 
         let active = activeTasks.keys.sorted()
-        print("📊 [ChunkManager] dispatch active=\(active.count)/\(maxConcurrent) pending=\(pendingIndices.count) done=\(chunks.filter { $0.status == .completed }.count)/\(chunks.count) speed=\(formatSpeed(downloadSpeed)) threads=\(maxConcurrent)")
+        print("📊 [ChunkManager] dispatch active=\(active.count)/\(maxConcurrent) pending=\(pendingIndices.count) done=\(chunks.filter { $0.status == .completed }.count)/\(chunks.count) speed=\(formatSpeed(downloadSpeed)) threads=\(maxConcurrent) tokens=\(Int(tokens))")
         for idx in active {
             let s = activeTasks[idx]?.speed ?? 0
             print("  Thread #\(idx): \(formatSpeed(s))")
