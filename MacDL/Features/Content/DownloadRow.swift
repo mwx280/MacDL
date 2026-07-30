@@ -7,6 +7,7 @@ struct DownloadRow: View {
     var onRetry: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
+    var onSetMaxChunks: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
@@ -58,6 +59,7 @@ struct DownloadRow: View {
             }
             Divider()
             speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
+            chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
             Divider()
             Button(action: { onCopyURL?(download.id) }) {
                 Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")
@@ -137,4 +139,24 @@ struct DownloadRow: View {
         }
     }
 
+    @ViewBuilder
+    private func chunkMenu(_ action: ((UUID, Int) -> Void)?, _ current: Int) -> some View {
+        let options = [1, 2, 4, 8]
+        Menu {
+            ForEach(options, id: \.self) { count in
+                Button { action?(download.id, count) } label: {
+                    if count == current {
+                        Label("\(count)", systemImage: "checkmark")
+                    } else {
+                        Text("\(count)")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "square.grid.3x2")
+                Text("\(current) Threads")
+            }
+        }
+    }
 }

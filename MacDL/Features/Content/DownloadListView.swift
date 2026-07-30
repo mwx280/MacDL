@@ -8,6 +8,7 @@ struct DownloadListView: View {
     var onRetry: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
+    var onSetMaxChunks: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
@@ -17,6 +18,7 @@ struct DownloadListView: View {
                 onPause: onPause, onResume: onResume, onRetry: onRetry,
                 onDelete: onDelete,
                 onSetDownloadLimit: onSetDownloadLimit,
+                onSetMaxChunks: onSetMaxChunks,
                 onShowInFinder: onShowInFinder, onCopyURL: onCopyURL)
         }
         .listStyle(.inset)

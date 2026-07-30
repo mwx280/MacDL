@@ -102,6 +102,7 @@ struct ContentView: View {
                 onRetry: { model.retryDownload(id: $0) },
                 onDelete: { id in model.selectedDownloads.insert(id); model.confirmDelete() },
                 onSetDownloadLimit: { model.setDownloadLimit(id: $0, limit: $1) },
+                onSetMaxChunks: { model.setMaxChunks(id: $0, count: $1) },
                 onShowInFinder: { id in
                     guard let d = model.downloads.first(where: { $0.id == id }) else { return }
                     let path = d.savePath ?? SettingsStore.shared.downloadPath

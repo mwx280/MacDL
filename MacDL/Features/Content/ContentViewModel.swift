@@ -164,7 +164,9 @@ final class ContentViewModel {
         let dest = destinationURL(for: src)
 
         engineTrackedDownloads.insert(id)
-        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit)
+        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
+                     chunkSize: downloads[idx ?? 0].chunkSize,
+                     maxConcurrent: downloads[idx ?? 0].maxConcurrentChunks)
         if let idx {
             downloads[idx].downloadedSize = 0
             downloads[idx].totalSize = 0
@@ -233,7 +235,8 @@ final class ContentViewModel {
             url: url,
             status: .active,
             savePath: savePath,
-            downloadLimit: dlLimit > 0 ? dlLimit : nil
+            downloadLimit: dlLimit > 0 ? dlLimit : nil,
+            maxConcurrentChunks: SettingsStore.shared.maxConcurrentChunks
         )
         downloads.append(d)
         persistence.save(downloads)
@@ -283,7 +286,9 @@ final class ContentViewModel {
 
         let dest = destinationURL(for: downloads[idx])
         let persisted = downloads[idx].downloadedSize
-        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0), resumeFrom: persisted)
+        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0), resumeFrom: persisted,
+                     chunkSize: downloads[idx].chunkSize,
+                     maxConcurrent: downloads[idx].maxConcurrentChunks)
 
         engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 
@@ -348,6 +353,13 @@ final class ContentViewModel {
         downloads[idx].downloadLimit = limit
         persistence.save(downloads)
         engine.setSpeedLimit(id: id, limit: Int64(limit))
+    }
+
+    func setMaxChunks(id: UUID, count: Int) {
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        downloads[idx].maxConcurrentChunks = count
+        persistence.save(downloads)
+        engine.setMaxConcurrent(id: id, max: count)
     }
 
     func pauseAll() {

@@ -32,4 +32,12 @@ final class SettingsStore {
         get { defaults.integer(forKey: "maxDownloadSpeed") }
         set { defaults.set(newValue, forKey: "maxDownloadSpeed") }
     }
+
+    var maxConcurrentChunks: Int {
+        get {
+            let v = defaults.integer(forKey: "maxConcurrentChunks")
+            return v == 0 ? 4 : v
+        }
+        set { defaults.set(newValue, forKey: "maxConcurrentChunks") }
+    }
 }

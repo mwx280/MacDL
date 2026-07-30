@@ -4,61 +4,54 @@ final class DownloadEngine {
 
     static let shared = DownloadEngine()
 
-    private var tasks: [UUID: DownloadTask] = [:]
+    private var managers: [UUID: ChunkManager] = [:]
     private let syncQueue = DispatchQueue(label: "com.xiaowu.downloadengine.sync")
 
     private init() {}
 
-    // MARK: - Public interface
-    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, resumeFrom: Int64 = 0) {
-        let task = DownloadTask(id: id, url: url, destinationURL: destinationURL, speedLimit: speedLimit)
-        syncQueue.sync { tasks[id] = task }
-        if resumeFrom > 0 {
-            task.resume(from: resumeFrom)
-        } else {
-            task.start()
-        }
+    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, resumeFrom: Int64 = 0, chunkSize: Int64 = 262144, maxConcurrent: Int = 4) {
+        let manager = ChunkManager(id: id, url: url, destinationURL: destinationURL, chunkSize: chunkSize, maxConcurrent: maxConcurrent)
+        manager.setSpeedLimit(speedLimit)
+        syncQueue.sync { managers[id] = manager }
+        manager.start()
     }
 
     func resume(id: UUID) -> Bool {
         syncQueue.sync {
-            guard let task = tasks[id] else { return false }
-            task.resume(from: task.totalBytesWritten)
+            guard let manager = managers[id] else { return false }
+            manager.resume()
             return true
         }
     }
 
     func pause(id: UUID) {
-        syncQueue.sync { tasks[id]?.pause() }
+        syncQueue.sync { managers[id]?.pause() }
     }
 
     func cancel(id: UUID) {
         syncQueue.sync {
-            tasks[id]?.cancel()
-            tasks.removeValue(forKey: id)
+            managers[id]?.cancel()
+            managers.removeValue(forKey: id)
         }
     }
 
     func setSpeedLimit(id: UUID, limit: Int64) {
-        syncQueue.sync { tasks[id]?.speedLimit = limit }
+        syncQueue.sync { managers[id]?.setSpeedLimit(limit) }
+    }
+
+    func setMaxConcurrent(id: UUID, max: Int) {
+        syncQueue.sync { managers[id]?.setMaxConcurrent(max) }
     }
 
     var hasActiveTasks: Bool {
-        syncQueue.sync { tasks.values.contains { !$0.isPaused && !$0.isCompleted } }
+        syncQueue.sync { managers.values.contains { $0.hasActiveTasks } }
     }
 
     func setProgressHandler(for id: UUID, handler: @escaping (Int64, Int64, Int64) -> Void) {
-        syncQueue.sync { tasks[id]?.onProgress = handler }
+        syncQueue.sync { managers[id]?.onProgress = handler }
     }
 
     func setCompletionHandler(for id: UUID, handler: @escaping (Result<Void, Error>) -> Void) {
-        syncQueue.sync {
-            tasks[id]?.onCompletion = { [weak self] result in
-                handler(result)
-                self?.syncQueue.async {
-                    self?.tasks.removeValue(forKey: id)
-                }
-            }
-        }
+        syncQueue.sync { managers[id]?.onCompletion = handler }
     }
 }
