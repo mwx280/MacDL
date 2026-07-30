@@ -14,6 +14,7 @@ final class ContentViewModel {
     private var progressMap: [UUID: Progress] = [:]
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
+    private var lastProgressSave: [UUID: Date] = [:]
 
     init() {
         downloads = persistence.load()
@@ -153,10 +154,16 @@ final class ContentViewModel {
                 self.publishProgress(for: self.downloads[idx])
             }
             self.updateProgress(for: id)
+            let now = Date()
+            if self.lastProgressSave[id] == nil || now.timeIntervalSince(self.lastProgressSave[id]!) >= 5 {
+                self.lastProgressSave[id] = now
+                self.persistence.save(self.downloads)
+            }
         }
 
         engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            self.lastProgressSave.removeValue(forKey: id)
             switch result {
             case .success:
                 self.downloads[idx].status = .completed
@@ -168,6 +175,7 @@ final class ContentViewModel {
                 self.downloads[idx].errorMessage = error.localizedDescription
                 self.unpublishProgress(for: id)
             }
+            self.engineTrackedDownloads.remove(id)
             self.persistence.save(self.downloads)
         }
     }
@@ -274,10 +282,16 @@ final class ContentViewModel {
                 self.publishProgress(for: self.downloads[idx])
             }
             self.updateProgress(for: id)
+            let now = Date()
+            if self.lastProgressSave[id] == nil || now.timeIntervalSince(self.lastProgressSave[id]!) >= 5 {
+                self.lastProgressSave[id] = now
+                self.persistence.save(self.downloads)
+            }
         }
 
         engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            self.lastProgressSave.removeValue(forKey: id)
             switch result {
             case .success:
                 self.downloads[idx].status = .completed
