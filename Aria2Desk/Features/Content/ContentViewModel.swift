@@ -32,7 +32,9 @@ final class ContentViewModel {
             self.fileCheckTimer?.invalidate()
             self.fileCheckTimer = nil
             self.unpublishAllProgress()
-            self.persistence.saveImmediately(self.downloads)
+            if self.downloads.contains(where: { $0.totalSize > 0 }) {
+                self.persistence.saveImmediately(self.downloads)
+            }
         }
         fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.checkDownloadFiles()
