@@ -105,6 +105,11 @@ struct ContentView: View {
                     guard let d = model.downloads.first(where: { $0.id == id }) else { return }
                     let path = d.savePath ?? SettingsStore.shared.downloadPath
                     NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+                },
+                onCopyURL: { id in
+                    guard let d = model.downloads.first(where: { $0.id == id }), !d.url.isEmpty else { return }
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(d.url, forType: .string)
                 }
             )
         }

@@ -7,6 +7,7 @@ struct DownloadRow: View {
     var onDelete: ((UUID) -> Void)?
     var onSetConnections: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
+    var onCopyURL: ((UUID) -> Void)?
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
 
@@ -67,6 +68,7 @@ struct DownloadRow: View {
                 }
             }
             Divider()
+            Button { onCopyURL?(download.id) } label: { Label("Copy Link", systemImage: "link") }
             Button { onShowInFinder?(download.id) } label: { Label("Show in Finder", systemImage: "folder") }
             Divider()
             Button { onDelete?(download.id) } label: { Label("Delete", systemImage: "trash") }
