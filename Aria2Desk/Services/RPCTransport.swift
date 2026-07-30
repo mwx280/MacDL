@@ -103,6 +103,10 @@ final class RPCTransport: RPCTransportProtocol {
         await call(method: "aria2.changeOption", params: [gid, options])
     }
 
+    func changeGlobalOption(_ options: [String: Any]) async -> String? {
+        await call(method: "aria2.changeGlobalOption", params: [options])
+    }
+
     // MARK: - Generic RPC Call
 
     private func call<T>(method: String, params: [Any] = []) async -> T? {

@@ -116,6 +116,7 @@ private struct DownloadPane: View {
                     .frame(width: 100)
                     .onChange(of: maxDownloadSpeed) { _, v in
                         SettingsStore.shared.maxDownloadSpeed = v
+                        Task { await Aria2RPCClient.shared.applySpeedLimits() }
                     }
                 }
 
@@ -132,6 +133,7 @@ private struct DownloadPane: View {
                     .frame(width: 100)
                     .onChange(of: maxUploadSpeed) { _, v in
                         SettingsStore.shared.maxUploadSpeed = v
+                        Task { await Aria2RPCClient.shared.applySpeedLimits() }
                     }
                 }
             }

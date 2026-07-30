@@ -203,7 +203,7 @@ final class ContentViewModel {
             try? fm.moveItem(atPath: sourcePath, toPath: targetPath)
         }
         try? fm.removeItem(atPath: packageDir)
-        try? NSWorkspace.shared.noteFileSystemChanged(URL(fileURLWithPath: dir))
+        NSWorkspace.shared.noteFileSystemChanged(dir)
     }
 
     // MARK: - Download Actions

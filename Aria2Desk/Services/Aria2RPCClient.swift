@@ -122,6 +122,16 @@ final class Aria2RPCClient {
         _ = await transport.changeOption(gid: gid, options: ["max-connection-per-server": "\(connections)"])
     }
 
+    func applySpeedLimits() async {
+        var opts: [String: Any] = [:]
+        let dl = SettingsStore.shared.maxDownloadSpeed
+        if dl > 0 { opts["max-download-limit"] = "\(dl)" }
+        let ul = SettingsStore.shared.maxUploadSpeed
+        if ul > 0 { opts["max-upload-limit"] = "\(ul)" }
+        guard !opts.isEmpty else { return }
+        _ = await transport.changeGlobalOption(opts)
+    }
+
     // MARK: - Mapping
 
     private func download(from dict: [String: Any]) -> Download? {

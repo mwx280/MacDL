@@ -28,11 +28,17 @@ import Foundation
     }
 
     @Test func defaultMaxDownloadSpeed() {
+        let original = store.maxDownloadSpeed
+        store.maxDownloadSpeed = 0
         #expect(store.maxDownloadSpeed == 0)
+        store.maxDownloadSpeed = original
     }
 
     @Test func defaultMaxUploadSpeed() {
+        let original = store.maxUploadSpeed
+        store.maxUploadSpeed = 0
         #expect(store.maxUploadSpeed == 0)
+        store.maxUploadSpeed = original
     }
 
     @Test func writeThenReadMaxDownloadSpeed() {
