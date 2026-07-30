@@ -196,7 +196,6 @@ final class Aria2RPCClient {
         let loc = LanguageManager.shared.localized
         switch code {
         case 0: return loc("Completed")
-        case 1: return message?.isEmpty == false ? message! : loc("Unknown error")
         case 2: return loc("Timeout")
         case 3: return loc("Not Found")
         case 4: return loc("Resume not supported")
@@ -221,9 +220,7 @@ final class Aria2RPCClient {
         case 23: return loc("IP blocked")
         case 24: return loc("Proxy error")
         case 25: return loc("GeoIP blocked")
-        default:
-            if let msg = message, !msg.isEmpty { return msg }
-            return "\(loc("Error")) (\(code))"
+        default: return loc("Download failed")
         }
     }
 }
