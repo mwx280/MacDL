@@ -6,6 +6,12 @@ final class DownloadPersistence {
     static var persistedFileURL: URL { fileURL }
 
     private static var fileURL: URL {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("com.xiaowu.Aria2Desk-tests")
+            try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+            return tmp.appendingPathComponent("downloads.json")
+        }
         let base = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/com.xiaowu.Aria2Desk")
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)

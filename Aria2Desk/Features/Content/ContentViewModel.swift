@@ -16,27 +16,6 @@ final class ContentViewModel {
     private var engineTrackedDownloads: Set<UUID> = []
 
     init() {
-        let trash = RPCConfig.defaultDownloadDir + "/.Trash"
-        let fm = FileManager.default
-        for f in ["file.zip", "Xcode_26.6.xip", "Xcode.xip"] {
-            let path = RPCConfig.defaultDownloadDir + "/" + f
-            if fm.fileExists(atPath: path) { try? fm.removeItem(atPath: path) }
-        }
-        let previewNames: Set<String> = [
-            "Ubuntu-26.04-LTS-Desktop-arm64.iso",
-            "The.Matrix.Resurrections.2021.2160p.mkv",
-            "Xcode_26.6.xip", "Xcode.xip",
-            "openjdk-24.0.2_macos-aarch64_bin.tar.gz",
-            "llama-3-70b-instruct.Q4_K_M.gguf",
-            "Microsoft_Visual_Studio_Code_1.92_arm64.dmg",
-            "macOS_26.5_Sequoia_beta.dmg",
-            "file.zip",
-        ]
-        if let data = try? Data(contentsOf: DownloadPersistence.persistedFileURL),
-           let list = try? JSONDecoder().decode([Download].self, from: data),
-           list.contains(where: { previewNames.contains($0.filename) }) {
-            try? FileManager.default.removeItem(at: DownloadPersistence.persistedFileURL)
-        }
         downloads = persistence.load()
         for i in downloads.indices where downloads[i].status == .active {
             downloads[i].status = .waiting

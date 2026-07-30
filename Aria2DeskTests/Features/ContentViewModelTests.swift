@@ -3,10 +3,6 @@ import Foundation
 @testable import Aria2Desk
 
 @Suite struct ContentViewModelTests {
-    init() {
-        try? FileManager.default.removeItem(at: DownloadPersistence.persistedFileURL)
-    }
-
     @Test func filteredDownloadsAll() {
         let vm = ContentViewModel()
         vm.downloads = PreviewContent.downloads
