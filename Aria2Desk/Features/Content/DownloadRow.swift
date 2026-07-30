@@ -74,8 +74,8 @@ struct DownloadRow: View {
                     Text("\(LanguageManager.shared.localized("Connections")): \(c)")
                 }
             }
-            speedMenu("arrow.down", "Download Limit", onSetDownloadLimit)
-            speedMenu("arrow.up", "Upload Limit", onSetUploadLimit)
+            speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
+            speedMenu("arrow.up", onSetUploadLimit, download.uploadLimit)
             Divider()
             Button(action: { onCopyURL?(download.id) }) {
                 Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")
@@ -134,17 +134,21 @@ struct DownloadRow: View {
     }
 
     @ViewBuilder
-    private func speedMenu(_ icon: String, _ label: String, _ action: ((UUID, Int) -> Void)?) -> some View {
+    private func speedMenu(_ icon: String, _ action: ((UUID, Int) -> Void)?, _ current: Int?) -> some View {
         Menu {
             ForEach(speedOptions, id: \.self) { speed in
                 Button { action?(download.id, speed) } label: {
-                    Text(speedLabel(speed))
+                    if speed == (current ?? 0) {
+                        Label(speedLabel(speed), systemImage: "checkmark")
+                    } else {
+                        Text(speedLabel(speed))
+                    }
                 }
             }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                Text(LanguageManager.shared.localized(label))
+                Text(speedLabel(current ?? 0))
             }
         }
     }

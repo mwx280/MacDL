@@ -270,7 +270,7 @@ final class ContentViewModel {
 
     func setDownloadLimit(id: UUID, limit: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
-        downloads[idx].downloadSpeed = Int64(limit)
+        downloads[idx].downloadLimit = limit
         persistence.save(downloads)
         if let gid = downloads[idx].gid {
             let value = limit > 0 ? "\(limit)" : "0"
@@ -280,7 +280,7 @@ final class ContentViewModel {
 
     func setUploadLimit(id: UUID, limit: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
-        downloads[idx].uploadSpeed = Int64(limit)
+        downloads[idx].uploadLimit = limit
         persistence.save(downloads)
         if let gid = downloads[idx].gid {
             let value = limit > 0 ? "\(limit)" : "0"
