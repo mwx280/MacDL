@@ -18,8 +18,8 @@ final class DownloadEngine {
 
     func resume(id: UUID) -> Bool {
         syncQueue.sync {
-            guard let task = tasks[id], let data = task.resumeData else { return false }
-            task.resume(from: data)
+            guard let task = tasks[id] else { return false }
+            task.resume(from: task.totalBytesWritten)
             return true
         }
     }
