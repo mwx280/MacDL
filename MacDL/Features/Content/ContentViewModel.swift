@@ -72,8 +72,13 @@ final class ContentViewModel {
         return URL(fileURLWithPath: dir + "/" + download.filename)
     }
 
+    private func stagingURL(for download: Download) -> URL {
+        let dir = download.savePath ?? AppConfig.defaultDownloadDir
+        return URL(fileURLWithPath: dir + "/" + download.filename + ".macdl")
+    }
+
     private func publishProgress(for download: Download) {
-        let fileURL = destinationURL(for: download)
+        let fileURL = stagingURL(for: download)
         let downloadID = download.id
 
         let p = Progress(totalUnitCount: max(download.totalSize, 1))
@@ -121,7 +126,8 @@ final class ContentViewModel {
         for i in downloads.indices {
             let d = downloads[i]
             guard d.status == .active || d.status == .paused else { continue }
-            let url = destinationURL(for: d)
+            if d.totalSize == 0, d.downloadedSize == 0 { continue }
+            let url = stagingURL(for: d)
             if !FileManager.default.fileExists(atPath: url.path) {
                 if d.status == .active {
                     engine.cancel(id: d.id)
@@ -161,7 +167,7 @@ final class ContentViewModel {
         let limit = dlLimit > 0 ? dlLimit : (idx.map { downloads[$0].downloadLimit ?? 0 } ?? 0)
         let speedLimit = Int64(limit)
         guard let src = downloads.first(where: { $0.id == id }) else { return }
-        let dest = destinationURL(for: src)
+        let dest = stagingURL(for: src)
 
         engineTrackedDownloads.insert(id)
         if let idx {
@@ -189,6 +195,9 @@ final class ContentViewModel {
             case .success:
                 self.downloads[idx].status = .completed
                 self.unpublishProgress(for: id)
+                let staging = self.stagingURL(for: self.downloads[idx])
+                let final = self.destinationURL(for: self.downloads[idx])
+                try? FileManager.default.moveItem(at: staging, to: final)
                 let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
                 NSWorkspace.shared.noteFileSystemChanged(dir)
             case .failure(let error):
@@ -266,7 +275,7 @@ final class ContentViewModel {
         guard let idx = downloads.firstIndex(where: { $0.id == id }), downloads[idx].status == .active else { return }
         engine.pause(id: id)
         if engineTrackedDownloads.contains(id) {
-            if !FileManager.default.fileExists(atPath: destinationURL(for: downloads[idx]).path) {
+            if !FileManager.default.fileExists(atPath: stagingURL(for: downloads[idx]).path) {
                 downloads[idx].status = .error
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
                 persistence.save(downloads)
@@ -293,7 +302,7 @@ final class ContentViewModel {
             return
         }
 
-        let dest = destinationURL(for: downloads[idx])
+        let dest = stagingURL(for: downloads[idx])
         let persisted = downloads[idx].downloadedSize
         downloads[idx].chunks = downloads[idx].ensureChunks()
         let chunks = downloads[idx].chunks
@@ -315,6 +324,9 @@ final class ContentViewModel {
             case .success:
                 self.downloads[idx].status = .completed
                 self.unpublishProgress(for: id)
+                let staging = self.stagingURL(for: self.downloads[idx])
+                let final = self.destinationURL(for: self.downloads[idx])
+                try? FileManager.default.moveItem(at: staging, to: final)
                 let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
                 NSWorkspace.shared.noteFileSystemChanged(dir)
             case .failure(let error):
@@ -335,7 +347,8 @@ final class ContentViewModel {
             engineTrackedDownloads.remove(id)
         }
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
-        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
     }
@@ -349,7 +362,8 @@ final class ContentViewModel {
             unpublishProgress(for: id)
         }
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
-        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
 
         downloads[idx].status = .active
         downloads[idx].errorMessage = nil
@@ -431,6 +445,7 @@ final class ContentViewModel {
             }
             let dir = d.savePath ?? AppConfig.defaultDownloadDir
             if deleteFiles {
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
             }
         }
