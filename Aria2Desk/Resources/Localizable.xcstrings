@@ -2220,6 +2220,23 @@
           }
         }
       }
+    },
+    "Download file has been deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download file has been deleted"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下载文件已被删除"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

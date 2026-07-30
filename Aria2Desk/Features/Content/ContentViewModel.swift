@@ -12,6 +12,7 @@ final class ContentViewModel {
     private let persistence = DownloadPersistence.shared
     private var termObserver: NSObjectProtocol?
     private var progressMap: [UUID: Progress] = [:]
+    private var fileCheckTimer: Timer?
 
     init() {
         downloads = persistence.load()
@@ -24,12 +25,18 @@ final class ContentViewModel {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
+            self.fileCheckTimer?.invalidate()
+            self.fileCheckTimer = nil
             self.unpublishAllProgress()
             self.persistence.saveImmediately(self.downloads)
+        }
+        fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            self?.checkDownloadFiles()
         }
     }
 
     deinit {
+        fileCheckTimer?.invalidate()
         unpublishAllProgress()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
     }
@@ -99,6 +106,25 @@ final class ContentViewModel {
     private func unpublishAllProgress() {
         for (_, p) in progressMap { p.unpublish() }
         progressMap.removeAll()
+    }
+
+    // MARK: - File Integrity
+
+    private func checkDownloadFiles() {
+        for i in downloads.indices {
+            let d = downloads[i]
+            guard d.status == .active || d.status == .paused else { continue }
+            let url = destinationURL(for: d)
+            if !FileManager.default.fileExists(atPath: url.path) {
+                if d.status == .active {
+                    engine.cancel(id: d.id)
+                }
+                downloads[i].status = .error
+                downloads[i].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
+                unpublishProgress(for: d.id)
+                persistence.save(downloads)
+            }
+        }
     }
 
     // MARK: - Download Actions
