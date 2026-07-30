@@ -53,19 +53,26 @@ final class DownloadTask: NSObject {
 
     func resume(from offset: Int64) {
         session = makeSession()
-        if !FileManager.default.fileExists(atPath: destinationURL.path) {
+        let fileSize = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64) ?? 0
+        let actualOffset: Int64
+        if fileSize > 0 && fileSize == offset {
+            actualOffset = offset
+            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
+            fileHandle?.seekToEndOfFile()
+        } else {
+            actualOffset = 0
+            try? FileManager.default.removeItem(at: destinationURL)
             FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
+            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
         }
-        fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
-        fileHandle?.seekToEndOfFile()
-        totalBytesWritten = offset
+        totalBytesWritten = actualOffset
         lastCheckTime = Date()
-        lastCheckBytes = offset
-        speedSamples = [(Date(), offset)]
+        lastCheckBytes = actualOffset
+        speedSamples = [(Date(), actualOffset)]
 
         var req = URLRequest(url: url)
-        if offset > 0 {
-            req.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
+        if actualOffset > 0 {
+            req.setValue("bytes=\(actualOffset)-", forHTTPHeaderField: "Range")
         }
         task = session?.dataTask(with: req)
         task?.resume()
@@ -140,6 +147,11 @@ extension DownloadTask: URLSessionDataDelegate {
 
         let elapsed = now.timeIntervalSince(lastCheckTime)
         if elapsed >= 0.5 {
+            if !FileManager.default.fileExists(atPath: destinationURL.path) {
+                finish(with: .failure(DownloadError.fileDeleted))
+                task?.cancel()
+                return
+            }
             let instantSpeed = Int64(Double(totalBytesWritten - lastCheckBytes) / elapsed)
             if speedLimit > 0, instantSpeed > speedLimit, !isSuspended {
                 let ratio = Double(instantSpeed) / Double(speedLimit)
@@ -179,5 +191,11 @@ extension DownloadTask: URLSessionDataDelegate {
 // MARK: - Custom errors
 enum DownloadError: Error, LocalizedError {
     case cancelled
-    var errorDescription: String? { "下载已取消" }
+    case fileDeleted
+    var errorDescription: String? {
+        switch self {
+        case .cancelled: return "下载已取消"
+        case .fileDeleted: return "下载文件已被删除"
+        }
+    }
 }
