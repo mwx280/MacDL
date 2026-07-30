@@ -65,7 +65,7 @@ final class ContentViewModel {
                 if rpc.isConnected {
                     await self.syncFromRPC()
                 }
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(0.5))
             }
         }
     }
