@@ -268,6 +268,26 @@ final class ContentViewModel {
         persistence.save(downloads)
     }
 
+    func setDownloadLimit(id: UUID, limit: Int) {
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        downloads[idx].downloadSpeed = Int64(limit)
+        persistence.save(downloads)
+        if let gid = downloads[idx].gid {
+            let value = limit > 0 ? "\(limit)" : "0"
+            Task { await rpc.setSpeedLimit(gid: gid, key: "max-download-limit", value: value) }
+        }
+    }
+
+    func setUploadLimit(id: UUID, limit: Int) {
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        downloads[idx].uploadSpeed = Int64(limit)
+        persistence.save(downloads)
+        if let gid = downloads[idx].gid {
+            let value = limit > 0 ? "\(limit)" : "0"
+            Task { await rpc.setSpeedLimit(gid: gid, key: "max-upload-limit", value: value) }
+        }
+    }
+
     func setConnections(id: UUID, connections: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[idx].connections = connections

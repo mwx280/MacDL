@@ -6,10 +6,13 @@ struct DownloadRow: View {
     var onResume: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetConnections: ((UUID, Int) -> Void)?
+    var onSetDownloadLimit: ((UUID, Int) -> Void)?
+    var onSetUploadLimit: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
+    private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
     var body: some View {
         HStack(spacing: 12) {
@@ -67,6 +70,8 @@ struct DownloadRow: View {
                     Text("\(LanguageManager.shared.localized("Connections")): \(c)")
                 }
             }
+            speedMenu("arrow.down", "Download Limit", onSetDownloadLimit)
+            speedMenu("arrow.up", "Upload Limit", onSetUploadLimit)
             Divider()
             Button { onCopyURL?(download.id) } label: { Label("Copy Link", systemImage: "link") }
             Button { onShowInFinder?(download.id) } label: { Label("Show in Finder", systemImage: "folder") }
@@ -116,5 +121,27 @@ struct DownloadRow: View {
 
     private var progressTint: Color {
         download.status == .active ? .blue : .secondary
+    }
+
+    @ViewBuilder
+    private func speedMenu(_ icon: String, _ label: String, _ action: ((UUID, Int) -> Void)?) -> some View {
+        Menu {
+            ForEach(speedOptions, id: \.self) { speed in
+                Button { action?(download.id, speed) } label: {
+                    Text(speedLabel(speed))
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                Text(LanguageManager.shared.localized(label))
+            }
+        }
+    }
+
+    private func speedLabel(_ bytesPerSecond: Int) -> String {
+        if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
+        if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
+        return "\(bytesPerSecond / 1_048_576) MB/s"
     }
 }

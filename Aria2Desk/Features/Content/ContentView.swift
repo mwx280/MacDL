@@ -101,6 +101,8 @@ struct ContentView: View {
                 onResume: { model.resumeDownload(id: $0) },
                 onDelete: { id in model.selectedDownloads = [id]; model.confirmDelete() },
                 onSetConnections: { model.setConnections(id: $0, connections: $1) },
+                onSetDownloadLimit: { model.setDownloadLimit(id: $0, limit: $1) },
+                onSetUploadLimit: { model.setUploadLimit(id: $0, limit: $1) },
                 onShowInFinder: { id in
                     guard let d = model.downloads.first(where: { $0.id == id }) else { return }
                     let path = d.savePath ?? SettingsStore.shared.downloadPath
