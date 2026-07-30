@@ -108,12 +108,26 @@ final class ContentViewModel {
         guard download.gid != nil else { return }
         hideAria2File(for: download)
         let fileURL = downloadURL(for: download)
+        let downloadID = download.id
 
         let p = Progress(totalUnitCount: max(download.totalSize, 1))
         p.kind = .file
         p.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
         p.setUserInfoObject(fileURL, forKey: .fileURLKey)
         p.completedUnitCount = download.downloadedSize
+        p.cancellationHandler = { [weak self] in
+            guard let self else { return }
+            let unpublish = { self.unpublishProgress(for: downloadID) }
+            if let idx = self.downloads.firstIndex(where: { $0.id == downloadID }) {
+                var d = self.downloads[idx]
+                if d.gid != nil {
+                    self.pauseDownload(id: downloadID)
+                }
+                d.status = .paused
+                self.downloads[idx] = d
+            }
+            unpublish()
+        }
         p.publish()
         progressMap[download.id] = p
     }
