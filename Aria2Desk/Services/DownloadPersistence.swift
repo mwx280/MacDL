@@ -29,18 +29,16 @@ final class DownloadPersistence {
     }
 
     func save(_ downloads: [Download]) {
-        queue.async { [downloads] in
-            let url = self.fileURL
-            guard let data = try? JSONEncoder().encode(downloads) else { return }
-            try? data.write(to: url, options: .atomic)
-        }
+        write(downloads)
     }
 
     func saveImmediately(_ downloads: [Download]) {
-        queue.sync {
-            let url = fileURL
-            guard let data = try? JSONEncoder().encode(downloads) else { return }
-            try? data.write(to: url, options: .atomic)
-        }
+        write(downloads)
+    }
+
+    private func write(_ downloads: [Download]) {
+        let url = fileURL
+        guard let data = try? JSONEncoder().encode(downloads) else { return }
+        try? data.write(to: url, options: .atomic)
     }
 }

@@ -129,6 +129,23 @@ final class ContentViewModel {
 
     // MARK: - Download Actions
 
+    private func progressHandler(for id: UUID) -> (Int64, Int64, Int64) -> Void {
+        { [weak self] bytes, total, speed in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            let prevTotal = self.downloads[idx].totalSize
+            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
+            self.downloads[idx].downloadedSize = bytes
+            self.downloads[idx].downloadSpeed = speed
+            if self.progressMap[id] == nil {
+                self.publishProgress(for: self.downloads[idx])
+            }
+            self.updateProgress(for: id)
+            if prevTotal == 0 {
+                DownloadPersistence.shared.save(self.downloads)
+            }
+        }
+    }
+
     private func setupEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
         let idx = downloads.firstIndex(where: { $0.id == id })
         let limit = dlLimit > 0 ? dlLimit : (idx.map { downloads[$0].downloadLimit ?? 0 } ?? 0)
@@ -143,23 +160,7 @@ final class ContentViewModel {
             downloads[idx].totalSize = 0
         }
 
-        engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            let prevTotal = self.downloads[idx].totalSize
-            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
-            self.downloads[idx].downloadedSize = bytes
-            self.downloads[idx].downloadSpeed = speed
-            if self.progressMap[id] == nil {
-                self.publishProgress(for: self.downloads[idx])
-            }
-            self.updateProgress(for: id)
-            if prevTotal == 0 && self.downloads[idx].totalSize > 0 {
-                let snapshot = self.downloads
-                DispatchQueue.global().async {
-                    DownloadPersistence.shared.save(snapshot)
-                }
-            }
-        }
+        engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 
         engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
@@ -274,23 +275,7 @@ final class ContentViewModel {
         let persisted = downloads[idx].downloadedSize
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0), resumeFrom: persisted)
 
-        engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            let prevTotal = self.downloads[idx].totalSize
-            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
-            self.downloads[idx].downloadedSize = bytes
-            self.downloads[idx].downloadSpeed = speed
-            if self.progressMap[id] == nil {
-                self.publishProgress(for: self.downloads[idx])
-            }
-            self.updateProgress(for: id)
-            if prevTotal == 0 && self.downloads[idx].totalSize > 0 {
-                let snapshot = self.downloads
-                DispatchQueue.global().async {
-                    DownloadPersistence.shared.save(snapshot)
-                }
-            }
-        }
+        engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 
         engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
