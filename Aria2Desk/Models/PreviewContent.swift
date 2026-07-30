@@ -9,7 +9,6 @@ enum PreviewContent {
             totalSize: 5_889_376_256,
             downloadedSize: 2_345_678_848,
             downloadSpeed: 12_582_912,
-            uploadSpeed: 1_048_576,
             status: .active,
             addedAt: Date().addingTimeInterval(-3600)
         ),
@@ -20,7 +19,6 @@ enum PreviewContent {
             totalSize: 15_032_385_536,
             downloadedSize: 15_032_385_536,
             downloadSpeed: 0,
-            uploadSpeed: 2_621_440,
             status: .completed,
             addedAt: Date().addingTimeInterval(-86400)
         ),
@@ -31,7 +29,6 @@ enum PreviewContent {
             totalSize: 2_147_483_648,
             downloadedSize: 1_073_741_824,
             downloadSpeed: 0,
-            uploadSpeed: 0,
             status: .paused,
             addedAt: Date().addingTimeInterval(-7200)
         ),
@@ -42,7 +39,6 @@ enum PreviewContent {
             totalSize: 197_568_000,
             downloadedSize: 167_342_756,
             downloadSpeed: 3_145_728,
-            uploadSpeed: 524_288,
             status: .active,
             addedAt: Date().addingTimeInterval(-1800)
         ),
@@ -53,7 +49,6 @@ enum PreviewContent {
             totalSize: 41_943_040_000,
             downloadedSize: 10_485_760_000,
             downloadSpeed: 8_388_608,
-            uploadSpeed: 2_097_152,
             status: .active,
             addedAt: Date().addingTimeInterval(-21600)
         ),
@@ -64,7 +59,6 @@ enum PreviewContent {
             totalSize: 314_572_800,
             downloadedSize: 314_572_800,
             downloadSpeed: 0,
-            uploadSpeed: 0,
             status: .completed,
             addedAt: Date().addingTimeInterval(-172800)
         ),
@@ -75,7 +69,6 @@ enum PreviewContent {
             totalSize: 12_884_901_888,
             downloadedSize: 1_048_576,
             downloadSpeed: 0,
-            uploadSpeed: 0,
             status: .stopped,
             addedAt: Date().addingTimeInterval(-43200)
         ),

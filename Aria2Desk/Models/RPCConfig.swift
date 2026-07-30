@@ -37,7 +37,3 @@ struct RPCConfig {
 
     static let defaultDownloadDir = NSHomeDirectory() + "/Downloads"
 }
-
-extension Notification.Name {
-    static let globalSpeedDidChange = Notification.Name("globalSpeedDidChange")
-}

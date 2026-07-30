@@ -6,12 +6,10 @@ struct DownloadRow: View {
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
-    var onSetConnections: ((UUID, Int) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
-    private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
     var body: some View {
@@ -61,24 +59,6 @@ struct DownloadRow: View {
                 }
             }
             Divider()
-            Menu {
-                ForEach(connectionOptions, id: \.self) { n in
-                    let current = download.connections ?? SettingsStore.shared.maxConnections
-                    Button { onSetConnections?(download.id, n) } label: {
-                        if n == current {
-                            Label("\(n) (\(LanguageManager.shared.localized("Current")))", systemImage: "checkmark")
-                        } else {
-                            Text("\(n)")
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "number")
-                    let c = download.connections ?? SettingsStore.shared.maxConnections
-                    Text("\(LanguageManager.shared.localized("Connections")): \(c)")
-                }
-            }
             speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
             Divider()
             Button(action: { onCopyURL?(download.id) }) {

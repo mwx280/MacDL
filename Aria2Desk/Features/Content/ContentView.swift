@@ -70,9 +70,9 @@ struct ContentView: View {
         .sheet(isPresented: $showNewDownloadSheet) {
             NewDownloadView(
                 text: $newDownloadURLs,
-                onDownload: { urls, path, connections, dlLimit in
+                onDownload: { urls, path, dlLimit in
                     for url in urls.components(separatedBy: .newlines).map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
-                        model.addDownload(url: url, savePath: path, connections: connections, dlLimit: dlLimit)
+                        model.addDownload(url: url, savePath: path, dlLimit: dlLimit)
                     }
                 }
             )
@@ -101,7 +101,6 @@ struct ContentView: View {
                 onResume: { model.resumeDownload(id: $0) },
                 onRetry: { model.retryDownload(id: $0) },
                 onDelete: { id in model.selectedDownloads.insert(id); model.confirmDelete() },
-                onSetConnections: { model.setConnections(id: $0, connections: $1) },
                 onSetDownloadLimit: { model.setDownloadLimit(id: $0, limit: $1) },
                 onShowInFinder: { id in
                     guard let d = model.downloads.first(where: { $0.id == id }) else { return }
@@ -121,5 +120,4 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(LanguageManager.shared)
-        .environment(Aria2RPCClient.shared)
 }

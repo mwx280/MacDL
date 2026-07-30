@@ -7,7 +7,6 @@ struct DownloadListView: View {
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
-    var onSetConnections: ((UUID, Int) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
@@ -16,7 +15,7 @@ struct DownloadListView: View {
         List(downloads, selection: $selection) { download in
             DownloadRow(download: download,
                 onPause: onPause, onResume: onResume, onRetry: onRetry,
-                onDelete: onDelete, onSetConnections: onSetConnections,
+                onDelete: onDelete,
                 onSetDownloadLimit: onSetDownloadLimit,
                 onShowInFinder: onShowInFinder, onCopyURL: onCopyURL)
         }

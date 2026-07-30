@@ -56,7 +56,7 @@ import Foundation
         vm.addDownload(url: "https://example.com/file.zip")
         #expect(vm.downloads.count == before + 1)
         #expect(vm.downloads.last?.filename == "file.zip")
-        #expect(vm.downloads.last?.status == .waiting)
+        #expect(vm.downloads.last?.status == .active)
     }
 
     @Test func addDownloadWithNoPathInURL() {
@@ -71,13 +71,6 @@ import Foundation
         vm.downloads = PreviewContent.downloads
         let expected = vm.downloads.reduce(0) { $0 + $1.downloadSpeed }
         #expect(vm.totalSpeed == expected)
-    }
-
-    @Test func computeTotalUpload() {
-        let vm = ContentViewModel()
-        vm.downloads = PreviewContent.downloads
-        let expected = vm.downloads.reduce(0) { $0 + $1.uploadSpeed }
-        #expect(vm.totalUpload == expected)
     }
 
     @Test func filteredDownloadsEmptyForInvalidSidebar() {
@@ -99,20 +92,4 @@ import Foundation
         #expect(vm.downloads.allSatisfy { $0.id != first.id })
     }
 
-    @Test func gidMapping() {
-        let vm = ContentViewModel()
-        let d = Download(gid: "abc123", filename: "test.zip", url: "https://example.com/test.zip")
-        vm.downloads = [d]
-        #expect(vm.downloads.first?.gid == "abc123")
-    }
-
-    @Test func statusAria2Mapping() {
-        #expect(DownloadStatus(aria2Status: "active") == .active)
-        #expect(DownloadStatus(aria2Status: "paused") == .paused)
-        #expect(DownloadStatus(aria2Status: "waiting") == .waiting)
-        #expect(DownloadStatus(aria2Status: "complete") == .completed)
-        #expect(DownloadStatus(aria2Status: "error") == .error)
-        #expect(DownloadStatus(aria2Status: "removed") == .stopped)
-        #expect(DownloadStatus(aria2Status: "invalid") == nil)
-    }
 }

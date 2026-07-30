@@ -7,48 +7,34 @@ final class ContentViewModel {
     var downloads: [Download] = []
     var selectedDownloads = Set<UUID>()
     var fileTypeFilter: FileTypeFilter = .all
-    var isPolling = false
 
-    private let rpc = Aria2RPCClient.shared
+    private let engine = DownloadEngine.shared
     private let persistence = DownloadPersistence.shared
-    private var pollingTask: Task<Void, Never>?
     private var termObserver: NSObjectProtocol?
-    private var speedObserver: NSObjectProtocol?
     private var progressMap: [UUID: Progress] = [:]
-    private var globalSpeedGeneration: UInt64 = 0
-    private var reconciledGeneration: [UUID: UInt64] = [:]
 
     init() {
         downloads = persistence.load()
+        for i in downloads.indices where downloads[i].status == .active {
+            downloads[i].status = .waiting
+        }
         termObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            self.stopPolling()
             self.unpublishAllProgress()
             self.persistence.saveImmediately(self.downloads)
         }
-        speedObserver = NotificationCenter.default.addObserver(
-            forName: .globalSpeedDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.globalSpeedGeneration &+= 1
-        }
-        startPolling()
     }
 
     deinit {
-        stopPolling()
         unpublishAllProgress()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
-        if let observer = speedObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
     var totalSpeed: Int64 { downloads.reduce(0) { $0 + $1.downloadSpeed } }
-    var totalUpload: Int64 { downloads.reduce(0) { $0 + $1.uploadSpeed } }
 
     // MARK: - Filtering
 
@@ -65,49 +51,15 @@ final class ContentViewModel {
         return statusFiltered.filter { fileTypeFilter.matches($0) }
     }
 
-    // MARK: - Polling
-
-    func startPolling() {
-        guard !isPolling else { return }
-        isPolling = true
-        pollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { return }
-                if rpc.isConnected {
-                    await self.syncFromRPC()
-                }
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
-    }
-
-    func stopPolling() {
-        pollingTask?.cancel()
-        pollingTask = nil
-        isPolling = false
-    }
-
     // MARK: - Progress (Finder Download Badge)
 
-    private func downloadDir(for download: Download) -> String {
-        download.savePath ?? RPCConfig.defaultDownloadDir
-    }
-
-    private func downloadURL(for download: Download) -> URL {
-        URL(fileURLWithPath: downloadDir(for: download) + "/" + download.filename + ".aria2desk")
-    }
-
-    private func hideAria2File(for download: Download) {
-        let path = downloadDir(for: download) + "/" + download.filename + ".aria2desk/" + download.filename + ".aria2"
-        let url = URL(fileURLWithPath: path)
-        guard FileManager.default.fileExists(atPath: path) else { return }
-        try? (url as NSURL).setResourceValue(true, forKey: .isHiddenKey)
+    private func destinationURL(for download: Download) -> URL {
+        let dir = download.savePath ?? RPCConfig.defaultDownloadDir
+        return URL(fileURLWithPath: dir + "/" + download.filename)
     }
 
     private func publishProgress(for download: Download) {
-        guard download.gid != nil else { return }
-        hideAria2File(for: download)
-        let fileURL = downloadURL(for: download)
+        let fileURL = destinationURL(for: download)
         let downloadID = download.id
 
         let p = Progress(totalUnitCount: max(download.totalSize, 1))
@@ -117,16 +69,14 @@ final class ContentViewModel {
         p.completedUnitCount = download.downloadedSize
         p.cancellationHandler = { [weak self] in
             guard let self else { return }
-            let unpublish = { self.unpublishProgress(for: downloadID) }
+            self.unpublishProgress(for: downloadID)
             if let idx = self.downloads.firstIndex(where: { $0.id == downloadID }) {
-                var d = self.downloads[idx]
-                if d.gid != nil {
-                    self.pauseDownload(id: downloadID)
+                let d = self.downloads[idx]
+                if d.status == .active {
+                    self.engine.pause(id: downloadID)
                 }
-                d.status = .paused
-                self.downloads[idx] = d
+                self.downloads[idx].status = .paused
             }
-            unpublish()
         }
         p.publish()
         progressMap[download.id] = p
@@ -151,212 +101,67 @@ final class ContentViewModel {
         progressMap.removeAll()
     }
 
-    private func applySmoothing(to download: inout Download, remote: Download) {
-        download.totalSize = remote.totalSize
-        download.downloadedSize = remote.downloadedSize
-        download.downloadSpeed = remote.downloadSpeed
-        download.uploadSpeed = remote.uploadSpeed
-        download.status = remote.status
-        download.errorMessage = remote.errorMessage
-    }
-
-    private func checkDownloadDirectory(for download: inout Download) {
-        guard download.status == .active || download.status == .waiting else { return }
-        guard download.gid != nil else { return }
-
-        let dir = download.savePath ?? RPCConfig.defaultDownloadDir
-        let packageDir = dir + "/" + download.filename + ".aria2desk"
-
-        guard !FileManager.default.fileExists(atPath: packageDir) else { return }
-
-        download.status = .error
-        download.errorMessage = "download directory deleted"
-        unpublishProgress(for: download.id)
-        Task { [gid = download.gid!] in await rpc.removeDownload(gid: gid) }
-    }
-
-    private func syncFromRPC() async {
-        let remoteDownloads = await rpc.fetchAllDownloads()
-        if Task.isCancelled { return }
-
-        var gidToDownload: [String: Download] = [:]
-        for d in downloads {
-            if let gid = d.gid { gidToDownload[gid] = d }
-        }
-
-        var seenGIDs = Set<String>()
-        var pendingResolved = Set<UUID>()
-        var merged: [Download] = []
-
-        for remote in remoteDownloads {
-            guard let gid = remote.gid else { continue }
-            seenGIDs.insert(gid)
-
-            if let existing = gidToDownload[gid] {
-                if pendingResolved.contains(existing.id) { continue }
-                pendingResolved.insert(existing.id)
-                var updated = existing
-                let prevStatus = existing.status
-                updated.totalSize = remote.totalSize
-                updated.downloadedSize = remote.downloadedSize
-                updated.downloadSpeed = remote.downloadSpeed
-                updated.uploadSpeed = remote.uploadSpeed
-                updated.status = remote.status
-                updated.errorMessage = remote.errorMessage
-                if updated.filename == "unknown" || updated.filename.isEmpty {
-                    updated.filename = remote.filename
-                }
-                applySmoothing(to: &updated, remote: remote)
-                checkDownloadDirectory(for: &updated)
-                if prevStatus != .completed && remote.status == .completed {
-                    unpublishProgress(for: updated.id)
-                    await finalizeDownload(&updated)
-                } else {
-                    updateProgress(for: updated.id)
-                }
-                if updated.status == .active || updated.status == .waiting {
-                    hideAria2File(for: updated)
-                }
-                if updated.status == .active, progressMap[updated.id] == nil {
-                    publishProgress(for: updated)
-                }
-                if updated.status == .error || updated.status == .stopped {
-                    unpublishProgress(for: updated.id)
-                }
-                merged.append(updated)
-            } else if let pendingIdx = pendingMatch(for: remote) {
-                var updated = downloads[pendingIdx]
-                updated.gid = gid
-                gidToDownload[gid] = updated
-                pendingResolved.insert(updated.id)
-                let prevStatus = updated.status
-                updated.totalSize = remote.totalSize
-                updated.downloadedSize = remote.downloadedSize
-                updated.downloadSpeed = remote.downloadSpeed
-                updated.uploadSpeed = remote.uploadSpeed
-                updated.status = remote.status
-                updated.errorMessage = remote.errorMessage
-                applySmoothing(to: &updated, remote: remote)
-                checkDownloadDirectory(for: &updated)
-                if prevStatus != .completed && remote.status == .completed {
-                    unpublishProgress(for: updated.id)
-                    await finalizeDownload(&updated)
-                } else {
-                    updateProgress(for: updated.id)
-                }
-                if updated.status == .active || updated.status == .waiting {
-                    hideAria2File(for: updated)
-                }
-                if updated.status == .active, progressMap[updated.id] == nil {
-                    publishProgress(for: updated)
-                }
-                if updated.status == .error || updated.status == .stopped {
-                    unpublishProgress(for: updated.id)
-                }
-                merged.append(updated)
-            } else {
-                var newDownload = remote
-                applySmoothing(to: &newDownload, remote: remote)
-                checkDownloadDirectory(for: &newDownload)
-                if newDownload.status == .active {
-                    publishProgress(for: newDownload)
-                }
-                merged.append(newDownload)
-            }
-        }
-
-        for d in downloads {
-            if pendingResolved.contains(d.id) { continue }
-            if d.gid == nil {
-                merged.append(d)
-            } else if let gid = d.gid, !seenGIDs.contains(gid) {
-                if d.status == .active || d.status == .waiting || d.status == .paused {
-                    unpublishProgress(for: d.id)
-                }
-                merged.append(d)
-            }
-        }
-
-        downloads = merged
-        reconcileSpeedLimits()
-        persistence.save(downloads)
-    }
-
-    private func reconcileSpeedLimits() {
-        guard globalSpeedGeneration > 0 else { return }
-        let gen = globalSpeedGeneration
-        let globalDL = SettingsStore.shared.maxDownloadSpeed
-        let globalUL = SettingsStore.shared.maxUploadSpeed
-        for d in downloads {
-            guard let gid = d.gid, d.status == .active || d.status == .waiting else { continue }
-            guard reconciledGeneration[d.id] ?? 0 < gen else { continue }
-            reconciledGeneration[d.id] = gen
-            if d.downloadLimit == nil && globalDL > 0 {
-                Task { await rpc.setSpeedLimit(gid: gid, key: "max-download-limit", value: "\(globalDL)") }
-            }
-            if d.uploadLimit == nil && globalUL > 0 {
-                Task { await rpc.setSpeedLimit(gid: gid, key: "max-upload-limit", value: "\(globalUL)") }
-            }
-        }
-    }
-
-    private func pendingMatch(for remote: Download) -> Int? {
-        downloads.firstIndex(where: {
-            $0.gid == nil && $0.url == remote.url && $0.filename == remote.filename
-        })
-    }
-
-    private func finalizeDownload(_ d: inout Download) async {
-        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-        let packageDir = dir + "/" + d.filename + ".aria2desk"
-        let sourcePath = packageDir + "/" + d.filename
-        let targetPath = dir + "/" + d.filename
-
-        let fm = FileManager.default
-        try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        if fm.fileExists(atPath: sourcePath) {
-            try? fm.moveItem(atPath: sourcePath, toPath: targetPath)
-        }
-        try? fm.removeItem(atPath: packageDir)
-        NSWorkspace.shared.noteFileSystemChanged(dir)
-    }
-
     // MARK: - Download Actions
 
-    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil, dlLimit: Int = 0, ulLimit: Int = 0) {
+    func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
 
         let d = Download(
             filename: name,
             url: url,
-            status: .waiting,
+            status: .active,
             savePath: savePath,
-            connections: connections,
-            downloadLimit: dlLimit > 0 ? dlLimit : nil,
-            uploadLimit: ulLimit > 0 ? ulLimit : nil
+            downloadLimit: dlLimit > 0 ? dlLimit : nil
         )
         downloads.append(d)
         persistence.save(downloads)
 
-        Task {
-            let gid = await rpc.addDownload(url: url, savePath: savePath, connections: connections, dlLimit: dlLimit, ulLimit: ulLimit)
+        guard let sourceURL = URL(string: url) else {
             if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
-                if let gid {
-                    downloads[idx].gid = gid
-                } else {
-                    downloads[idx].status = .error
-                    removeFiles(for: downloads[idx])
-                }
-                persistence.save(downloads)
+                downloads[idx].status = .error
+                downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
             }
+            return
+        }
+
+        let dest = destinationURL(for: d)
+        let taskID = engine.start(url: sourceURL, destinationURL: dest, speedLimit: Int64(dlLimit))
+        if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
+            downloads[idx].downloadedSize = 0
+            downloads[idx].totalSize = 0
+        }
+
+        engine.setProgressHandler(for: taskID) { [weak self] bytes, total, speed in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
+            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
+            self.downloads[idx].downloadedSize = bytes
+            self.downloads[idx].downloadSpeed = speed
+            if self.progressMap[d.id] == nil {
+                self.publishProgress(for: self.downloads[idx])
+            }
+            self.updateProgress(for: d.id)
+        }
+
+        engine.setCompletionHandler(for: taskID) { [weak self] result in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
+            switch result {
+            case .success:
+                self.downloads[idx].status = .completed
+                self.unpublishProgress(for: d.id)
+                let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
+                NSWorkspace.shared.noteFileSystemChanged(dir)
+            case .failure(let error):
+                self.downloads[idx].status = .error
+                self.downloads[idx].errorMessage = error.localizedDescription
+                self.unpublishProgress(for: d.id)
+            }
+            self.persistence.save(self.downloads)
         }
     }
 
     func pauseDownload(id: UUID) {
-        guard let d = downloads.first(where: { $0.id == id }) else { return }
-        if let gid = d.gid {
-            Task { await rpc.pauseDownload(gid: gid) }
-        }
+        guard let d = downloads.first(where: { $0.id == id }), d.status == .active else { return }
+        engine.pause(id: id)
         if let idx = downloads.firstIndex(where: { $0.id == id }) {
             downloads[idx].status = .paused
             persistence.save(downloads)
@@ -364,24 +169,60 @@ final class ContentViewModel {
     }
 
     func resumeDownload(id: UUID) {
-        guard let d = downloads.first(where: { $0.id == id }) else { return }
-        if let gid = d.gid {
-            Task { await rpc.resumeDownload(gid: gid) }
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        let d = downloads[idx]
+        guard d.status == .paused || d.status == .waiting else { return }
+
+        downloads[idx].status = .active
+        persistence.save(downloads)
+
+        guard let sourceURL = URL(string: d.url) else {
+            downloads[idx].status = .error
+            downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
+            return
         }
-        if let idx = downloads.firstIndex(where: { $0.id == id }) {
-            downloads[idx].status = .active
-            if progressMap[id] == nil { publishProgress(for: downloads[idx]) }
-            persistence.save(downloads)
+
+        let dest = destinationURL(for: d)
+        let taskID = engine.start(url: sourceURL, destinationURL: dest, speedLimit: Int64(d.downloadLimit ?? 0))
+        downloads[idx].downloadedSize = 0
+        downloads[idx].totalSize = 0
+
+        engine.setProgressHandler(for: taskID) { [weak self] bytes, total, speed in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
+            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
+            self.downloads[idx].downloadedSize = bytes
+            self.downloads[idx].downloadSpeed = speed
+            if self.progressMap[d.id] == nil {
+                self.publishProgress(for: self.downloads[idx])
+            }
+            self.updateProgress(for: d.id)
+        }
+
+        engine.setCompletionHandler(for: taskID) { [weak self] result in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
+            switch result {
+            case .success:
+                self.downloads[idx].status = .completed
+                self.unpublishProgress(for: d.id)
+                let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
+                NSWorkspace.shared.noteFileSystemChanged(dir)
+            case .failure(let error):
+                self.downloads[idx].status = .error
+                self.downloads[idx].errorMessage = error.localizedDescription
+                self.unpublishProgress(for: d.id)
+            }
+            self.persistence.save(self.downloads)
         }
     }
 
     func deleteDownload(id: UUID) {
         unpublishProgress(for: id)
         guard let d = downloads.first(where: { $0.id == id }) else { return }
-        if let gid = d.gid {
-            Task { await rpc.removeDownload(gid: gid, status: d.status) }
+        if d.status == .active {
+            engine.cancel(id: id)
         }
-        removeFiles(for: d)
+        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
     }
@@ -389,56 +230,26 @@ final class ContentViewModel {
     func retryDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         let d = downloads[idx]
-        if let gid = d.gid {
-            Task { await rpc.removeDownload(gid: gid, status: d.status) }
+        if d.status == .active {
+            engine.cancel(id: id)
         }
-        removeFiles(for: d)
+        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+
         downloads[idx].status = .waiting
         downloads[idx].errorMessage = nil
+        downloads[idx].downloadedSize = 0
+        downloads[idx].totalSize = 0
         persistence.save(downloads)
 
-        Task {
-            let gid = await rpc.addDownload(url: d.url, savePath: d.savePath, connections: d.connections, dlLimit: d.downloadLimit ?? 0, ulLimit: d.uploadLimit ?? 0)
-            if let idx = downloads.firstIndex(where: { $0.id == id }) {
-                if let gid {
-                    downloads[idx].gid = gid
-                    downloads[idx].status = .active
-                } else {
-                    downloads[idx].status = .error
-                    removeFiles(for: downloads[idx])
-                }
-                persistence.save(downloads)
-            }
-        }
+        addDownload(url: d.url, savePath: d.savePath, dlLimit: d.downloadLimit ?? 0)
     }
 
     func setDownloadLimit(id: UUID, limit: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[idx].downloadLimit = limit
         persistence.save(downloads)
-        if let gid = downloads[idx].gid {
-            let value = limit > 0 ? "\(limit)" : "0"
-            Task { await rpc.setSpeedLimit(gid: gid, key: "max-download-limit", value: value) }
-        }
-    }
-
-    func setUploadLimit(id: UUID, limit: Int) {
-        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
-        downloads[idx].uploadLimit = limit
-        persistence.save(downloads)
-        if let gid = downloads[idx].gid {
-            let value = limit > 0 ? "\(limit)" : "0"
-            Task { await rpc.setSpeedLimit(gid: gid, key: "max-upload-limit", value: value) }
-        }
-    }
-
-    func setConnections(id: UUID, connections: Int) {
-        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
-        downloads[idx].connections = connections
-        persistence.save(downloads)
-        if let gid = downloads[idx].gid {
-            Task { await rpc.changeConnections(gid: gid, connections: connections) }
-        }
+        engine.setSpeedLimit(id: id, limit: Int64(limit))
     }
 
     func pauseAll() {
@@ -452,19 +263,16 @@ final class ContentViewModel {
     }
 
     func pauseAllDownloads() {
-        Task { await rpc.pauseAll() }
         for i in downloads.indices where downloads[i].status == .active {
+            engine.pause(id: downloads[i].id)
             downloads[i].status = .paused
         }
         persistence.save(downloads)
     }
 
     func resumeAllDownloads() {
-        Task { await rpc.resumeAll() }
-        for i in downloads.indices where downloads[i].status == .paused || downloads[i].status == .waiting {
-            downloads[i].status = .active
-        }
-        persistence.save(downloads)
+        let ids = downloads.filter { $0.status == .paused || $0.status == .waiting }.map(\.id)
+        for id in ids { resumeDownload(id: id) }
     }
 
     func confirmDelete() {
@@ -484,24 +292,18 @@ final class ContentViewModel {
         }
     }
 
-    private func removeFiles(for d: Download) {
-        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
-    }
-
     private func clearSelected(deleteFiles: Bool = false) {
         let toDelete = downloads.filter { selectedDownloads.contains($0.id) }
 
         for d in toDelete {
             unpublishProgress(for: d.id)
-            if let gid = d.gid {
-                Task { await rpc.removeDownload(gid: gid, status: d.status) }
+            if d.status == .active {
+                engine.cancel(id: d.id)
             }
             let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-            if deleteFiles, d.status == .completed {
+            if deleteFiles {
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
             }
-            try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
         }
 
         downloads.removeAll { selectedDownloads.contains($0.id) }

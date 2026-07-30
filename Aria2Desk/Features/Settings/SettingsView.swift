@@ -116,28 +116,10 @@ private struct DownloadPane: View {
                     .frame(width: 100)
                     .onChange(of: maxDownloadSpeed) { _, v in
                         SettingsStore.shared.maxDownloadSpeed = v
-                        Task { await Aria2RPCClient.shared.applySpeedLimits() }
-                        NotificationCenter.default.post(name: .globalSpeedDidChange, object: nil)
                     }
                 }
 
                 divider
-
-                prefRow("arrow.up", "Upload Limit") {
-                    Picker(selection: $maxUploadSpeed) {
-                        ForEach(speedOptions, id: \.self) { speed in
-                            Text(speedLabel(speed))
-                                .tag(speed)
-                        }
-                    } label: { }
-                    .labelsHidden()
-                    .frame(width: 100)
-                    .onChange(of: maxUploadSpeed) { _, v in
-                        SettingsStore.shared.maxUploadSpeed = v
-                        Task { await Aria2RPCClient.shared.applySpeedLimits() }
-                        NotificationCenter.default.post(name: .globalSpeedDidChange, object: nil)
-                    }
-                }
             }
 
             card {
