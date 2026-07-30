@@ -116,6 +116,9 @@ final class Aria2Engine: EngineServiceProtocol {
             "--save-session=\(config.aria2SessionPath)",
             "--save-session-interval=30",
             "--disable-ipv6=true",
+            "--connect-timeout=10",
+            "--max-tries=2",
+            "--max-download-result=100",
         ]
 
         args.append("--rpc-secret=\(SettingsStore.shared.secretToken)")

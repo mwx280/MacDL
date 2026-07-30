@@ -193,11 +193,10 @@ final class Aria2RPCClient {
     }
 
     private static func errorDescription(code: Int, message: String?) -> String {
-        let fallback = message ?? ""
         let loc = LanguageManager.shared.localized
         switch code {
-        case 0: return fallback
-        case 1: return fallback.isEmpty ? loc("Unknown error") : fallback
+        case 0: return loc("Completed")
+        case 1: return loc("Unknown error")
         case 2: return loc("Timeout")
         case 3: return loc("Not Found")
         case 4: return loc("Resume not supported")
@@ -222,7 +221,9 @@ final class Aria2RPCClient {
         case 23: return loc("IP blocked")
         case 24: return loc("Proxy error")
         case 25: return loc("GeoIP blocked")
-        default: return fallback.isEmpty ? "\(loc("Error")) (\(code))" : fallback
+        default:
+            if let msg = message, !msg.isEmpty { return loc("Unknown error") }
+            return "\(loc("Error")) (\(code))"
         }
     }
 }
