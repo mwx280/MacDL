@@ -252,7 +252,7 @@ extension DownloadTask: URLSessionDataDelegate {
             let actualElapsed = now.timeIntervalSince(throttleStartTime)
             let ahead = expectedElapsed - actualElapsed
             if ahead > 0 {
-                Thread.sleep(forTimeInterval: min(ahead, 2.0))
+                Thread.sleep(forTimeInterval: ahead)
             }
         }
 
