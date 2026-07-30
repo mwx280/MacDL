@@ -86,9 +86,15 @@ struct ContentView: View {
     private var downloadsView: some View {
         let f = model.filteredDownloads(for: selected)
         if f.isEmpty {
-            LocalizedText(key: "No Downloads")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
+            VStack(spacing: 12) {
+                Image(systemName: "arrow.down.circle")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary)
+                LocalizedText(key: "No Downloads")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             DownloadListView(downloads: f, selection: $model.selectedDownloads,
                 onPause: { model.pauseDownload(id: $0) },
