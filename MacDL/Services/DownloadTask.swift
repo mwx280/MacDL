@@ -69,7 +69,7 @@ final class DownloadTask: NSObject {
             lastCheckTime = Date()
             lastCheckBytes = fileSize
             speedSamples = [(Date(), fileSize)]
-            throttleStartTime = .distantPast
+            throttleStartTime = Date()
             throttleStartBytes = fileSize
             var req = URLRequest(url: url)
             req.setValue("bytes=\(fileSize)-", forHTTPHeaderField: "Range")
@@ -87,7 +87,7 @@ final class DownloadTask: NSObject {
         lastCheckTime = Date()
         lastCheckBytes = 0
         speedSamples = [(Date(), 0)]
-        throttleStartTime = .distantPast
+        throttleStartTime = Date()
         throttleStartBytes = 0
         os_log("[DownloadTask] starting fresh")
         task = session?.dataTask(with: url)
@@ -112,7 +112,7 @@ final class DownloadTask: NSObject {
         lastCheckTime = Date()
         lastCheckBytes = actualOffset
         speedSamples = [(Date(), actualOffset)]
-        throttleStartTime = .distantPast
+        throttleStartTime = Date()
         throttleStartBytes = actualOffset
 
         var req = URLRequest(url: url)
@@ -230,11 +230,6 @@ extension DownloadTask: URLSessionDataDelegate {
             downloadSpeed = elapsed > 0 ? Int64(Double(delta) / elapsed) : 0
         }
 
-        if throttleStartTime == .distantPast {
-            throttleStartTime = now
-            throttleStartBytes = totalBytesWritten
-        }
-
         let elapsed = now.timeIntervalSince(lastCheckTime)
         if elapsed >= 0.5 {
             fileHandle?.synchronizeFile()
@@ -243,18 +238,17 @@ extension DownloadTask: URLSessionDataDelegate {
                 task?.cancel()
                 return
             }
-
-            if speedLimit > 0 {
-                let expectedBytes = Int64(Double(speedLimit) * now.timeIntervalSince(throttleStartTime))
-                let actualBytes = totalBytesWritten - throttleStartBytes
-                if actualBytes > expectedBytes {
-                    let overshoot = Double(actualBytes - expectedBytes) / Double(speedLimit)
-                    Thread.sleep(forTimeInterval: min(overshoot, 0.5))
-                }
-            }
-
             lastCheckBytes = totalBytesWritten
             lastCheckTime = now
+        }
+
+        if speedLimit > 0 {
+            let expectedElapsed = Double(totalBytesWritten - throttleStartBytes) / Double(speedLimit)
+            let actualElapsed = now.timeIntervalSince(throttleStartTime)
+            let ahead = expectedElapsed - actualElapsed
+            if ahead > 0 {
+                Thread.sleep(forTimeInterval: min(ahead, 0.5))
+            }
         }
 
         guard now.timeIntervalSince(progressThrottleTime) >= 0.2 else { return }
