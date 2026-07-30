@@ -33,7 +33,6 @@ final class ChunkManager {
         self.destinationURL = destinationURL
         self.chunkSize = chunkSize
         self.maxConcurrent = maxConcurrent
-        tokens = Double(chunkSize) * Double(maxConcurrent)
     }
 
     // MARK: - Public control
@@ -52,7 +51,8 @@ final class ChunkManager {
         }
         pendingIndices = chunks.filter { $0.status == .pending }.map(\.index)
         lastTokenTime = Date()
-        tokens = speedLimit > 0 ? 0 : Double(chunkSize) * Double(maxConcurrent)
+        let cap = speedLimit > 0 ? Double(max(speedLimit, chunkSize)) * 1.5 : Double(chunkSize) * Double(maxConcurrent)
+        tokens = speedLimit > 0 ? 0 : cap
         os_log("[ChunkManager] resume chunks=%d pending=%d completed=%d total=%lld",
                chunks.count, pendingIndices.count,
                chunks.filter { $0.status == .completed }.count, totalSize)
@@ -77,7 +77,8 @@ final class ChunkManager {
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
                 self.lastTokenTime = Date()
-                self.tokens = self.speedLimit > 0 ? 0 : Double(self.chunkSize) * Double(self.maxConcurrent)
+                let cap = self.speedLimit > 0 ? Double(max(self.speedLimit, self.chunkSize)) * 1.5 : Double(self.chunkSize) * Double(self.maxConcurrent)
+                self.tokens = self.speedLimit > 0 ? 0 : cap
                 self.onChunksChanged?(self.chunks)
                 self.dispatchNext()
             }
@@ -122,17 +123,20 @@ final class ChunkManager {
     }
 
     func setSpeedLimit(_ limit: Int64) {
+        let oldLimit = speedLimit
         speedLimit = limit
         let now = Date()
-        let elapsed = now.timeIntervalSince(lastTokenTime)
-        if elapsed > 0, speedLimit > 0 {
-            tokens += Double(speedLimit) * elapsed
-            tokens = min(tokens, Double(chunkSize) * Double(maxConcurrent))
-        } else if speedLimit == 0 {
+        if limit == 0 {
             tokens = Double(chunkSize) * Double(maxConcurrent)
+        } else if oldLimit > 0 {
+            let ratio = Double(limit) / Double(oldLimit)
+            tokens = min(tokens * ratio, Double(limit))
+        } else {
+            tokens = min(tokens, Double(limit))
         }
+        tokens = max(0, min(tokens, Double(max(limit, Int64(chunkSize))) * 1.5))
         lastTokenTime = now
-        os_log("[ChunkManager] speedLimit=%lld/s tokens=%.1f", limit, tokens)
+        os_log("[ChunkManager] speedLimit=%lld/s old=%lld tokens=%.1f cap=%.1f", limit, oldLimit, tokens, Double(max(limit, Int64(chunkSize))) * 1.5)
         syncQueue.async { self.dispatchNext() }
     }
 
@@ -144,6 +148,8 @@ final class ChunkManager {
 
     func pause() {
         os_log("[ChunkManager] pause")
+        pendingDispatch?.cancel()
+        pendingDispatch = nil
         logTimer?.invalidate()
         logTimer = nil
         for (_, task) in activeTasks { task.pause() }
@@ -157,6 +163,8 @@ final class ChunkManager {
     }
 
     func cancel() {
+        pendingDispatch?.cancel()
+        pendingDispatch = nil
         logTimer?.invalidate()
         logTimer = nil
         for (_, task) in activeTasks { task.cancel() }
@@ -175,7 +183,8 @@ final class ChunkManager {
             let elapsed = now.timeIntervalSince(lastTokenTime)
             if elapsed > 0 {
                 tokens += Double(speedLimit) * elapsed
-                tokens = min(tokens, Double(chunkSize) * Double(maxConcurrent))
+                let cap = Double(max(speedLimit, chunkSize)) * 1.5
+                tokens = min(tokens, cap)
                 lastTokenTime = now
             }
         } else {
@@ -183,7 +192,13 @@ final class ChunkManager {
         }
 
         let activeCount = activeTasks.count
-        let canStart = max(0, maxConcurrent - activeCount)
+        let maxBurst: Int
+        if speedLimit > 0 {
+            maxBurst = max(1, min(maxConcurrent, Int(Double(speedLimit) / Double(chunkSize)) + 1))
+        } else {
+            maxBurst = maxConcurrent
+        }
+        let canStart = min(max(0, maxConcurrent - activeCount), maxBurst)
 
         var waited = false
         if canStart > 0 && !pendingIndices.isEmpty {
@@ -191,13 +206,14 @@ final class ChunkManager {
             while started < canStart && !pendingIndices.isEmpty {
                 if speedLimit > 0, tokens < Double(chunkSize) {
                     if !waited && activeCount == 0 {
-                        let wait = Double(chunkSize) / Double(speedLimit)
+                        let missing = Double(chunkSize) - tokens
+                        let wait = max(missing / Double(speedLimit), 0.05)
                         pendingDispatch?.cancel()
                         let item = DispatchWorkItem { [weak self] in self?.dispatchNext() }
                         pendingDispatch = item
                         syncQueue.asyncAfter(deadline: .now() + wait, execute: item)
                         waited = true
-                        print("📊 [ChunkManager] waiting tokens=\(Int(tokens)) will retry in \(String(format: "%.1f", wait))s")
+                        print("📊 [ChunkManager] wait missing=\(Int(missing)) wait=\(String(format: "%.2f", wait))s tokens=\(Int(tokens))")
                     }
                     break
                 }
@@ -222,7 +238,7 @@ final class ChunkManager {
         }
 
         let active = activeTasks.keys.sorted()
-        print("📊 [ChunkManager] dispatch active=\(active.count)/\(maxConcurrent) pending=\(pendingIndices.count) done=\(chunks.filter { $0.status == .completed }.count)/\(chunks.count) speed=\(formatSpeed(downloadSpeed)) threads=\(maxConcurrent) tokens=\(Int(tokens))")
+        print("📊 [ChunkManager] dispatch active=\(active.count)/\(maxConcurrent) pending=\(pendingIndices.count) done=\(chunks.filter { $0.status == .completed }.count)/\(chunks.count) speed=\(formatSpeed(downloadSpeed)) threads=\(maxConcurrent) maxBurst=\(maxBurst) tokens=\(Int(tokens))")
         for idx in active {
             let s = activeTasks[idx]?.speed ?? 0
             print("  Thread #\(idx): \(formatSpeed(s))")
