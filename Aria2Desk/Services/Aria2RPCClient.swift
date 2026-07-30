@@ -130,11 +130,8 @@ final class Aria2RPCClient {
 
     func applySpeedLimits() async {
         var opts: [String: Any] = [:]
-        let dl = SettingsStore.shared.maxDownloadSpeed
-        if dl > 0 { opts["max-download-limit"] = "\(dl)" }
-        let ul = SettingsStore.shared.maxUploadSpeed
-        if ul > 0 { opts["max-upload-limit"] = "\(ul)" }
-        guard !opts.isEmpty else { return }
+        opts["max-download-limit"] = "\(SettingsStore.shared.maxDownloadSpeed)"
+        opts["max-upload-limit"] = "\(SettingsStore.shared.maxUploadSpeed)"
         _ = await transport.changeGlobalOption(opts)
     }
 
