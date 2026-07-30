@@ -34,7 +34,6 @@ final class DownloadTask: NSObject {
     private var speedSamples: [(Date, Int64)] = []
     private var throttleStartTime: Date = .distantPast
     private var throttleStartBytes: Int64 = 0
-    private var isThrottled = false
     private(set) var isPaused = false
     private(set) var isCompleted = false
 
@@ -70,7 +69,7 @@ final class DownloadTask: NSObject {
             lastCheckTime = Date()
             lastCheckBytes = fileSize
             speedSamples = [(Date(), fileSize)]
-            throttleStartTime = Date()
+            throttleStartTime = .distantPast
             throttleStartBytes = fileSize
             var req = URLRequest(url: url)
             req.setValue("bytes=\(fileSize)-", forHTTPHeaderField: "Range")
@@ -88,7 +87,7 @@ final class DownloadTask: NSObject {
         lastCheckTime = Date()
         lastCheckBytes = 0
         speedSamples = [(Date(), 0)]
-        throttleStartTime = Date()
+        throttleStartTime = .distantPast
         throttleStartBytes = 0
         os_log("[DownloadTask] starting fresh")
         task = session?.dataTask(with: url)
@@ -113,7 +112,7 @@ final class DownloadTask: NSObject {
         lastCheckTime = Date()
         lastCheckBytes = actualOffset
         speedSamples = [(Date(), actualOffset)]
-        throttleStartTime = Date()
+        throttleStartTime = .distantPast
         throttleStartBytes = actualOffset
 
         var req = URLRequest(url: url)
@@ -173,12 +172,6 @@ final class DownloadTask: NSObject {
         fileHandle?.write(data)
         totalBytesWritten += Int64(data.count)
     }
-
-    func resetThrottle() {
-        throttleStartTime = Date()
-        throttleStartBytes = totalBytesWritten
-        isThrottled = false
-    }
 }
 
 // MARK: - URLSessionDataDelegate
@@ -237,6 +230,11 @@ extension DownloadTask: URLSessionDataDelegate {
             downloadSpeed = elapsed > 0 ? Int64(Double(delta) / elapsed) : 0
         }
 
+        if throttleStartTime == .distantPast {
+            throttleStartTime = now
+            throttleStartBytes = totalBytesWritten
+        }
+
         let elapsed = now.timeIntervalSince(lastCheckTime)
         if elapsed >= 0.5 {
             fileHandle?.synchronizeFile()
@@ -245,33 +243,27 @@ extension DownloadTask: URLSessionDataDelegate {
                 task?.cancel()
                 return
             }
+
+            if speedLimit > 0 {
+                let expectedBytes = Int64(Double(speedLimit) * now.timeIntervalSince(throttleStartTime))
+                let actualBytes = totalBytesWritten - throttleStartBytes
+                if actualBytes > expectedBytes {
+                    let overshoot = Double(actualBytes - expectedBytes) / Double(speedLimit)
+                    Thread.sleep(forTimeInterval: min(overshoot, 0.5))
+                }
+            }
+
             lastCheckBytes = totalBytesWritten
             lastCheckTime = now
         }
 
-        if now.timeIntervalSince(progressThrottleTime) >= 0.2 {
-            progressThrottleTime = now
-            let capturedWritten = totalBytesWritten
-            let capturedExpected = totalBytesExpected
-            let capturedSpeed = downloadSpeed
-            DispatchQueue.main.async { [weak self] in
-                self?.onProgress?(capturedWritten, capturedExpected, capturedSpeed)
-            }
-        }
-
-        if speedLimit > 0, !isThrottled {
-            let expectedElapsed = Double(totalBytesWritten - throttleStartBytes) / Double(speedLimit)
-            let actualElapsed = now.timeIntervalSince(throttleStartTime)
-            let ahead = expectedElapsed - actualElapsed
-            if ahead > 0.01 {
-                isThrottled = true
-                task?.suspend()
-                DispatchQueue.main.asyncAfter(deadline: .now() + ahead) { [weak self] in
-                    guard let self else { return }
-                    self.isThrottled = false
-                    self.task?.resume()
-                }
-            }
+        guard now.timeIntervalSince(progressThrottleTime) >= 0.2 else { return }
+        progressThrottleTime = now
+        let capturedWritten = totalBytesWritten
+        let capturedExpected = totalBytesExpected
+        let capturedSpeed = downloadSpeed
+        DispatchQueue.main.async { [weak self] in
+            self?.onProgress?(capturedWritten, capturedExpected, capturedSpeed)
         }
     }
 

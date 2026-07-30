@@ -40,10 +40,7 @@ final class DownloadEngine {
     }
 
     func setSpeedLimit(id: UUID, limit: Int64) {
-        syncQueue.sync {
-            tasks[id]?.speedLimit = limit
-            tasks[id]?.resetThrottle()
-        }
+        syncQueue.sync { tasks[id]?.speedLimit = limit }
     }
 
     var hasActiveTasks: Bool {
