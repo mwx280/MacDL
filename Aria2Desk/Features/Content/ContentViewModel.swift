@@ -15,6 +15,11 @@ final class ContentViewModel {
     private var fileCheckTimer: Timer?
 
     init() {
+        if let oldData = try? Data(contentsOf: DownloadPersistence.persistedFileURL),
+           let oldList = try? JSONDecoder().decode([Download].self, from: oldData),
+           oldList.contains(where: { $0.filename == "file.zip" || $0.filename == "Xcode_26.6.xip" }) {
+            try? FileManager.default.removeItem(at: DownloadPersistence.persistedFileURL)
+        }
         downloads = persistence.load()
         for i in downloads.indices where downloads[i].status == .active {
             downloads[i].status = .waiting

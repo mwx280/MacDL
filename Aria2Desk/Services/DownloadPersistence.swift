@@ -3,6 +3,8 @@ import Foundation
 final class DownloadPersistence {
     static let shared = DownloadPersistence()
 
+    static var persistedFileURL: URL { fileURL }
+
     private static var fileURL: URL {
         let base = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/com.xiaowu.Aria2Desk")

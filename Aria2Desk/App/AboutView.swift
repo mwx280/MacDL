@@ -21,9 +21,7 @@ struct AboutView: View {
     private var build: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
-    private var totalSpeed: Int64 {
-        PreviewContent.downloads.reduce(0) { $0 + $1.downloadSpeed }
-    }
+    private var totalSpeed: Int64 { 12_582_912 }
 
     var body: some View {
         ZStack {
