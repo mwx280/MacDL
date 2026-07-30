@@ -42,12 +42,25 @@ final class DownloadTask: NSObject {
     // MARK: - Public control方法
     func start() {
         session = makeSession()
-        FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
-        fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
-        lastCheckTime = Date()
-        lastCheckBytes = 0
-        speedSamples = [(Date(), 0)]
-        task = session?.dataTask(with: url)
+        let fileSize = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64) ?? 0
+        if fileSize > 0 {
+            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
+            fileHandle?.seekToEndOfFile()
+            totalBytesWritten = fileSize
+            lastCheckTime = Date()
+            lastCheckBytes = fileSize
+            speedSamples = [(Date(), fileSize)]
+            var req = URLRequest(url: url)
+            req.setValue("bytes=\(fileSize)-", forHTTPHeaderField: "Range")
+            task = session?.dataTask(with: req)
+        } else {
+            FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
+            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
+            lastCheckTime = Date()
+            lastCheckBytes = 0
+            speedSamples = [(Date(), 0)]
+            task = session?.dataTask(with: url)
+        }
         task?.resume()
     }
 

@@ -268,8 +268,6 @@ final class ContentViewModel {
 
         let dest = destinationURL(for: downloads[idx])
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0))
-        downloads[idx].downloadedSize = 0
-        downloads[idx].totalSize = 0
 
         engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
