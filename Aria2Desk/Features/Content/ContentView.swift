@@ -99,6 +99,7 @@ struct ContentView: View {
             DownloadListView(downloads: f, selection: $model.selectedDownloads,
                 onPause: { model.pauseDownload(id: $0) },
                 onResume: { model.resumeDownload(id: $0) },
+                onRetry: { model.retryDownload(id: $0) },
                 onDelete: { id in model.selectedDownloads.insert(id); model.confirmDelete() },
                 onSetConnections: { model.setConnections(id: $0, connections: $1) },
                 onSetDownloadLimit: { model.setDownloadLimit(id: $0, limit: $1) },

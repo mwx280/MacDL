@@ -271,6 +271,30 @@ final class ContentViewModel {
         persistence.save(downloads)
     }
 
+    func retryDownload(id: UUID) {
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        let d = downloads[idx]
+        if let gid = d.gid {
+            Task { await rpc.removeDownload(gid: gid, status: d.status) }
+        }
+        downloads[idx].status = .waiting
+        downloads[idx].errorMessage = nil
+        persistence.save(downloads)
+
+        Task {
+            let gid = await rpc.addDownload(url: d.url, savePath: d.savePath, connections: d.connections, dlLimit: d.downloadLimit ?? 0, ulLimit: d.uploadLimit ?? 0)
+            if let idx = downloads.firstIndex(where: { $0.id == id }) {
+                if let gid {
+                    downloads[idx].gid = gid
+                    downloads[idx].status = .active
+                } else {
+                    downloads[idx].status = .error
+                }
+                persistence.save(downloads)
+            }
+        }
+    }
+
     func setDownloadLimit(id: UUID, limit: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[idx].downloadLimit = limit

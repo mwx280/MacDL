@@ -4,6 +4,7 @@ struct DownloadRow: View {
     let download: Download
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
+    var onRetry: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetConnections: ((UUID, Int) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
@@ -53,6 +54,11 @@ struct DownloadRow: View {
             if download.status == .paused || download.status == .waiting {
                 Button(action: { onResume?(download.id) }) {
                     Label(LanguageManager.shared.localized("Resume"), systemImage: "play")
+                }
+            }
+            if download.status == .error || download.status == .stopped {
+                Button(action: { onRetry?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Retry"), systemImage: "arrow.clockwise")
                 }
             }
             Divider()
