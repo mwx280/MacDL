@@ -40,4 +40,14 @@ final class SettingsStore: SettingsStoreProtocol {
         }
         set { defaults.set(newValue, forKey: "downloadPath") }
     }
+
+    var maxDownloadSpeed: Int {
+        get { defaults.integer(forKey: "maxDownloadSpeed") }
+        set { defaults.set(newValue, forKey: "maxDownloadSpeed") }
+    }
+
+    var maxUploadSpeed: Int {
+        get { defaults.integer(forKey: "maxUploadSpeed") }
+        set { defaults.set(newValue, forKey: "maxUploadSpeed") }
+    }
 }

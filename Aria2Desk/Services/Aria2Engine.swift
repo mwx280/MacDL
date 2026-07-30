@@ -122,6 +122,16 @@ final class Aria2Engine: EngineServiceProtocol {
         if !token.isEmpty {
             args.append("--rpc-secret=\(token)")
         }
+
+        let dlSpeed = SettingsStore.shared.maxDownloadSpeed
+        if dlSpeed > 0 {
+            args.append("--max-download-limit=\(dlSpeed)")
+        }
+        let ulSpeed = SettingsStore.shared.maxUploadSpeed
+        if ulSpeed > 0 {
+            args.append("--max-upload-limit=\(ulSpeed)")
+        }
+
         return args
     }
 

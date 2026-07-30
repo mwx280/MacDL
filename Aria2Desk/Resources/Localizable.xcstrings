@@ -481,6 +481,23 @@
         }
       }
     },
+    "Download Limit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Limit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载限速"
+          }
+        }
+      }
+    },
     "Download Location" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1170,6 +1187,23 @@
         }
       }
     },
+    "Unlimited" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无限制"
+          }
+        }
+      }
+    },
     "Up %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1183,6 +1217,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上传: %@"
+          }
+        }
+      }
+    },
+    "Upload Limit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload Limit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传限速"
           }
         }
       }

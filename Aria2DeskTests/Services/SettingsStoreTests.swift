@@ -26,4 +26,26 @@ import Foundation
         #expect(store.secretToken == "test-token")
         store.secretToken = original
     }
+
+    @Test func defaultMaxDownloadSpeed() {
+        #expect(store.maxDownloadSpeed == 0)
+    }
+
+    @Test func defaultMaxUploadSpeed() {
+        #expect(store.maxUploadSpeed == 0)
+    }
+
+    @Test func writeThenReadMaxDownloadSpeed() {
+        let original = store.maxDownloadSpeed
+        store.maxDownloadSpeed = 1_048_576
+        #expect(store.maxDownloadSpeed == 1_048_576)
+        store.maxDownloadSpeed = original
+    }
+
+    @Test func writeThenReadMaxUploadSpeed() {
+        let original = store.maxUploadSpeed
+        store.maxUploadSpeed = 512_000
+        #expect(store.maxUploadSpeed == 512_000)
+        store.maxUploadSpeed = original
+    }
 }

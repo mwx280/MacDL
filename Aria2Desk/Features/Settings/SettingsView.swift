@@ -14,7 +14,7 @@ struct SettingsView: View {
                     Label(title: { LocalizedText(key: "Download") }, icon: { Image(systemName: "arrow.down.circle") })
                 }
         }
-        .frame(width: 420, height: 180)
+        .frame(width: 420, height: 260)
     }
 }
 
@@ -57,14 +57,19 @@ private struct DownloadPane: View {
     @State private var maxConnections: Int
     @State private var maxConcurrent: Int
     @State private var downloadPath: String
+    @State private var maxDownloadSpeed: Int
+    @State private var maxUploadSpeed: Int
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
+    private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
     init() {
         _maxConnections = State(initialValue: SettingsStore.shared.maxConnections)
         _maxConcurrent = State(initialValue: SettingsStore.shared.maxConcurrentDownloads)
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
+        _maxDownloadSpeed = State(initialValue: SettingsStore.shared.maxDownloadSpeed)
+        _maxUploadSpeed = State(initialValue: SettingsStore.shared.maxUploadSpeed)
     }
 
     var body: some View {
@@ -100,6 +105,38 @@ private struct DownloadPane: View {
             }
 
             card {
+                prefRow("arrow.down", "Download Limit") {
+                    Picker(selection: $maxDownloadSpeed) {
+                        ForEach(speedOptions, id: \.self) { speed in
+                            Text(speedLabel(speed))
+                                .tag(speed)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 100)
+                    .onChange(of: maxDownloadSpeed) { _, v in
+                        SettingsStore.shared.maxDownloadSpeed = v
+                    }
+                }
+
+                divider
+
+                prefRow("arrow.up", "Upload Limit") {
+                    Picker(selection: $maxUploadSpeed) {
+                        ForEach(speedOptions, id: \.self) { speed in
+                            Text(speedLabel(speed))
+                                .tag(speed)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 100)
+                    .onChange(of: maxUploadSpeed) { _, v in
+                        SettingsStore.shared.maxUploadSpeed = v
+                    }
+                }
+            }
+
+            card {
                 VStack(spacing: 0) {
                     HStack(spacing: 10) {
                         Image(systemName: "folder")
@@ -127,6 +164,12 @@ private struct DownloadPane: View {
             }
         }
         .padding(20)
+    }
+
+    private func speedLabel(_ bytesPerSecond: Int) -> String {
+        if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
+        if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
+        return "\(bytesPerSecond / 1_048_576) MB/s"
     }
 
     private func browsePath() {
