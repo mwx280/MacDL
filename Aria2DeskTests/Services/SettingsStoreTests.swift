@@ -34,13 +34,6 @@ import Foundation
         store.maxDownloadSpeed = original
     }
 
-    @Test func defaultMaxUploadSpeed() {
-        let original = store.maxUploadSpeed
-        store.maxUploadSpeed = 0
-        #expect(store.maxUploadSpeed == 0)
-        store.maxUploadSpeed = original
-    }
-
     @Test func writeThenReadMaxDownloadSpeed() {
         let original = store.maxDownloadSpeed
         store.maxDownloadSpeed = 1_048_576
@@ -48,10 +41,4 @@ import Foundation
         store.maxDownloadSpeed = original
     }
 
-    @Test func writeThenReadMaxUploadSpeed() {
-        let original = store.maxUploadSpeed
-        store.maxUploadSpeed = 512_000
-        #expect(store.maxUploadSpeed == 512_000)
-        store.maxUploadSpeed = original
-    }
 }

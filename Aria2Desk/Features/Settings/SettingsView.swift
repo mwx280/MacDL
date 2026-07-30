@@ -58,7 +58,6 @@ private struct DownloadPane: View {
     @State private var maxConcurrent: Int
     @State private var downloadPath: String
     @State private var maxDownloadSpeed: Int
-    @State private var maxUploadSpeed: Int
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
@@ -69,7 +68,6 @@ private struct DownloadPane: View {
         _maxConcurrent = State(initialValue: SettingsStore.shared.maxConcurrentDownloads)
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
         _maxDownloadSpeed = State(initialValue: SettingsStore.shared.maxDownloadSpeed)
-        _maxUploadSpeed = State(initialValue: SettingsStore.shared.maxUploadSpeed)
     }
 
     var body: some View {

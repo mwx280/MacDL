@@ -12,5 +12,4 @@ protocol SettingsStoreProtocol {
     var secretToken: String { get set }
     var downloadPath: String { get set }
     var maxDownloadSpeed: Int { get set }
-    var maxUploadSpeed: Int { get set }
 }
