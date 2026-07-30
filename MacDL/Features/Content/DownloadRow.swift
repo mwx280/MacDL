@@ -99,11 +99,7 @@ struct DownloadRow: View {
             Circle()
                 .fill(download.status.displayColor)
                 .frame(width: 6, height: 6)
-            if download.status == .active && download.downloadSpeed > 0 {
-                Text(formatSpeed(download.downloadSpeed))
-                    .font(.caption)
-                    .foregroundStyle(download.status.displayColor)
-            } else if download.status == .error, let msg = download.errorMessage {
+            if download.status == .error, let msg = download.errorMessage {
                 Text(msg)
                     .font(.caption)
                     .foregroundStyle(download.status.displayColor)
