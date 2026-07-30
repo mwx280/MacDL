@@ -59,7 +59,7 @@ final class Aria2RPCClient {
 
     // MARK: - Download Operations
 
-    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) async -> String? {
+    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil, dlLimit: Int = 0, ulLimit: Int = 0) async -> String? {
         let filename = URL(string: url)?.lastPathComponent ?? "download"
         let dir = savePath ?? RPCConfig.defaultDownloadDir
         let packageDir = dir + "/" + filename + ".aria2desk"
@@ -73,6 +73,8 @@ final class Aria2RPCClient {
             "dir": packageDir,
         ]
         if let connections { options["max-connection-per-server"] = "\(connections)" }
+        if dlLimit > 0 { options["max-download-limit"] = "\(dlLimit)" }
+        if ulLimit > 0 { options["max-upload-limit"] = "\(ulLimit)" }
         for _ in 0..<5 {
             if let gid = await transport.addUri(uri: url, options: options) {
                 return gid

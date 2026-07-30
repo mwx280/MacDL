@@ -3,19 +3,24 @@ import AppKit
 
 struct NewDownloadView: View {
     @Binding var text: String
-    let onDownload: (String, String, Int) -> Void
+    let onDownload: (String, String, Int, Int, Int) -> Void
     @State private var downloadPath: String
     @State private var connections: Int
+    @State private var downloadLimit: Int
+    @State private var uploadLimit: Int
     @State private var refresh = UUID()
     @Environment(\.dismiss) var dismiss
 
     private let connectionOptions = [1, 2, 4, 8, 16]
+    private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
-    init(text: Binding<String>, onDownload: @escaping (String, String, Int) -> Void) {
+    init(text: Binding<String>, onDownload: @escaping (String, String, Int, Int, Int) -> Void) {
         _text = text
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
         _connections = State(initialValue: SettingsStore.shared.maxConnections)
+        _downloadLimit = State(initialValue: 0)
+        _uploadLimit = State(initialValue: 0)
     }
 
     var body: some View {
@@ -63,25 +68,45 @@ struct NewDownloadView: View {
                 }
             }
 
-            HStack {
-                LocalizedText(key: "Connections")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Picker(selection: $connections) {
-                    ForEach(connectionOptions, id: \.self) { n in
-                        Text("\(n)").tag(n)
-                    }
-                } label: { }
-                .labelsHidden()
-                .frame(width: 72)
+            Group {
+                prefRow("number", "Connections") {
+                    Picker(selection: $connections) {
+                        ForEach(connectionOptions, id: \.self) { n in
+                            Text("\(n)").tag(n)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 72)
+                }
+
+                prefRow("arrow.down", "Download Limit") {
+                    Picker(selection: $downloadLimit) {
+                        ForEach(speedOptions, id: \.self) { speed in
+                            Text(speedLabel(speed))
+                                .tag(speed)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 100)
+                }
+
+                prefRow("arrow.up", "Upload Limit") {
+                    Picker(selection: $uploadLimit) {
+                        ForEach(speedOptions, id: \.self) { speed in
+                            Text(speedLabel(speed))
+                                .tag(speed)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 100)
+                }
             }
 
             HStack(spacing: 12) {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {
-                    onDownload(text, downloadPath, connections)
+                    onDownload(text, downloadPath, connections, downloadLimit, uploadLimit)
                     SettingsStore.shared.downloadPath = downloadPath
                     dismiss()
                 }
@@ -89,7 +114,7 @@ struct NewDownloadView: View {
             }
         }
         .padding(20)
-        .frame(width: 400, height: 380)
+        .frame(width: 400, height: 440)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
@@ -102,6 +127,25 @@ struct NewDownloadView: View {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .contains { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
             if hasURL { text = str }
+        }
+    }
+
+    private func speedLabel(_ bytesPerSecond: Int) -> String {
+        if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
+        if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
+        return "\(bytesPerSecond / 1_048_576) MB/s"
+    }
+
+    private func prefRow<C: View>(_ icon: String, _ label: String, @ViewBuilder control: () -> C) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.body)
+                .frame(width: 18)
+                .foregroundStyle(.secondary)
+            LocalizedText(key: label)
+                .font(.body)
+            Spacer()
+            control()
         }
     }
 

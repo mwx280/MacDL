@@ -208,7 +208,7 @@ final class ContentViewModel {
 
     // MARK: - Download Actions
 
-    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) {
+    func addDownload(url: String, savePath: String? = nil, connections: Int? = nil, dlLimit: Int = 0, ulLimit: Int = 0) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
 
         let d = Download(
@@ -222,7 +222,7 @@ final class ContentViewModel {
         persistence.save(downloads)
 
         Task {
-            let gid = await rpc.addDownload(url: url, savePath: savePath, connections: connections)
+            let gid = await rpc.addDownload(url: url, savePath: savePath, connections: connections, dlLimit: dlLimit, ulLimit: ulLimit)
             if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
                 if let gid {
                     downloads[idx].gid = gid
