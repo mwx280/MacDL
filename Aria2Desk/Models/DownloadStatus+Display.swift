@@ -1,6 +1,18 @@
 import SwiftUI
 
 extension DownloadStatus {
+    init?(aria2Status: String) {
+        switch aria2Status {
+        case "active": self = .active
+        case "paused": self = .paused
+        case "waiting": self = .waiting
+        case "complete": self = .completed
+        case "error": self = .error
+        case "removed": self = .stopped
+        default: return nil
+        }
+    }
+
     var displayIcon: String {
         switch self {
         case .active: "arrow.down.circle.fill"

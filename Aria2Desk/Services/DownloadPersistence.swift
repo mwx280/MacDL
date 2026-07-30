@@ -16,7 +16,7 @@ final class DownloadPersistence {
     func load() -> [Download] {
         guard let data = try? Data(contentsOf: Self.fileURL),
               let list = try? JSONDecoder().decode([Download].self, from: data)
-        else { return PreviewContent.downloads }
+        else { return [] }
         return list
     }
 
