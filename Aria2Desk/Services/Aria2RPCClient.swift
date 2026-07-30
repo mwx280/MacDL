@@ -62,7 +62,7 @@ final class Aria2RPCClient {
     func addDownload(url: String, savePath: String? = nil, connections: Int? = nil) async -> String? {
         let filename = URL(string: url)?.lastPathComponent ?? "download"
         var options: [String: Any] = [
-            "out": filename + ".download",
+            "out": filename + ".aria2desk",
             "dir": savePath ?? RPCConfig.defaultDownloadDir,
         ]
         if let connections { options["max-connection-per-server"] = "\(connections)" }
@@ -137,7 +137,7 @@ final class Aria2RPCClient {
             let path = first["path"] as? String ?? ""
             if !path.isEmpty {
                 filename = URL(fileURLWithPath: path).lastPathComponent
-                if filename.hasSuffix(".download") { filename = String(filename.dropLast(9)) }
+                if filename.hasSuffix(".aria2desk") { filename = String(filename.dropLast(11)) }
                 if dir == nil { dir = URL(fileURLWithPath: path).deletingLastPathComponent().path }
             }
             if let uris = first["uris"] as? [[String: Any]], let firstUri = uris.first {

@@ -80,7 +80,7 @@ final class ContentViewModel {
 
     private func downloadURL(for download: Download) -> URL {
         let dir = download.savePath ?? RPCConfig.defaultDownloadDir
-        return URL(fileURLWithPath: dir + "/" + download.filename + ".download")
+        return URL(fileURLWithPath: dir + "/" + download.filename + ".aria2desk")
     }
 
     private func publishProgress(for download: Download) {
@@ -179,7 +179,7 @@ final class ContentViewModel {
 
     private func finalizeDownload(_ d: inout Download) async {
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-        let downloadPath = dir + "/" + d.filename + ".download"
+        let downloadPath = dir + "/" + d.filename + ".aria2desk"
         let finalPath = dir + "/" + d.filename
 
         let fm = FileManager.default
@@ -306,7 +306,7 @@ final class ContentViewModel {
 
     private func removeFiles(for d: Download) {
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-        let filePath = dir + "/" + d.filename + ".download"
+        let filePath = dir + "/" + d.filename + ".aria2desk"
         try? FileManager.default.removeItem(atPath: filePath)
         try? FileManager.default.removeItem(atPath: filePath + ".aria2")
     }
@@ -325,8 +325,8 @@ final class ContentViewModel {
                 if deleteFiles, d.status == .completed {
                     try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
                 }
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".download")
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".download" + ".aria2")
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk" + ".aria2")
             }
         }
 
