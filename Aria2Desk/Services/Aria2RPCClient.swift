@@ -95,11 +95,14 @@ final class Aria2RPCClient {
         _ = await transport.unpauseAll()
     }
 
-    func removeDownload(gid: String, force: Bool = false) async {
-        if force {
+    func removeDownload(gid: String, status: DownloadStatus = .active) async {
+        switch status {
+        case .active, .waiting:
             _ = await transport.forceRemove(gid: gid)
-        } else {
+        case .paused:
             _ = await transport.remove(gid: gid)
+        case .completed, .stopped, .error:
+            _ = await transport.removeDownloadResult(gid: gid)
         }
     }
 

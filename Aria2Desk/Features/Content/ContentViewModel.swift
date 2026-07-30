@@ -170,8 +170,7 @@ final class ContentViewModel {
     func deleteDownload(id: UUID) {
         guard let d = downloads.first(where: { $0.id == id }) else { return }
         if let gid = d.gid {
-            let isActive = d.status == .active
-            Task { await rpc.removeDownload(gid: gid, force: isActive) }
+            Task { await rpc.removeDownload(gid: gid, status: d.status) }
         }
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
@@ -238,8 +237,7 @@ final class ContentViewModel {
         }
         for d in downloads where selectedDownloads.contains(d.id) {
             if let gid = d.gid {
-                let isActive = d.status == .active
-                Task { await rpc.removeDownload(gid: gid, force: isActive) }
+                Task { await rpc.removeDownload(gid: gid, status: d.status) }
             }
         }
         downloads.removeAll { selectedDownloads.contains($0.id) }

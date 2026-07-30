@@ -91,6 +91,10 @@ final class RPCTransport: RPCTransportProtocol {
         await call(method: "aria2.forceRemove", params: [gid])
     }
 
+    func removeDownloadResult(gid: String) async -> String? {
+        await call(method: "aria2.removeDownloadResult", params: [gid])
+    }
+
     func getGlobalStat() async -> [String: Any]? {
         await call(method: "aria2.getGlobalStat")
     }
