@@ -80,15 +80,16 @@ final class DownloadTask: NSObject {
         session = makeSession()
         let fileSize = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64) ?? 0
         let actualOffset: Int64
-        if fileSize > 0 && fileSize == offset {
-            actualOffset = offset
+        if fileSize > 0 {
+            actualOffset = fileSize
             fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
             fileHandle?.seekToEndOfFile()
+            os_log("[DownloadTask] resume at file offset %lld (model had %lld)", fileSize, offset)
         } else {
             actualOffset = 0
-            try? FileManager.default.removeItem(at: destinationURL)
             FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
             fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
+            os_log("[DownloadTask] no file to resume, start fresh")
         }
         totalBytesWritten = actualOffset
         lastCheckTime = Date()
@@ -181,6 +182,7 @@ extension DownloadTask: URLSessionDataDelegate {
 
         let elapsed = now.timeIntervalSince(lastCheckTime)
         if elapsed >= 0.5 {
+            fileHandle?.synchronizeFile()
             if !FileManager.default.fileExists(atPath: destinationURL.path) {
                 finish(with: .failure(DownloadError.fileDeleted))
                 task?.cancel()
