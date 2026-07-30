@@ -43,6 +43,10 @@ final class DownloadEngine {
         syncQueue.sync { tasks[id]?.speedLimit = limit }
     }
 
+    var hasActiveTasks: Bool {
+        syncQueue.sync { !tasks.isEmpty }
+    }
+
     func setProgressHandler(for id: UUID, handler: @escaping (Int64, Int64, Int64) -> Void) {
         syncQueue.sync { tasks[id]?.onProgress = handler }
     }

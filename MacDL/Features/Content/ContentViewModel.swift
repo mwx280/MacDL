@@ -4,7 +4,7 @@ import Observation
 
 @Observable
 final class ContentViewModel {
-    static weak var current: ContentViewModel?
+    static var current: ContentViewModel?
     private static var terminationSaved = false
 
     var downloads: [Download] = []
