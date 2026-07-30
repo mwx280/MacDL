@@ -46,10 +46,14 @@ struct DownloadRow: View {
         .padding(.vertical, 4)
         .contextMenu {
             if download.status == .active {
-                Button { onPause?(download.id) } label: { Label("Pause", systemImage: "pause") }
+                Button(action: { onPause?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Pause"), systemImage: "pause")
+                }
             }
             if download.status == .paused || download.status == .waiting {
-                Button { onResume?(download.id) } label: { Label("Resume", systemImage: "play") }
+                Button(action: { onResume?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Resume"), systemImage: "play")
+                }
             }
             Divider()
             Menu {
@@ -73,10 +77,16 @@ struct DownloadRow: View {
             speedMenu("arrow.down", "Download Limit", onSetDownloadLimit)
             speedMenu("arrow.up", "Upload Limit", onSetUploadLimit)
             Divider()
-            Button { onCopyURL?(download.id) } label: { Label("Copy Link", systemImage: "link") }
-            Button { onShowInFinder?(download.id) } label: { Label("Show in Finder", systemImage: "folder") }
+            Button(action: { onCopyURL?(download.id) }) {
+                Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")
+            }
+            Button(action: { onShowInFinder?(download.id) }) {
+                Label(LanguageManager.shared.localized("Show in Finder"), systemImage: "folder")
+            }
             Divider()
-            Button { onDelete?(download.id) } label: { Label("Delete", systemImage: "trash") }
+            Button(action: { onDelete?(download.id) }) {
+                Label(LanguageManager.shared.localized("Delete"), systemImage: "trash")
+            }
         }
     }
 
