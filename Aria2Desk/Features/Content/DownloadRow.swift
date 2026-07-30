@@ -23,13 +23,6 @@ struct DownloadRow: View {
                 Text(download.filename)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if download.status == .error, let msg = download.errorMessage {
-                    Text(msg)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
 
                 ProgressView(value: download.progress)
                     .tint(progressTint)
@@ -128,6 +121,12 @@ struct DownloadRow: View {
                 Text(formatSpeed(download.downloadSpeed))
                     .font(.caption)
                     .foregroundStyle(download.status.displayColor)
+            } else if download.status == .error, let msg = download.errorMessage {
+                Text(msg)
+                    .font(.caption)
+                    .foregroundStyle(download.status.displayColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             } else {
                 LocalizedText(key: download.status.labelKey)
                     .font(.caption)
