@@ -21,8 +21,8 @@ final class DownloadTask: NSObject {
     private var progressThrottleTime: Date = .distantPast
     private var speedSamples: [(Date, Int64)] = []
     private var isSuspended = false
-    private var isPaused = false
-    private var isCompleted = false
+    private(set) var isPaused = false
+    private(set) var isCompleted = false
 
     // MARK: - Callbacks
     var onProgress: ((Int64, Int64, Int64) -> Void)?

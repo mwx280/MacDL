@@ -44,7 +44,7 @@ final class DownloadEngine {
     }
 
     var hasActiveTasks: Bool {
-        syncQueue.sync { !tasks.isEmpty }
+        syncQueue.sync { tasks.values.contains { !$0.isPaused && !$0.isCompleted } }
     }
 
     func setProgressHandler(for id: UUID, handler: @escaping (Int64, Int64, Int64) -> Void) {
