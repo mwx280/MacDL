@@ -13,6 +13,7 @@ final class ContentViewModel {
     private let persistence = DownloadPersistence.shared
     private var pollingTask: Task<Void, Never>?
     private var termObserver: NSObjectProtocol?
+    private var progressMap: [UUID: Progress] = [:]
 
     init() {
         downloads = persistence.load()
@@ -23,6 +24,7 @@ final class ContentViewModel {
         ) { [weak self] _ in
             guard let self else { return }
             self.stopPolling()
+            self.unpublishAllProgress()
             self.persistence.saveImmediately(self.downloads)
         }
         startPolling()
@@ -30,6 +32,7 @@ final class ContentViewModel {
 
     deinit {
         stopPolling()
+        unpublishAllProgress()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
@@ -73,6 +76,40 @@ final class ContentViewModel {
         isPolling = false
     }
 
+    // MARK: - Progress (Finder Download Badge)
+
+    private func publishProgress(for download: Download) {
+        guard download.gid != nil else { return }
+        let stagingDir = rpc.config.stagingDirectory
+        let fileURL = URL(fileURLWithPath: stagingDir + "/" + download.filename + ".download")
+
+        let p = Progress(totalUnitCount: max(download.totalSize, 1))
+        p.kind = .file
+        p.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        p.setUserInfoObject(fileURL, forKey: .fileURLKey)
+        p.completedUnitCount = download.downloadedSize
+        p.publish()
+        progressMap[download.id] = p
+    }
+
+    private func updateProgress(for id: UUID) {
+        guard let d = downloads.first(where: { $0.id == id }),
+              let p = progressMap[id]
+        else { return }
+        p.totalUnitCount = max(d.totalSize, 1)
+        p.completedUnitCount = d.downloadedSize
+    }
+
+    private func unpublishProgress(for id: UUID) {
+        guard let p = progressMap.removeValue(forKey: id) else { return }
+        p.unpublish()
+    }
+
+    private func unpublishAllProgress() {
+        for (_, p) in progressMap { p.unpublish() }
+        progressMap.removeAll()
+    }
+
     private func syncFromRPC() async {
         let remoteDownloads = await rpc.fetchAllDownloads()
         if Task.isCancelled { return }
@@ -101,10 +138,22 @@ final class ContentViewModel {
                     updated.filename = remote.filename
                 }
                 if prevStatus != .completed && remote.status == .completed {
+                    unpublishProgress(for: updated.id)
                     await finalizeDownload(&updated)
+                } else {
+                    updateProgress(for: updated.id)
+                }
+                if remote.status == .active, progressMap[updated.id] == nil {
+                    publishProgress(for: updated)
+                }
+                if remote.status == .error || remote.status == .stopped {
+                    unpublishProgress(for: updated.id)
                 }
                 merged.append(updated)
             } else {
+                if remote.status == .active {
+                    publishProgress(for: remote)
+                }
                 merged.append(remote)
             }
         }
@@ -113,6 +162,9 @@ final class ContentViewModel {
             if d.gid == nil {
                 merged.append(d)
             } else if let gid = d.gid, !seenGIDs.contains(gid) {
+                if d.status == .active || d.status == .waiting || d.status == .paused {
+                    unpublishProgress(for: d.id)
+                }
                 merged.append(d)
             }
         }
@@ -181,11 +233,13 @@ final class ContentViewModel {
         }
         if let idx = downloads.firstIndex(where: { $0.id == id }) {
             downloads[idx].status = .active
+            if progressMap[id] == nil { publishProgress(for: downloads[idx]) }
             persistence.save(downloads)
         }
     }
 
     func deleteDownload(id: UUID) {
+        unpublishProgress(for: id)
         guard let d = downloads.first(where: { $0.id == id }) else { return }
         if let gid = d.gid {
             Task { await rpc.removeDownload(gid: gid, status: d.status) }
@@ -258,6 +312,7 @@ final class ContentViewModel {
         let toDelete = downloads.filter { selectedDownloads.contains($0.id) }
 
         for d in toDelete {
+            unpublishProgress(for: d.id)
             Task {
                 if let gid = d.gid {
                     await rpc.removeDownload(gid: gid, status: d.status)
