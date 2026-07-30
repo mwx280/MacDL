@@ -1,44 +1,58 @@
 import Foundation
 
 final class DownloadEngine {
+
     static let shared = DownloadEngine()
 
     private var tasks: [UUID: DownloadTask] = [:]
+    private let syncQueue = DispatchQueue(label: "com.xiaowu.downloadengine.sync")
 
     private init() {}
 
+    // MARK: - Public interface
     func start(url: URL, destinationURL: URL, speedLimit: Int64) -> UUID {
         let id = UUID()
         let task = DownloadTask(id: id, url: url, destinationURL: destinationURL, speedLimit: speedLimit)
-        tasks[id] = task
+        syncQueue.sync { tasks[id] = task }
         task.start()
         return id
     }
 
     func resume(id: UUID) -> Bool {
-        guard let task = tasks[id], let data = task.resumeData else { return false }
-        task.resume(from: data)
-        return true
+        syncQueue.sync {
+            guard let task = tasks[id], let data = task.resumeData else { return false }
+            task.resume(from: data)
+            return true
+        }
     }
 
     func pause(id: UUID) {
-        tasks[id]?.pause()
+        syncQueue.sync { tasks[id]?.pause() }
     }
 
     func cancel(id: UUID) {
-        tasks[id]?.cancel()
-        tasks.removeValue(forKey: id)
+        syncQueue.sync {
+            tasks[id]?.cancel()
+            tasks.removeValue(forKey: id)
+        }
     }
 
     func setSpeedLimit(id: UUID, limit: Int64) {
-        tasks[id]?.speedLimit = limit
+        syncQueue.sync { tasks[id]?.speedLimit = limit }
     }
 
     func setProgressHandler(for id: UUID, handler: @escaping (Int64, Int64, Int64) -> Void) {
-        tasks[id]?.onProgress = handler
+        syncQueue.sync { tasks[id]?.onProgress = handler }
     }
 
     func setCompletionHandler(for id: UUID, handler: @escaping (Result<Void, Error>) -> Void) {
-        tasks[id]?.onCompletion = handler
+        syncQueue.sync {
+            tasks[id]?.onCompletion = { [weak self] result in
+                handler(result)
+                self?.syncQueue.async {
+                    self?.tasks.removeValue(forKey: id)
+                }
+            }
+        }
     }
 }
