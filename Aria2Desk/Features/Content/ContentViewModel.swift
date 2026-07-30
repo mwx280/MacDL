@@ -44,18 +44,14 @@ final class ContentViewModel {
     }
 
     func pauseAll() {
-        for id in selectedDownloads {
-            guard let i = downloads.firstIndex(where: { $0.id == id }),
-                  downloads[i].status == .active else { continue }
+        for i in downloads.indices where selectedDownloads.contains(downloads[i].id) && downloads[i].status == .active {
             downloads[i].status = .paused
         }
         scheduleSave()
     }
 
     func resumeAll() {
-        for id in selectedDownloads {
-            guard let i = downloads.firstIndex(where: { $0.id == id }),
-                  downloads[i].status == .paused || downloads[i].status == .waiting else { continue }
+        for i in downloads.indices where selectedDownloads.contains(downloads[i].id) && (downloads[i].status == .paused || downloads[i].status == .waiting) {
             downloads[i].status = .active
         }
         scheduleSave()

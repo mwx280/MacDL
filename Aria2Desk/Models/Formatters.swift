@@ -1,13 +1,15 @@
 import Foundation
 
-func formatSpeed(_ bytes: Int64) -> String {
+private let byteFormatter: ByteCountFormatter = {
     let f = ByteCountFormatter()
     f.countStyle = .binary
-    return f.string(fromByteCount: bytes) + "/s"
+    return f
+}()
+
+func formatSpeed(_ bytes: Int64) -> String {
+    byteFormatter.string(fromByteCount: bytes) + "/s"
 }
 
 func formatSize(_ bytes: Int64) -> String {
-    let f = ByteCountFormatter()
-    f.countStyle = .binary
-    return f.string(fromByteCount: bytes)
+    byteFormatter.string(fromByteCount: bytes)
 }
