@@ -20,6 +20,7 @@ final class ContentViewModel {
     private var inFlightSize: [UUID: Int64] = [:]
     private var globalSpeedGeneration: UInt64 = 0
     private var reconciledGeneration: [UUID: UInt64] = [:]
+    private var smoothedSpeed: [UUID: Double] = [:]
 
     init() {
         downloads = persistence.load()
@@ -140,28 +141,37 @@ final class ContentViewModel {
     }
 
     private func applySmoothing(to download: inout Download, remote: Download) {
-        guard remote.status == .active, remote.downloadSpeed > 0 else {
-            download.displayedDownloadedSize = nil
-            lastSyncTime[download.id] = nil
-            lastSyncSize[download.id] = nil
-            inFlightSize[download.id] = nil
-            return
-        }
         let now = Date()
-        let actualDelta = remote.downloadedSize - (lastSyncSize[download.id] ?? remote.downloadedSize)
         let elapsed = lastSyncTime[download.id].map { now.timeIntervalSince($0) } ?? 0
+        let actualDelta = remote.downloadedSize - (lastSyncSize[download.id] ?? remote.downloadedSize)
 
-        var inFlight = (inFlightSize[download.id] ?? 0)
-            + Int64(Double(remote.downloadSpeed) * elapsed)
-            - max(actualDelta, 0)
-        inFlight = max(0, inFlight)
+        if remote.status == .active {
+            let instant = elapsed > 0 ? Double(actualDelta) / elapsed : 0
+            let prev = smoothedSpeed[download.id] ?? Double(remote.downloadSpeed)
+            let alpha = 0.4
+            let speed = prev * (1 - alpha) + instant * alpha
+            smoothedSpeed[download.id] = speed
+            download.localDownloadSpeed = max(0, Int64(speed))
+        } else {
+            download.localDownloadSpeed = nil
+            download.displayedDownloadedSize = nil
+            smoothedSpeed[download.id] = nil
+            inFlightSize[download.id] = nil
+        }
 
-        let displayed = remote.downloadedSize + inFlight
-        download.displayedDownloadedSize = remote.totalSize > 0
-            ? min(displayed, remote.totalSize) : displayed
+        if remote.status == .active, remote.downloadSpeed > 0 {
+            var inFlight = (inFlightSize[download.id] ?? 0)
+                + Int64(Double(remote.downloadSpeed) * elapsed)
+                - max(actualDelta, 0)
+            inFlight = max(0, inFlight)
+            let displayed = remote.downloadedSize + inFlight
+            download.displayedDownloadedSize = remote.totalSize > 0
+                ? min(displayed, remote.totalSize) : displayed
+            inFlightSize[download.id] = inFlight
+        }
+
         download.downloadSpeed = remote.downloadSpeed
 
-        inFlightSize[download.id] = inFlight
         lastSyncTime[download.id] = now
         lastSyncSize[download.id] = remote.downloadedSize
     }

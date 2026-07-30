@@ -38,6 +38,7 @@ struct Download: Identifiable, Codable {
     var errorMessage: String?
 
     var displayedDownloadedSize: Int64?
+    var localDownloadSpeed: Int64?
 
     enum CodingKeys: String, CodingKey {
         case id, gid, filename, url, totalSize, downloadedSize, downloadSpeed, uploadSpeed

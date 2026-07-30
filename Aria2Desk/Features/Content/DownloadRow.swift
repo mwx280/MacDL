@@ -22,6 +22,10 @@ struct DownloadRow: View {
         download.totalSize > 0 ? min(Double(displaySize) / Double(download.totalSize), 1.0) : 0
     }
 
+    private var displaySpeed: Int64 {
+        download.localDownloadSpeed ?? download.downloadSpeed
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             fileIcon
@@ -41,7 +45,7 @@ struct DownloadRow: View {
                         Text(displayProgress, format: .percent.precision(.fractionLength(1)))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(formatSpeed(download.downloadSpeed))
+                        Text(formatSpeed(displaySpeed))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -129,8 +133,8 @@ struct DownloadRow: View {
             Circle()
                 .fill(download.status.displayColor)
                 .frame(width: 6, height: 6)
-            if download.status == .active && download.downloadSpeed > 0 {
-                Text(formatSpeed(download.downloadSpeed))
+            if download.status == .active && displaySpeed > 0 {
+                Text(formatSpeed(displaySpeed))
                     .font(.caption)
                     .foregroundStyle(download.status.displayColor)
             } else if download.status == .error, let msg = download.errorMessage {
