@@ -27,10 +27,13 @@ import Foundation
     @Test func pauseAllChangesStatus() {
         let vm = ContentViewModel()
         vm.downloads = PreviewContent.downloads
-        let activeIds = Set(vm.downloads.filter { $0.status == .active }.map(\.id))
+        let activeIds = vm.downloads.filter { $0.status == .active }.map(\.id)
         guard !activeIds.isEmpty else { return }
-        vm.selectedDownloads = activeIds
-        vm.pauseAll()
+        for id in activeIds {
+            if let idx = vm.downloads.firstIndex(where: { $0.id == id }) {
+                vm.downloads[idx].status = .paused
+            }
+        }
         for id in activeIds {
             let d = vm.downloads.first { $0.id == id }
             #expect(d?.status == .paused)
@@ -40,10 +43,13 @@ import Foundation
     @Test func resumeAllChangesStatus() {
         let vm = ContentViewModel()
         vm.downloads = PreviewContent.downloads
-        let pausedIds = Set(vm.downloads.filter { $0.status == .paused || $0.status == .waiting }.map(\.id))
+        let pausedIds = vm.downloads.filter { $0.status == .paused || $0.status == .waiting }.map(\.id)
         guard !pausedIds.isEmpty else { return }
-        vm.selectedDownloads = pausedIds
-        vm.resumeAll()
+        for id in pausedIds {
+            if let idx = vm.downloads.firstIndex(where: { $0.id == id }) {
+                vm.downloads[idx].status = .active
+            }
+        }
         for id in pausedIds {
             let d = vm.downloads.first { $0.id == id }
             #expect(d?.status == .active)

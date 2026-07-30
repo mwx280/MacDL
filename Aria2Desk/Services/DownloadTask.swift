@@ -41,6 +41,12 @@ final class DownloadTask: NSObject {
 
     // MARK: - Public control方法
     func start() {
+        #if DEBUG
+        let previewNames: Set<String> = ["file.zip", "Xcode_26.6.xip", "Xcode.xip"]
+        if previewNames.contains(destinationURL.lastPathComponent) {
+            assertionFailure("Attempted to create preview file: \(destinationURL.lastPathComponent)")
+        }
+        #endif
         session = makeSession()
         let fileSize = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? Int64) ?? 0
         if fileSize > 0 {
