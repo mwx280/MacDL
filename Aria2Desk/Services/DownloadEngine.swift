@@ -10,10 +10,14 @@ final class DownloadEngine {
     private init() {}
 
     // MARK: - Public interface
-    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64) {
+    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, resumeFrom: Int64 = 0) {
         let task = DownloadTask(id: id, url: url, destinationURL: destinationURL, speedLimit: speedLimit)
         syncQueue.sync { tasks[id] = task }
-        task.start()
+        if resumeFrom > 0 {
+            task.resume(from: resumeFrom)
+        } else {
+            task.start()
+        }
     }
 
     func resume(id: UUID) -> Bool {
