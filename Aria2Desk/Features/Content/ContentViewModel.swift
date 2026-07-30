@@ -5,6 +5,7 @@ import Observation
 @Observable
 final class ContentViewModel {
     static weak var current: ContentViewModel?
+    private static var terminationSaved = false
 
     var downloads: [Download] = []
     var selectedDownloads = Set<UUID>()
@@ -29,6 +30,8 @@ final class ContentViewModel {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
+            guard !Self.terminationSaved else { return }
+            Self.terminationSaved = true
             self.fileCheckTimer?.invalidate()
             self.fileCheckTimer = nil
             self.unpublishAllProgress()
