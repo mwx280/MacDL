@@ -232,7 +232,9 @@ final class ContentViewModel {
         if deleteFiles {
             for d in downloads where selectedDownloads.contains(d.id) {
                 let dir = d.savePath ?? Aria2RPCClient.shared.config.downloadDirectory
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+                let filePath = dir + "/" + d.filename
+                try? FileManager.default.removeItem(atPath: filePath)
+                try? FileManager.default.removeItem(atPath: filePath + ".aria2")
             }
         }
         for d in downloads where selectedDownloads.contains(d.id) {

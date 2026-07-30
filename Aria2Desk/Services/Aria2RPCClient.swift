@@ -99,8 +99,10 @@ final class Aria2RPCClient {
         switch status {
         case .active, .waiting:
             _ = await transport.forceRemove(gid: gid)
+            _ = await transport.removeDownloadResult(gid: gid)
         case .paused:
             _ = await transport.remove(gid: gid)
+            _ = await transport.removeDownloadResult(gid: gid)
         case .completed, .stopped, .error:
             _ = await transport.removeDownloadResult(gid: gid)
         }
