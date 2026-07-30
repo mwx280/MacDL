@@ -229,19 +229,22 @@ final class ContentViewModel {
     }
 
     private func clearSelected(deleteFiles: Bool = false) {
-        if deleteFiles {
-            for d in downloads where selectedDownloads.contains(d.id) {
-                let dir = d.savePath ?? Aria2RPCClient.shared.config.downloadDirectory
-                let filePath = dir + "/" + d.filename
-                try? FileManager.default.removeItem(atPath: filePath)
-                try? FileManager.default.removeItem(atPath: filePath + ".aria2")
+        let toDelete = downloads.filter { selectedDownloads.contains($0.id) }
+
+        for d in toDelete {
+            Task {
+                if let gid = d.gid {
+                    await rpc.removeDownload(gid: gid, status: d.status)
+                }
+                if deleteFiles {
+                    let dir = d.savePath ?? Aria2RPCClient.shared.config.downloadDirectory
+                    let filePath = dir + "/" + d.filename
+                    try? FileManager.default.removeItem(atPath: filePath)
+                    try? FileManager.default.removeItem(atPath: filePath + ".aria2")
+                }
             }
         }
-        for d in downloads where selectedDownloads.contains(d.id) {
-            if let gid = d.gid {
-                Task { await rpc.removeDownload(gid: gid, status: d.status) }
-            }
-        }
+
         downloads.removeAll { selectedDownloads.contains($0.id) }
         selectedDownloads.removeAll()
         persistence.save(downloads)
