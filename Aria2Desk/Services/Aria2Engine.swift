@@ -119,6 +119,7 @@ final class Aria2Engine: EngineServiceProtocol {
             "--connect-timeout=10",
             "--max-tries=1",
             "--max-download-result=100",
+            "--disk-cache=0",
         ]
 
         args.append("--rpc-secret=\(SettingsStore.shared.secretToken)")
