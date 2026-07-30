@@ -30,7 +30,14 @@ final class SettingsStore: SettingsStoreProtocol {
     }
 
     var secretToken: String {
-        get { defaults.string(forKey: "rpcSecretToken") ?? "" }
+        get {
+            if let token = defaults.string(forKey: "rpcSecretToken"), !token.isEmpty {
+                return token
+            }
+            let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            defaults.set(token, forKey: "rpcSecretToken")
+            return token
+        }
         set { defaults.set(newValue, forKey: "rpcSecretToken") }
     }
 

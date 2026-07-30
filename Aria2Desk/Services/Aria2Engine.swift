@@ -118,10 +118,7 @@ final class Aria2Engine: EngineServiceProtocol {
             "--disable-ipv6=true",
         ]
 
-        let token = SettingsStore.shared.secretToken.trimmingCharacters(in: .whitespaces)
-        if !token.isEmpty {
-            args.append("--rpc-secret=\(token)")
-        }
+        args.append("--rpc-secret=\(SettingsStore.shared.secretToken)")
 
         let dlSpeed = SettingsStore.shared.maxDownloadSpeed
         if dlSpeed > 0 {
