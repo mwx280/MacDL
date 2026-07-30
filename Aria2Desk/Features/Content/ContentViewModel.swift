@@ -20,7 +20,7 @@ final class ContentViewModel {
     private var inFlightSize: [UUID: Int64] = [:]
     private var globalSpeedGeneration: UInt64 = 0
     private var reconciledGeneration: [UUID: UInt64] = [:]
-    private var smoothedSpeed: [UUID: Double] = [:]
+    private var speedSamples: [UUID: [(Date, Int64)]] = [:]
 
     init() {
         downloads = persistence.load()
@@ -146,16 +146,23 @@ final class ContentViewModel {
         let actualDelta = remote.downloadedSize - (lastSyncSize[download.id] ?? remote.downloadedSize)
 
         if remote.status == .active {
-            let instant = elapsed > 0 ? Double(actualDelta) / elapsed : 0
-            let prev = smoothedSpeed[download.id] ?? Double(remote.downloadSpeed)
-            let alpha = 0.4
-            let speed = prev * (1 - alpha) + instant * alpha
-            smoothedSpeed[download.id] = speed
-            download.localDownloadSpeed = max(0, Int64(speed))
+            var samples = speedSamples[download.id] ?? []
+            samples.append((now, remote.downloadedSize))
+            if samples.count > 6 { samples.removeFirst() }
+            speedSamples[download.id] = samples
+
+            if samples.count >= 2 {
+                let totalDelta = remote.downloadedSize - samples.first!.1
+                let totalElapsed = now.timeIntervalSince(samples.first!.0)
+                let speed = totalElapsed > 0 ? Int64(Double(totalDelta) / totalElapsed) : 0
+                download.localDownloadSpeed = max(0, speed)
+            } else {
+                download.localDownloadSpeed = remote.downloadSpeed
+            }
         } else {
             download.localDownloadSpeed = nil
             download.displayedDownloadedSize = nil
-            smoothedSpeed[download.id] = nil
+            speedSamples[download.id] = nil
             inFlightSize[download.id] = nil
         }
 
@@ -280,6 +287,7 @@ final class ContentViewModel {
             lastSyncTime.removeValue(forKey: id)
             lastSyncSize.removeValue(forKey: id)
             inFlightSize.removeValue(forKey: id)
+            speedSamples.removeValue(forKey: id)
         }
 
         downloads = merged
