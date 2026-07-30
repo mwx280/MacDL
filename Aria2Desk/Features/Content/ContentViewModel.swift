@@ -136,11 +136,13 @@ final class ContentViewModel {
             self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
             self.downloads[idx].downloadedSize = bytes
             self.downloads[idx].downloadSpeed = speed
+            print("📊 progress: bytes=\(bytes) total=\(total) prevTotal=\(prevTotal)")
             if self.progressMap[id] == nil {
                 self.publishProgress(for: self.downloads[idx])
             }
             self.updateProgress(for: id)
             if prevTotal == 0 {
+                print("📊 progress -> saving")
                 DownloadPersistence.shared.save(self.downloads)
             }
         }

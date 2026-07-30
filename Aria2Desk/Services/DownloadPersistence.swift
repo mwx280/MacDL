@@ -27,7 +27,8 @@ final class DownloadPersistence {
             let url = fileURL
             guard let data = try? Data(contentsOf: url),
                   let list = try? JSONDecoder().decode([Download].self, from: data)
-            else { return [] }
+            else { print("📖 load: no file or decode failed at \(url.path)"); return [] }
+            print("📖 load: \(list.count) downloads, first=\(list.first?.filename ?? "nil") totalSize=\(list.first?.totalSize ?? -1)")
             return list
         }
     }
@@ -53,7 +54,8 @@ final class DownloadPersistence {
 
     private func write(_ downloads: [Download]) {
         let url = fileURL
-        guard let data = try? JSONEncoder().encode(downloads) else { return }
+        guard let data = try? JSONEncoder().encode(downloads) else { print("❌ write: encode failed"); return }
         try? data.write(to: url, options: .atomic)
+        print("📝 save: \(downloads.count) downloads, first=\(downloads.first?.filename ?? "nil") totalSize=\(downloads.first?.totalSize ?? -1)")
     }
 }
