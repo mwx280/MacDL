@@ -145,6 +145,21 @@ final class ContentViewModel {
         download.errorMessage = remote.errorMessage
     }
 
+    private func checkDownloadDirectory(for download: inout Download) {
+        guard download.status == .active || download.status == .waiting else { return }
+        guard download.gid != nil else { return }
+
+        let dir = download.savePath ?? RPCConfig.defaultDownloadDir
+        let packageDir = dir + "/" + download.filename + ".aria2desk"
+
+        guard !FileManager.default.fileExists(atPath: packageDir) else { return }
+
+        download.status = .error
+        download.errorMessage = "download directory deleted"
+        unpublishProgress(for: download.id)
+        Task { [gid = download.gid!] in await rpc.removeDownload(gid: gid) }
+    }
+
     private func syncFromRPC() async {
         let remoteDownloads = await rpc.fetchAllDownloads()
         if Task.isCancelled { return }
@@ -177,19 +192,20 @@ final class ContentViewModel {
                     updated.filename = remote.filename
                 }
                 applySmoothing(to: &updated, remote: remote)
+                checkDownloadDirectory(for: &updated)
                 if prevStatus != .completed && remote.status == .completed {
                     unpublishProgress(for: updated.id)
                     await finalizeDownload(&updated)
                 } else {
                     updateProgress(for: updated.id)
                 }
-                if remote.status == .active || remote.status == .waiting {
+                if updated.status == .active || updated.status == .waiting {
                     hideAria2File(for: updated)
                 }
-                if remote.status == .active, progressMap[updated.id] == nil {
+                if updated.status == .active, progressMap[updated.id] == nil {
                     publishProgress(for: updated)
                 }
-                if remote.status == .error || remote.status == .stopped {
+                if updated.status == .error || updated.status == .stopped {
                     unpublishProgress(for: updated.id)
                 }
                 merged.append(updated)
@@ -206,26 +222,28 @@ final class ContentViewModel {
                 updated.status = remote.status
                 updated.errorMessage = remote.errorMessage
                 applySmoothing(to: &updated, remote: remote)
+                checkDownloadDirectory(for: &updated)
                 if prevStatus != .completed && remote.status == .completed {
                     unpublishProgress(for: updated.id)
                     await finalizeDownload(&updated)
                 } else {
                     updateProgress(for: updated.id)
                 }
-                if remote.status == .active || remote.status == .waiting {
+                if updated.status == .active || updated.status == .waiting {
                     hideAria2File(for: updated)
                 }
-                if remote.status == .active, progressMap[updated.id] == nil {
+                if updated.status == .active, progressMap[updated.id] == nil {
                     publishProgress(for: updated)
                 }
-                if remote.status == .error || remote.status == .stopped {
+                if updated.status == .error || updated.status == .stopped {
                     unpublishProgress(for: updated.id)
                 }
                 merged.append(updated)
             } else {
                 var newDownload = remote
                 applySmoothing(to: &newDownload, remote: remote)
-                if remote.status == .active {
+                checkDownloadDirectory(for: &newDownload)
+                if newDownload.status == .active {
                     publishProgress(for: newDownload)
                 }
                 merged.append(newDownload)
