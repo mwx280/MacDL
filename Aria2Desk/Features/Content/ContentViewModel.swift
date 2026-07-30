@@ -78,10 +78,14 @@ final class ContentViewModel {
 
     // MARK: - Progress (Finder Download Badge)
 
+    private func downloadURL(for download: Download) -> URL {
+        let dir = download.savePath ?? RPCConfig.defaultDownloadDir
+        return URL(fileURLWithPath: dir + "/" + download.filename + ".download")
+    }
+
     private func publishProgress(for download: Download) {
         guard download.gid != nil else { return }
-        let stagingDir = rpc.config.stagingDirectory
-        let fileURL = URL(fileURLWithPath: stagingDir + "/" + download.filename + ".download")
+        let fileURL = downloadURL(for: download)
 
         let p = Progress(totalUnitCount: max(download.totalSize, 1))
         p.kind = .file
@@ -174,17 +178,16 @@ final class ContentViewModel {
     }
 
     private func finalizeDownload(_ d: inout Download) async {
-        let stagingDir = rpc.config.stagingDirectory
-        let sourcePath = stagingDir + "/" + d.filename + ".download"
-        let targetDir = d.savePath ?? SettingsStore.shared.downloadPath
-        let targetPath = targetDir + "/" + d.filename
+        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+        let downloadPath = dir + "/" + d.filename + ".download"
+        let finalPath = dir + "/" + d.filename
 
         let fm = FileManager.default
-        try? fm.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
-        if fm.fileExists(atPath: sourcePath) {
-            try? fm.moveItem(atPath: sourcePath, toPath: targetPath)
+        try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        if fm.fileExists(atPath: downloadPath) {
+            try? fm.moveItem(atPath: downloadPath, toPath: finalPath)
         }
-        try? fm.removeItem(atPath: sourcePath + ".aria2")
+        try? fm.removeItem(atPath: downloadPath + ".aria2")
     }
 
     // MARK: - Download Actions
@@ -244,7 +247,7 @@ final class ContentViewModel {
         if let gid = d.gid {
             Task { await rpc.removeDownload(gid: gid, status: d.status) }
         }
-        removeStagingFiles(for: d)
+        removeFiles(for: d)
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
     }
@@ -301,11 +304,11 @@ final class ContentViewModel {
         }
     }
 
-    private func removeStagingFiles(for d: Download) {
-        let stagingDir = rpc.config.stagingDirectory
-        let stagingPath = stagingDir + "/" + d.filename + ".download"
-        try? FileManager.default.removeItem(atPath: stagingPath)
-        try? FileManager.default.removeItem(atPath: stagingPath + ".aria2")
+    private func removeFiles(for d: Download) {
+        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+        let filePath = dir + "/" + d.filename + ".download"
+        try? FileManager.default.removeItem(atPath: filePath)
+        try? FileManager.default.removeItem(atPath: filePath + ".aria2")
     }
 
     private func clearSelected(deleteFiles: Bool = false) {
@@ -318,15 +321,12 @@ final class ContentViewModel {
                     await rpc.removeDownload(gid: gid, status: d.status)
                 }
 
+                let dir = d.savePath ?? RPCConfig.defaultDownloadDir
                 if deleteFiles, d.status == .completed {
-                    let targetDir = d.savePath ?? SettingsStore.shared.downloadPath
-                    try? FileManager.default.removeItem(atPath: targetDir + "/" + d.filename)
+                    try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
                 }
-
-                let stagingDir = rpc.config.stagingDirectory
-                let stagingPath = stagingDir + "/" + d.filename + ".download"
-                try? FileManager.default.removeItem(atPath: stagingPath)
-                try? FileManager.default.removeItem(atPath: stagingPath + ".aria2")
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".download")
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".download" + ".aria2")
             }
         }
 

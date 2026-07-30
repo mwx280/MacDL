@@ -31,7 +31,9 @@ struct RPCConfig {
         appSupportDirectory + "/downloads"
     }
 
-    var stagingDirectory: String {
-        appSupportDirectory + "/.staging"
+    func downloadDir(for download: Download) -> String {
+        download.savePath ?? Self.defaultDownloadDir
     }
+
+    static let defaultDownloadDir = NSHomeDirectory() + "/Downloads"
 }

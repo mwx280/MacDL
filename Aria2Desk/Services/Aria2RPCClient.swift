@@ -63,7 +63,7 @@ final class Aria2RPCClient {
         let filename = URL(string: url)?.lastPathComponent ?? "download"
         var options: [String: Any] = [
             "out": filename + ".download",
-            "dir": config.stagingDirectory,
+            "dir": savePath ?? RPCConfig.defaultDownloadDir,
         ]
         if let connections { options["max-connection-per-server"] = "\(connections)" }
         for _ in 0..<5 {
