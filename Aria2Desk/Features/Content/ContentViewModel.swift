@@ -13,7 +13,13 @@ final class ContentViewModel {
     private let persistence = DownloadPersistence.shared
     private var pollingTask: Task<Void, Never>?
     private var termObserver: NSObjectProtocol?
+    private var speedObserver: NSObjectProtocol?
     private var progressMap: [UUID: Progress] = [:]
+    private var lastSyncTime: [UUID: Date] = [:]
+    private var lastSyncSize: [UUID: Int64] = [:]
+    private var inFlightSize: [UUID: Int64] = [:]
+    private var globalSpeedGeneration: UInt64 = 0
+    private var reconciledGeneration: [UUID: UInt64] = [:]
 
     init() {
         downloads = persistence.load()
@@ -27,6 +33,13 @@ final class ContentViewModel {
             self.unpublishAllProgress()
             self.persistence.saveImmediately(self.downloads)
         }
+        speedObserver = NotificationCenter.default.addObserver(
+            forName: .globalSpeedDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.globalSpeedGeneration &+= 1
+        }
         startPolling()
     }
 
@@ -34,6 +47,7 @@ final class ContentViewModel {
         stopPolling()
         unpublishAllProgress()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
+        if let observer = speedObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
     var totalSpeed: Int64 { downloads.reduce(0) { $0 + $1.downloadSpeed } }
@@ -125,6 +139,33 @@ final class ContentViewModel {
         progressMap.removeAll()
     }
 
+    private func applySmoothing(to download: inout Download, remote: Download) {
+        guard remote.status == .active, remote.downloadSpeed > 0 else {
+            download.displayedDownloadedSize = nil
+            lastSyncTime[download.id] = nil
+            lastSyncSize[download.id] = nil
+            inFlightSize[download.id] = nil
+            return
+        }
+        let now = Date()
+        let actualDelta = remote.downloadedSize - (lastSyncSize[download.id] ?? remote.downloadedSize)
+        let elapsed = lastSyncTime[download.id].map { now.timeIntervalSince($0) } ?? 0
+
+        var inFlight = (inFlightSize[download.id] ?? 0)
+            + Int64(Double(remote.downloadSpeed) * elapsed)
+            - max(actualDelta, 0)
+        inFlight = max(0, inFlight)
+
+        let displayed = remote.downloadedSize + inFlight
+        download.displayedDownloadedSize = remote.totalSize > 0
+            ? min(displayed, remote.totalSize) : displayed
+        download.downloadSpeed = remote.downloadSpeed
+
+        inFlightSize[download.id] = inFlight
+        lastSyncTime[download.id] = now
+        lastSyncSize[download.id] = remote.downloadedSize
+    }
+
     private func syncFromRPC() async {
         let remoteDownloads = await rpc.fetchAllDownloads()
         if Task.isCancelled { return }
@@ -156,6 +197,7 @@ final class ContentViewModel {
                 if updated.filename == "unknown" || updated.filename.isEmpty {
                     updated.filename = remote.filename
                 }
+                applySmoothing(to: &updated, remote: remote)
                 if prevStatus != .completed && remote.status == .completed {
                     unpublishProgress(for: updated.id)
                     await finalizeDownload(&updated)
@@ -184,6 +226,7 @@ final class ContentViewModel {
                 updated.uploadSpeed = remote.uploadSpeed
                 updated.status = remote.status
                 updated.errorMessage = remote.errorMessage
+                applySmoothing(to: &updated, remote: remote)
                 if prevStatus != .completed && remote.status == .completed {
                     unpublishProgress(for: updated.id)
                     await finalizeDownload(&updated)
@@ -201,10 +244,12 @@ final class ContentViewModel {
                 }
                 merged.append(updated)
             } else {
+                var newDownload = remote
+                applySmoothing(to: &newDownload, remote: remote)
                 if remote.status == .active {
-                    publishProgress(for: remote)
+                    publishProgress(for: newDownload)
                 }
-                merged.append(remote)
+                merged.append(newDownload)
             }
         }
 
@@ -220,8 +265,34 @@ final class ContentViewModel {
             }
         }
 
+        let mergedIDs = Set(merged.map(\.id))
+        for id in lastSyncTime.keys where !mergedIDs.contains(id) {
+            lastSyncTime.removeValue(forKey: id)
+            lastSyncSize.removeValue(forKey: id)
+            inFlightSize.removeValue(forKey: id)
+        }
+
         downloads = merged
+        reconcileSpeedLimits()
         persistence.save(downloads)
+    }
+
+    private func reconcileSpeedLimits() {
+        guard globalSpeedGeneration > 0 else { return }
+        let gen = globalSpeedGeneration
+        let globalDL = SettingsStore.shared.maxDownloadSpeed
+        let globalUL = SettingsStore.shared.maxUploadSpeed
+        for d in downloads {
+            guard let gid = d.gid, d.status == .active || d.status == .waiting else { continue }
+            guard reconciledGeneration[d.id] ?? 0 < gen else { continue }
+            reconciledGeneration[d.id] = gen
+            if d.downloadLimit == nil && globalDL > 0 {
+                Task { await rpc.setSpeedLimit(gid: gid, key: "max-download-limit", value: "\(globalDL)") }
+            }
+            if d.uploadLimit == nil && globalUL > 0 {
+                Task { await rpc.setSpeedLimit(gid: gid, key: "max-upload-limit", value: "\(globalUL)") }
+            }
+        }
     }
 
     private func pendingMatch(for remote: Download) -> Int? {

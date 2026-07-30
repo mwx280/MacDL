@@ -133,11 +133,6 @@ final class Aria2RPCClient {
         opts["max-download-limit"] = "\(SettingsStore.shared.maxDownloadSpeed)"
         opts["max-upload-limit"] = "\(SettingsStore.shared.maxUploadSpeed)"
         _ = await transport.changeGlobalOption(opts)
-        let active = await transport.tellActive()
-        for item in active {
-            guard let gid = item["gid"] as? String else { continue }
-            _ = await transport.changeOption(gid: gid, options: opts)
-        }
     }
 
     // MARK: - Mapping

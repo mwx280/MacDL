@@ -37,6 +37,13 @@ struct Download: Identifiable, Codable {
     var uploadLimit: Int?
     var errorMessage: String?
 
+    var displayedDownloadedSize: Int64?
+
+    enum CodingKeys: String, CodingKey {
+        case id, gid, filename, url, totalSize, downloadedSize, downloadSpeed, uploadSpeed
+        case status, addedAt, savePath, connections, downloadLimit, uploadLimit, errorMessage
+    }
+
     var progress: Double {
         totalSize > 0 ? min(Double(downloadedSize) / Double(totalSize), 1.0) : 0
     }

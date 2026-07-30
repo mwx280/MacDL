@@ -8,12 +8,19 @@ struct DownloadRow: View {
     var onDelete: ((UUID) -> Void)?
     var onSetConnections: ((UUID, Int) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
-    var onSetUploadLimit: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
+
+    private var displaySize: Int64 {
+        download.displayedDownloadedSize ?? download.downloadedSize
+    }
+
+    private var displayProgress: Double {
+        download.totalSize > 0 ? min(Double(displaySize) / Double(download.totalSize), 1.0) : 0
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -25,20 +32,20 @@ struct DownloadRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                ProgressView(value: download.progress)
+                ProgressView(value: displayProgress)
                     .tint(progressTint)
 
                 HStack(spacing: 16) {
                     statusLabel
                     if download.status == .active || download.status == .waiting {
-                        Text(download.progress, format: .percent.precision(.fractionLength(1)))
+                        Text(displayProgress, format: .percent.precision(.fractionLength(1)))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(formatSpeed(download.downloadSpeed))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    Text(formatSize(download.downloadedSize) + " / " + formatSize(download.totalSize))
+                    Text(formatSize(displaySize) + " / " + formatSize(download.totalSize))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -81,7 +88,6 @@ struct DownloadRow: View {
                 }
             }
             speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
-            speedMenu("arrow.up", onSetUploadLimit, download.uploadLimit)
             Divider()
             Button(action: { onCopyURL?(download.id) }) {
                 Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")

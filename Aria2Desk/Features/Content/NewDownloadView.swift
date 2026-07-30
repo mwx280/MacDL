@@ -3,24 +3,22 @@ import AppKit
 
 struct NewDownloadView: View {
     @Binding var text: String
-    let onDownload: (String, String, Int, Int, Int) -> Void
+    let onDownload: (String, String, Int, Int) -> Void
     @State private var downloadPath: String
     @State private var connections: Int
     @State private var downloadLimit: Int
-    @State private var uploadLimit: Int
     @State private var refresh = UUID()
     @Environment(\.dismiss) var dismiss
 
     private let connectionOptions = [1, 2, 4, 8, 16]
     private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
-    init(text: Binding<String>, onDownload: @escaping (String, String, Int, Int, Int) -> Void) {
+    init(text: Binding<String>, onDownload: @escaping (String, String, Int, Int) -> Void) {
         _text = text
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
         _connections = State(initialValue: SettingsStore.shared.maxConnections)
         _downloadLimit = State(initialValue: SettingsStore.shared.maxDownloadSpeed)
-        _uploadLimit = State(initialValue: SettingsStore.shared.maxUploadSpeed)
     }
 
     var body: some View {
@@ -89,24 +87,13 @@ struct NewDownloadView: View {
                     .labelsHidden()
                     .frame(width: 100)
                 }
-
-                prefRow("arrow.up", "Upload Limit") {
-                    Picker(selection: $uploadLimit) {
-                        ForEach(speedOptions, id: \.self) { speed in
-                            Text(speedLabel(speed))
-                                .tag(speed)
-                        }
-                    } label: { }
-                    .labelsHidden()
-                    .frame(width: 100)
-                }
             }
 
             HStack(spacing: 12) {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {
-                    onDownload(text, downloadPath, connections, downloadLimit, uploadLimit)
+                    onDownload(text, downloadPath, connections, downloadLimit)
                     SettingsStore.shared.downloadPath = downloadPath
                     dismiss()
                 }

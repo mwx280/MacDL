@@ -117,6 +117,7 @@ private struct DownloadPane: View {
                     .onChange(of: maxDownloadSpeed) { _, v in
                         SettingsStore.shared.maxDownloadSpeed = v
                         Task { await Aria2RPCClient.shared.applySpeedLimits() }
+                        NotificationCenter.default.post(name: .globalSpeedDidChange, object: nil)
                     }
                 }
 
@@ -134,6 +135,7 @@ private struct DownloadPane: View {
                     .onChange(of: maxUploadSpeed) { _, v in
                         SettingsStore.shared.maxUploadSpeed = v
                         Task { await Aria2RPCClient.shared.applySpeedLimits() }
+                        NotificationCenter.default.post(name: .globalSpeedDidChange, object: nil)
                     }
                 }
             }

@@ -9,7 +9,6 @@ struct DownloadListView: View {
     var onDelete: ((UUID) -> Void)?
     var onSetConnections: ((UUID, Int) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
-    var onSetUploadLimit: ((UUID, Int) -> Void)?
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
@@ -18,7 +17,7 @@ struct DownloadListView: View {
             DownloadRow(download: download,
                 onPause: onPause, onResume: onResume, onRetry: onRetry,
                 onDelete: onDelete, onSetConnections: onSetConnections,
-                onSetDownloadLimit: onSetDownloadLimit, onSetUploadLimit: onSetUploadLimit,
+                onSetDownloadLimit: onSetDownloadLimit,
                 onShowInFinder: onShowInFinder, onCopyURL: onCopyURL)
         }
         .listStyle(.inset)

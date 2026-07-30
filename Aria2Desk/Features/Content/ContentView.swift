@@ -70,9 +70,9 @@ struct ContentView: View {
         .sheet(isPresented: $showNewDownloadSheet) {
             NewDownloadView(
                 text: $newDownloadURLs,
-                onDownload: { urls, path, connections, dlLimit, ulLimit in
+                onDownload: { urls, path, connections, dlLimit in
                     for url in urls.components(separatedBy: .newlines).map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
-                        model.addDownload(url: url, savePath: path, connections: connections, dlLimit: dlLimit, ulLimit: ulLimit)
+                        model.addDownload(url: url, savePath: path, connections: connections, dlLimit: dlLimit)
                     }
                 }
             )
@@ -103,7 +103,6 @@ struct ContentView: View {
                 onDelete: { id in model.selectedDownloads.insert(id); model.confirmDelete() },
                 onSetConnections: { model.setConnections(id: $0, connections: $1) },
                 onSetDownloadLimit: { model.setDownloadLimit(id: $0, limit: $1) },
-                onSetUploadLimit: { model.setUploadLimit(id: $0, limit: $1) },
                 onShowInFinder: { id in
                     guard let d = model.downloads.first(where: { $0.id == id }) else { return }
                     let path = d.savePath ?? SettingsStore.shared.downloadPath
