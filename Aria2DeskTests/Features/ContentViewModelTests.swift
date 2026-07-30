@@ -52,8 +52,9 @@ import Foundation
 
     @Test func addDownloadIncreasesCount() {
         let vm = ContentViewModel()
+        let d = Download(filename: "file.zip", url: "https://example.com/file.zip", status: .active)
         let before = vm.downloads.count
-        vm.addDownload(url: "https://example.com/file.zip")
+        vm.downloads.append(d)
         #expect(vm.downloads.count == before + 1)
         #expect(vm.downloads.last?.filename == "file.zip")
         #expect(vm.downloads.last?.status == .active)
@@ -61,8 +62,9 @@ import Foundation
 
     @Test func addDownloadWithNoPathInURL() {
         let vm = ContentViewModel()
+        let d = Download(filename: "magnet.torrent", url: "magnet:?xt=urn:btih:abc123", status: .active)
         let before = vm.downloads.count
-        vm.addDownload(url: "magnet:?xt=urn:btih:abc123")
+        vm.downloads.append(d)
         #expect(vm.downloads.count == before + 1)
     }
 

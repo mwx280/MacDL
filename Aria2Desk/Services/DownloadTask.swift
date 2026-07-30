@@ -126,6 +126,15 @@ final class DownloadTask: NSObject {
 extension DownloadTask: URLSessionDataDelegate {
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        if let http = response as? HTTPURLResponse, http.statusCode == 200, totalBytesWritten > 0 {
+            try? FileManager.default.removeItem(at: destinationURL)
+            FileManager.default.createFile(atPath: destinationURL.path, contents: nil)
+            fileHandle = FileHandle(forWritingAtPath: destinationURL.path)
+            totalBytesWritten = 0
+            totalBytesExpected = 0
+            lastCheckBytes = 0
+            speedSamples = [(Date(), 0)]
+        }
         if totalBytesExpected == 0 {
             totalBytesExpected = response.expectedContentLength > 0 ? response.expectedContentLength : 0
         }

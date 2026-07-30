@@ -13,6 +13,7 @@ final class ContentViewModel {
     private var termObserver: NSObjectProtocol?
     private var progressMap: [UUID: Progress] = [:]
     private var fileCheckTimer: Timer?
+    private var engineTrackedDownloads: Set<UUID> = []
 
     init() {
         if let oldData = try? Data(contentsOf: DownloadPersistence.persistedFileURL),
@@ -35,7 +36,7 @@ final class ContentViewModel {
             self.unpublishAllProgress()
             self.persistence.saveImmediately(self.downloads)
         }
-        fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.checkDownloadFiles()
         }
     }
@@ -134,6 +135,48 @@ final class ContentViewModel {
 
     // MARK: - Download Actions
 
+    private func setupEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
+        let idx = downloads.firstIndex(where: { $0.id == id })
+        let limit = dlLimit > 0 ? dlLimit : (idx.map { downloads[$0].downloadLimit ?? 0 } ?? 0)
+        let speedLimit = Int64(limit)
+        guard let src = downloads.first(where: { $0.id == id }) else { return }
+        let dest = destinationURL(for: src)
+
+        engineTrackedDownloads.insert(id)
+        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit)
+        if let idx {
+            downloads[idx].downloadedSize = 0
+            downloads[idx].totalSize = 0
+        }
+
+        engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
+            self.downloads[idx].downloadedSize = bytes
+            self.downloads[idx].downloadSpeed = speed
+            if self.progressMap[id] == nil {
+                self.publishProgress(for: self.downloads[idx])
+            }
+            self.updateProgress(for: id)
+        }
+
+        engine.setCompletionHandler(for: id) { [weak self] result in
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            switch result {
+            case .success:
+                self.downloads[idx].status = .completed
+                self.unpublishProgress(for: id)
+                let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
+                NSWorkspace.shared.noteFileSystemChanged(dir)
+            case .failure(let error):
+                self.downloads[idx].status = .error
+                self.downloads[idx].errorMessage = error.localizedDescription
+                self.unpublishProgress(for: id)
+            }
+            self.persistence.save(self.downloads)
+        }
+    }
+
     func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let dir = savePath ?? RPCConfig.defaultDownloadDir
@@ -190,48 +233,22 @@ final class ContentViewModel {
             return
         }
 
-        let dest = destinationURL(for: d)
-        engine.start(id: d.id, url: sourceURL, destinationURL: dest, speedLimit: Int64(dlLimit))
-        if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
-            downloads[idx].downloadedSize = 0
-            downloads[idx].totalSize = 0
-        }
-
-        engine.setProgressHandler(for: d.id) { [weak self] bytes, total, speed in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
-            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
-            self.downloads[idx].downloadedSize = bytes
-            self.downloads[idx].downloadSpeed = speed
-            if self.progressMap[d.id] == nil {
-                self.publishProgress(for: self.downloads[idx])
-            }
-            self.updateProgress(for: d.id)
-        }
-
-        engine.setCompletionHandler(for: d.id) { [weak self] result in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
-            switch result {
-            case .success:
-                self.downloads[idx].status = .completed
-                self.unpublishProgress(for: d.id)
-                let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
-                NSWorkspace.shared.noteFileSystemChanged(dir)
-            case .failure(let error):
-                self.downloads[idx].status = .error
-                self.downloads[idx].errorMessage = error.localizedDescription
-                self.unpublishProgress(for: d.id)
-            }
-            self.persistence.save(self.downloads)
-        }
+        setupEngineTask(for: d.id, url: sourceURL, dlLimit: dlLimit)
     }
 
     func pauseDownload(id: UUID) {
-        guard let d = downloads.first(where: { $0.id == id }), d.status == .active else { return }
+        guard let idx = downloads.firstIndex(where: { $0.id == id }), downloads[idx].status == .active else { return }
         engine.pause(id: id)
-        if let idx = downloads.firstIndex(where: { $0.id == id }) {
-            downloads[idx].status = .paused
-            persistence.save(downloads)
+        if engineTrackedDownloads.contains(id) {
+            if !FileManager.default.fileExists(atPath: destinationURL(for: downloads[idx]).path) {
+                downloads[idx].status = .error
+                downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
+                persistence.save(downloads)
+                return
+            }
         }
+        downloads[idx].status = .paused
+        persistence.save(downloads)
     }
 
     func resumeDownload(id: UUID) {
@@ -299,17 +316,24 @@ final class ContentViewModel {
         let d = downloads[idx]
         if d.status == .active {
             engine.cancel(id: id)
+            unpublishProgress(for: id)
         }
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
 
-        downloads[idx].status = .waiting
+        downloads[idx].status = .active
         downloads[idx].errorMessage = nil
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
         persistence.save(downloads)
 
-        addDownload(url: d.url, savePath: d.savePath, dlLimit: d.downloadLimit ?? 0)
+        guard let sourceURL = URL(string: d.url) else {
+            downloads[idx].status = .error
+            downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
+            return
+        }
+
+        setupEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
     }
 
     func setDownloadLimit(id: UUID, limit: Int) {
