@@ -219,7 +219,7 @@ final class ContentViewModel {
         alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
 
         let cb = NSButton(checkboxWithTitle: LanguageManager.shared.localized("Also remove downloaded files"), target: nil, action: nil)
-        cb.state = .off
+        cb.state = .on
         alert.accessoryView = cb
 
         let resp = alert.runModal()
