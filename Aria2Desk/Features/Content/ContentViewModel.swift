@@ -78,13 +78,24 @@ final class ContentViewModel {
 
     // MARK: - Progress (Finder Download Badge)
 
+    private func downloadDir(for download: Download) -> String {
+        download.savePath ?? RPCConfig.defaultDownloadDir
+    }
+
     private func downloadURL(for download: Download) -> URL {
-        let dir = download.savePath ?? RPCConfig.defaultDownloadDir
-        return URL(fileURLWithPath: dir + "/" + download.filename + ".aria2desk")
+        URL(fileURLWithPath: downloadDir(for: download) + "/" + download.filename + ".aria2desk")
+    }
+
+    private func hideAria2File(for download: Download) {
+        let path = downloadDir(for: download) + "/" + download.filename + ".aria2desk.aria2"
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: path) else { return }
+        try? (url as NSURL).setResourceValue(true, forKey: .isHiddenKey)
     }
 
     private func publishProgress(for download: Download) {
         guard download.gid != nil else { return }
+        hideAria2File(for: download)
         let fileURL = downloadURL(for: download)
 
         let p = Progress(totalUnitCount: max(download.totalSize, 1))
@@ -146,6 +157,9 @@ final class ContentViewModel {
                     await finalizeDownload(&updated)
                 } else {
                     updateProgress(for: updated.id)
+                }
+                if remote.status == .active || remote.status == .waiting {
+                    hideAria2File(for: updated)
                 }
                 if remote.status == .active, progressMap[updated.id] == nil {
                     publishProgress(for: updated)
