@@ -81,6 +81,7 @@ final class Aria2RPCClient {
             }
             try? await Task.sleep(for: .seconds(1))
         }
+        try? fm.removeItem(atPath: packageDir)
         return nil
     }
 

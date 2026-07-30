@@ -344,6 +344,7 @@ final class ContentViewModel {
                     downloads[idx].gid = gid
                 } else {
                     downloads[idx].status = .error
+                    removeFiles(for: downloads[idx])
                 }
                 persistence.save(downloads)
             }
@@ -390,6 +391,7 @@ final class ContentViewModel {
         if let gid = d.gid {
             Task { await rpc.removeDownload(gid: gid, status: d.status) }
         }
+        removeFiles(for: d)
         downloads[idx].status = .waiting
         downloads[idx].errorMessage = nil
         persistence.save(downloads)
@@ -402,6 +404,7 @@ final class ContentViewModel {
                     downloads[idx].status = .active
                 } else {
                     downloads[idx].status = .error
+                    removeFiles(for: downloads[idx])
                 }
                 persistence.save(downloads)
             }
@@ -490,17 +493,14 @@ final class ContentViewModel {
 
         for d in toDelete {
             unpublishProgress(for: d.id)
-            Task {
-                if let gid = d.gid {
-                    await rpc.removeDownload(gid: gid, status: d.status)
-                }
-
-                let dir = d.savePath ?? RPCConfig.defaultDownloadDir
-                if deleteFiles, d.status == .completed {
-                    try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
-                }
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
+            if let gid = d.gid {
+                Task { await rpc.removeDownload(gid: gid, status: d.status) }
             }
+            let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+            if deleteFiles, d.status == .completed {
+                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+            }
+            try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".aria2desk")
         }
 
         downloads.removeAll { selectedDownloads.contains($0.id) }
