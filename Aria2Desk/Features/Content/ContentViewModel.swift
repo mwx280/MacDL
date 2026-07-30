@@ -170,46 +170,47 @@ final class ContentViewModel {
 
     func resumeDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
-        let d = downloads[idx]
-        guard d.status == .paused || d.status == .waiting else { return }
+        guard downloads[idx].status == .paused || downloads[idx].status == .waiting else { return }
 
         downloads[idx].status = .active
         persistence.save(downloads)
 
-        guard let sourceURL = URL(string: d.url) else {
+        if engine.resume(id: id) { return }
+
+        guard let sourceURL = URL(string: downloads[idx].url) else {
             downloads[idx].status = .error
             downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
             return
         }
 
-        let dest = destinationURL(for: d)
-        let taskID = engine.start(url: sourceURL, destinationURL: dest, speedLimit: Int64(d.downloadLimit ?? 0))
+        let dest = destinationURL(for: downloads[idx])
+        let taskID = engine.start(url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0))
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
 
         engine.setProgressHandler(for: taskID) { [weak self] bytes, total, speed in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
             self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
             self.downloads[idx].downloadedSize = bytes
             self.downloads[idx].downloadSpeed = speed
-            if self.progressMap[d.id] == nil {
+            if self.progressMap[id] == nil {
                 self.publishProgress(for: self.downloads[idx])
             }
-            self.updateProgress(for: d.id)
+            self.updateProgress(for: id)
         }
 
         engine.setCompletionHandler(for: taskID) { [weak self] result in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
+            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
             switch result {
             case .success:
                 self.downloads[idx].status = .completed
-                self.unpublishProgress(for: d.id)
+                self.unpublishProgress(for: id)
                 let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
                 NSWorkspace.shared.noteFileSystemChanged(dir)
             case .failure(let error):
                 self.downloads[idx].status = .error
                 self.downloads[idx].errorMessage = error.localizedDescription
-                self.unpublishProgress(for: d.id)
+                self.unpublishProgress(for: id)
             }
             self.persistence.save(self.downloads)
         }

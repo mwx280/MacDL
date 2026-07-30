@@ -15,6 +15,12 @@ final class DownloadEngine {
         return id
     }
 
+    func resume(id: UUID) -> Bool {
+        guard let task = tasks[id], let data = task.resumeData else { return false }
+        task.resume(from: data)
+        return true
+    }
+
     func pause(id: UUID) {
         tasks[id]?.pause()
     }
@@ -34,9 +40,5 @@ final class DownloadEngine {
 
     func setCompletionHandler(for id: UUID, handler: @escaping (Result<Void, Error>) -> Void) {
         tasks[id]?.onCompletion = handler
-    }
-
-    func setResumeDataHandler(for id: UUID, handler: @escaping (Data?) -> Void) {
-        tasks[id]?.onResumeData = handler
     }
 }

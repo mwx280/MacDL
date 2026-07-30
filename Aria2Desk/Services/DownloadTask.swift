@@ -11,15 +11,15 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
 
     private var session: URLSession?
     private var task: URLSessionDownloadTask?
-    private var resumeData: Data?
+    private(set) var resumeData: Data?
     private var startTime: Date?
     private var lastCheckBytes: Int64 = 0
     private var lastCheckTime: Date = .distantPast
+    private var progressThrottleTime: Date = .distantPast
     private var speedSamples: [(Date, Int64)] = []
 
     var onProgress: ((Int64, Int64, Int64) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
-    var onResumeData: ((Data?) -> Void)?
 
     init(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64) {
         self.id = id
@@ -29,11 +29,7 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
     }
 
     func start() {
-        let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = 16
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 86400
-        session = URLSession(configuration: config, delegate: self, delegateQueue: .main)
+        session = makeSession()
         startTime = Date()
         lastCheckTime = Date()
         lastCheckBytes = 0
@@ -42,30 +38,27 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         task?.resume()
     }
 
-    func resume(with resumeData: Data?) {
-        let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = 16
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 86400
-        session = URLSession(configuration: config, delegate: self, delegateQueue: .main)
+    func resume(from data: Data?) {
+        totalBytesWritten = 0
+        downloadSpeed = 0
+        session = makeSession()
         startTime = Date()
         lastCheckTime = Date()
-        lastCheckBytes = totalBytesWritten
-        speedSamples = [(Date(), totalBytesWritten)]
-        if let data = resumeData {
+        lastCheckBytes = 0
+        speedSamples = [(Date(), 0)]
+        if let data {
             task = session?.downloadTask(withResumeData: data)
         } else {
             task = session?.downloadTask(with: url)
         }
         task?.resume()
-        self.resumeData = nil
+        resumeData = nil
     }
 
     func pause() {
         task?.cancel { [weak self] data in
             guard let self else { return }
             self.resumeData = data
-            self.onResumeData?(data)
             self.session?.invalidateAndCancel()
             self.session = nil
         }
@@ -75,6 +68,14 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         task?.cancel()
         session?.invalidateAndCancel()
         session = nil
+    }
+
+    private func makeSession() -> URLSession {
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 16
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 86400
+        return URLSession(configuration: config, delegate: self, delegateQueue: .main)
     }
 
     // MARK: - URLSessionDownloadDelegate
@@ -105,9 +106,9 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         self.totalBytesExpected = max(totalBytesExpectedToWrite, self.totalBytesExpected)
 
         let now = Date()
+
         speedSamples.append((now, totalBytesWritten))
         if speedSamples.count > 6 { speedSamples.removeFirst() }
-
         if speedSamples.count >= 2 {
             let delta = totalBytesWritten - speedSamples.first!.1
             let elapsed = now.timeIntervalSince(speedSamples.first!.0)
@@ -117,7 +118,7 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         let elapsed = now.timeIntervalSince(lastCheckTime)
         if elapsed >= 0.5 {
             let instantSpeed = Int64(Double(totalBytesWritten - lastCheckBytes) / elapsed)
-            if speedLimit > 0 && instantSpeed > speedLimit {
+            if speedLimit > 0, instantSpeed > speedLimit {
                 let ratio = Double(instantSpeed) / Double(speedLimit)
                 let sleepTime = min(0.5 * (ratio - 1), 3.0)
                 self.task?.suspend()
@@ -129,6 +130,8 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
             lastCheckTime = now
         }
 
+        guard now.timeIntervalSince(progressThrottleTime) >= 0.2 else { return }
+        progressThrottleTime = now
         onProgress?(totalBytesWritten, totalBytesExpected, downloadSpeed)
     }
 }
