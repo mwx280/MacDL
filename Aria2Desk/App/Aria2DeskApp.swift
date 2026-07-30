@@ -20,6 +20,7 @@ struct Aria2DeskApp: App {
                     Label("About Aria2Desk", systemImage: "info.circle")
                 }
             }
+            CommandGroup(replacing: .windowArrangement) { }
         }
 
         Settings {
