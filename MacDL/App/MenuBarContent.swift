@@ -22,7 +22,7 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button { NSApp.terminate(nil) } label: {
+        Button { MacDLApp.quitWithCheck() } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Quit")) }, icon: { Image(systemName: "xmark.rectangle") })
         }
     }

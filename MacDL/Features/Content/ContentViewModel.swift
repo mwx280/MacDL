@@ -68,7 +68,7 @@ final class ContentViewModel {
     // MARK: - Progress (Finder Download Badge)
 
     private func destinationURL(for download: Download) -> URL {
-        let dir = download.savePath ?? RPCConfig.defaultDownloadDir
+        let dir = download.savePath ?? AppConfig.defaultDownloadDir
         return URL(fileURLWithPath: dir + "/" + download.filename)
     }
 
@@ -178,7 +178,7 @@ final class ContentViewModel {
             case .success:
                 self.downloads[idx].status = .completed
                 self.unpublishProgress(for: id)
-                let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
+                let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
                 NSWorkspace.shared.noteFileSystemChanged(dir)
             case .failure(let error):
                 self.downloads[idx].status = .error
@@ -192,9 +192,9 @@ final class ContentViewModel {
 
     func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
-        let dir = savePath ?? RPCConfig.defaultDownloadDir
+        let dir = savePath ?? AppConfig.defaultDownloadDir
 
-        if let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? RPCConfig.defaultDownloadDir) == dir) }) {
+        if let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
             let alert = NSAlert()
             switch existing.status {
             case .active, .waiting:
@@ -293,7 +293,7 @@ final class ContentViewModel {
             case .success:
                 self.downloads[idx].status = .completed
                 self.unpublishProgress(for: id)
-                let dir = self.downloads[idx].savePath ?? RPCConfig.defaultDownloadDir
+                let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
                 NSWorkspace.shared.noteFileSystemChanged(dir)
             case .failure(let error):
                 self.downloads[idx].status = .error
@@ -311,7 +311,7 @@ final class ContentViewModel {
             engine.cancel(id: id)
             engineTrackedDownloads.remove(id)
         }
-        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+        let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
@@ -325,7 +325,7 @@ final class ContentViewModel {
             engineTrackedDownloads.remove(id)
             unpublishProgress(for: id)
         }
-        let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+        let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
 
         downloads[idx].status = .active
@@ -399,7 +399,7 @@ final class ContentViewModel {
                 engine.cancel(id: d.id)
                 engineTrackedDownloads.remove(d.id)
             }
-            let dir = d.savePath ?? RPCConfig.defaultDownloadDir
+            let dir = d.savePath ?? AppConfig.defaultDownloadDir
             if deleteFiles {
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
             }

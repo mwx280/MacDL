@@ -1,5 +1,5 @@
 import Foundation
 
-struct RPCConfig {
+struct AppConfig {
     static let defaultDownloadDir = NSHomeDirectory() + "/Downloads"
 }

@@ -19,6 +19,11 @@ struct MacDLApp: App {
                     Label("About MacDL", systemImage: "info.circle")
                 }
             }
+            CommandGroup(replacing: .appTermination) {
+                Button { MacDLApp.quitWithCheck() } label: {
+                    Text("Quit MacDL")
+                }.keyboardShortcut("q")
+            }
         }
 
         Settings {
@@ -45,6 +50,26 @@ struct MacDLApp: App {
     }
 
     @MainActor
+    static func quitWithCheck() {
+        if let vm = ContentViewModel.current {
+            let active = vm.downloads.filter { $0.status == .active }
+            if !active.isEmpty {
+                let alert = NSAlert()
+                alert.messageText = LanguageManager.shared.localized("Active Downloads")
+                alert.informativeText = String(
+                    format: LanguageManager.shared.localized("There are %lld active downloads. Quit anyway?"),
+                    Int64(active.count)
+                )
+                alert.addButton(withTitle: LanguageManager.shared.localized("Quit"))
+                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+                if alert.runModal() != .alertFirstButtonReturn { return }
+                DownloadPersistence.shared.save(vm.downloads)
+            }
+        }
+        NSApp.terminate(nil)
+    }
+
+    @MainActor
     static func showAbout() {
         let vc = NSHostingController(rootView: AboutView())
         let window = NSWindow(contentViewController: vc)
@@ -58,24 +83,4 @@ struct MacDLApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let vm = ContentViewModel.current else { return .terminateNow }
-        let active = vm.downloads.filter { $0.status == .active }
-        guard !active.isEmpty else { return .terminateNow }
-
-        let alert = NSAlert()
-        alert.messageText = LanguageManager.shared.localized("Active Downloads")
-        alert.informativeText = String(
-            format: LanguageManager.shared.localized("There are %lld active downloads. Quit anyway?"),
-            Int64(active.count)
-        )
-        alert.addButton(withTitle: LanguageManager.shared.localized("Quit"))
-        alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            DownloadPersistence.shared.save(vm.downloads)
-            return .terminateNow
-        }
-        return .terminateCancel
-    }
 }

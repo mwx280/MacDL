@@ -166,7 +166,7 @@ extension DownloadTask: URLSessionDataDelegate {
                 totalBytesExpected = 0
                 lastCheckBytes = 0
                 speedSamples = [(Date(), 0)]
-                var req = URLRequest(url: url)
+                let req = URLRequest(url: url)
                 task = session.dataTask(with: req)
                 task?.resume()
                 completionHandler(.cancel)
