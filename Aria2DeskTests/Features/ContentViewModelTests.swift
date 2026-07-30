@@ -81,13 +81,6 @@ let testDownloads: [Download] = [
         #expect(vm.downloads.count == before + 1)
     }
 
-    @Test func computeTotalSpeed() {
-        let vm = ContentViewModel()
-        vm.downloads = testDownloads
-        let expected = vm.downloads.reduce(0) { $0 + $1.downloadSpeed }
-        #expect(vm.totalSpeed == expected)
-    }
-
     @Test func filteredDownloadsEmptyForInvalidSidebar() {
         let vm = ContentViewModel()
         vm.downloads = []

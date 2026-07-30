@@ -133,7 +133,7 @@ final class DownloadTask: NSObject {
     // MARK: - Internal helpers
     private func makeSession() -> URLSession {
         let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = 16
+        config.httpMaximumConnectionsPerHost = SettingsStore.shared.maxConnections
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 86400
         return URLSession(configuration: config, delegate: self, delegateQueue: .main)

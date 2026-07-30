@@ -9,8 +9,6 @@ struct NewDownloadView: View {
     @State private var refresh = UUID()
     @Environment(\.dismiss) var dismiss
 
-    private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
-
     init(text: Binding<String>, onDownload: @escaping (String, String, Int) -> Void) {
         _text = text
         self.onDownload = onDownload
@@ -102,12 +100,6 @@ struct NewDownloadView: View {
                 .contains { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
             if hasURL { text = str }
         }
-    }
-
-    private func speedLabel(_ bytesPerSecond: Int) -> String {
-        if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
-        if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
-        return "\(bytesPerSecond / 1_048_576) MB/s"
     }
 
     private func prefRow<C: View>(_ icon: String, _ label: String, @ViewBuilder control: () -> C) -> some View {

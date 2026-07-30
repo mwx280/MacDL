@@ -10,8 +10,6 @@ struct DownloadRow: View {
     var onShowInFinder: ((UUID) -> Void)?
     var onCopyURL: ((UUID) -> Void)?
 
-    private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
-
     var body: some View {
         HStack(spacing: 12) {
             fileIcon
@@ -143,9 +141,4 @@ struct DownloadRow: View {
         }
     }
 
-    private func speedLabel(_ bytesPerSecond: Int) -> String {
-        if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
-        if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
-        return "\(bytesPerSecond / 1_048_576) MB/s"
-    }
 }

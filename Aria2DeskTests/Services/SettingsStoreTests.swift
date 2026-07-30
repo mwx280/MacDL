@@ -20,13 +20,6 @@ import Foundation
         store.maxConnections = original
     }
 
-    @Test func writeThenReadSecretToken() {
-        let original = store.secretToken
-        store.secretToken = "test-token"
-        #expect(store.secretToken == "test-token")
-        store.secretToken = original
-    }
-
     @Test func defaultMaxDownloadSpeed() {
         let original = store.maxDownloadSpeed
         store.maxDownloadSpeed = 0

@@ -1,17 +1,9 @@
 import Foundation
 
-final class SettingsStore: SettingsStoreProtocol {
+final class SettingsStore {
     static let shared = SettingsStore()
 
     private let defaults = UserDefaults.standard
-
-    var appearance: Appearance {
-        get {
-            let raw = defaults.string(forKey: "appearance") ?? ""
-            return Appearance(rawValue: raw) ?? .system
-        }
-        set { defaults.set(newValue.rawValue, forKey: "appearance") }
-    }
 
     var maxConnections: Int {
         get {
@@ -27,18 +19,6 @@ final class SettingsStore: SettingsStoreProtocol {
             return v == 0 ? 5 : v
         }
         set { defaults.set(newValue, forKey: "maxConcurrentDownloads") }
-    }
-
-    var secretToken: String {
-        get {
-            if let token = defaults.string(forKey: "rpcSecretToken"), !token.isEmpty {
-                return token
-            }
-            let token = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-            defaults.set(token, forKey: "rpcSecretToken")
-            return token
-        }
-        set { defaults.set(newValue, forKey: "rpcSecretToken") }
     }
 
     var downloadPath: String {

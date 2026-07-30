@@ -61,7 +61,6 @@ private struct DownloadPane: View {
 
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
-    private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
     init() {
         _maxConnections = State(initialValue: SettingsStore.shared.maxConnections)
@@ -148,12 +147,6 @@ private struct DownloadPane: View {
             }
         }
         .padding(20)
-    }
-
-    private func speedLabel(_ bytesPerSecond: Int) -> String {
-        if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
-        if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
-        return "\(bytesPerSecond / 1_048_576) MB/s"
     }
 
     private func browsePath() {

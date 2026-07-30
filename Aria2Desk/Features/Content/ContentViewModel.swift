@@ -42,8 +42,6 @@ final class ContentViewModel {
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
-    var totalSpeed: Int64 { downloads.reduce(0) { $0 + $1.downloadSpeed } }
-
     // MARK: - Filtering
 
     func filteredDownloads(for item: SidebarItem?) -> [Download] {

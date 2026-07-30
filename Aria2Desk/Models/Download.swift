@@ -7,17 +7,6 @@ enum DownloadStatus: String, Codable {
     case completed
     case stopped
     case error
-
-    var icon: String {
-        switch self {
-        case .active: "arrow.down.circle"
-        case .paused: "pause.circle"
-        case .waiting: "clock"
-        case .completed: "checkmark.circle"
-        case .stopped: "stop.circle"
-        case .error: "exclamationmark.circle"
-        }
-    }
 }
 
 struct Download: Identifiable, Codable {
