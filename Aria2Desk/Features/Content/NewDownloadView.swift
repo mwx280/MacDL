@@ -19,8 +19,8 @@ struct NewDownloadView: View {
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
         _connections = State(initialValue: SettingsStore.shared.maxConnections)
-        _downloadLimit = State(initialValue: 0)
-        _uploadLimit = State(initialValue: 0)
+        _downloadLimit = State(initialValue: SettingsStore.shared.maxDownloadSpeed)
+        _uploadLimit = State(initialValue: SettingsStore.shared.maxUploadSpeed)
     }
 
     var body: some View {
