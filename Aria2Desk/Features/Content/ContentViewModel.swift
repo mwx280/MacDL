@@ -120,6 +120,7 @@ final class ContentViewModel {
             if !FileManager.default.fileExists(atPath: url.path) {
                 if d.status == .active {
                     engine.cancel(id: d.id)
+                    engineTrackedDownloads.remove(d.id)
                 }
                 downloads[i].status = .error
                 downloads[i].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
@@ -233,6 +234,7 @@ final class ContentViewModel {
             if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
                 downloads[idx].status = .error
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
+                persistence.save(downloads)
             }
             return
         }
@@ -267,6 +269,7 @@ final class ContentViewModel {
         guard let sourceURL = URL(string: downloads[idx].url) else {
             downloads[idx].status = .error
             downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
+            persistence.save(downloads)
             return
         }
 
@@ -315,6 +318,7 @@ final class ContentViewModel {
         guard let d = downloads.first(where: { $0.id == id }) else { return }
         if d.status == .active {
             engine.cancel(id: id)
+            engineTrackedDownloads.remove(id)
         }
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
@@ -327,6 +331,7 @@ final class ContentViewModel {
         let d = downloads[idx]
         if d.status == .active {
             engine.cancel(id: id)
+            engineTrackedDownloads.remove(id)
             unpublishProgress(for: id)
         }
         let dir = d.savePath ?? RPCConfig.defaultDownloadDir
@@ -401,6 +406,7 @@ final class ContentViewModel {
             unpublishProgress(for: d.id)
             if d.status == .active {
                 engine.cancel(id: d.id)
+                engineTrackedDownloads.remove(d.id)
             }
             let dir = d.savePath ?? RPCConfig.defaultDownloadDir
             if deleteFiles {

@@ -1,8 +1,9 @@
 import Foundation
-import os
 
 final class DownloadPersistence {
     static let shared = DownloadPersistence()
+
+    private let queue = DispatchQueue(label: "com.xiaowu.persistence", qos: .utility)
 
     private var fileURL: URL {
         let base: URL
@@ -18,23 +19,28 @@ final class DownloadPersistence {
     }
 
     func load() -> [Download] {
-        let url = fileURL
-        guard let data = try? Data(contentsOf: url) else { return [] }
-        guard let list = try? JSONDecoder().decode([Download].self, from: data) else { return [] }
-        return list
+        queue.sync {
+            let url = fileURL
+            guard let data = try? Data(contentsOf: url),
+                  let list = try? JSONDecoder().decode([Download].self, from: data)
+            else { return [] }
+            return list
+        }
     }
 
     func save(_ downloads: [Download]) {
-        write(downloads)
+        queue.async { [downloads] in
+            let url = self.fileURL
+            guard let data = try? JSONEncoder().encode(downloads) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     func saveImmediately(_ downloads: [Download]) {
-        write(downloads)
-    }
-
-    private func write(_ downloads: [Download]) {
-        let url = fileURL
-        guard let data = try? JSONEncoder().encode(downloads) else { return }
-        try? data.write(to: url, options: .atomic)
+        queue.sync {
+            let url = fileURL
+            guard let data = try? JSONEncoder().encode(downloads) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
     }
 }
