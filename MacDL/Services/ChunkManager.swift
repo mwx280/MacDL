@@ -17,7 +17,6 @@ final class ChunkManager {
 
     private let syncQueue = DispatchQueue(label: "com.xiaowu.chunkmanager.sync")
     private var logTimer: Timer?
-    private var progressTimer: Timer?
     private var lastLogBytes: Int64 = 0
     private var lastLogTime: Date = .distantPast
 
@@ -40,7 +39,7 @@ final class ChunkManager {
 
     func start() {
         os_log("[ChunkManager] start probe chunkSize=%lld maxConcurrent=%d", chunkSize, maxConcurrent)
-        startTimers()
+        startLogTimer()
         syncQueue.async { self.startProbe() }
     }
 
@@ -57,7 +56,7 @@ final class ChunkManager {
         os_log("[ChunkManager] resume chunks=%d pending=%d completed=%d total=%lld",
                chunks.count, pendingIndices.count,
                chunks.filter { $0.status == .completed }.count, totalSize)
-        startTimers()
+        startLogTimer()
         syncQueue.async { self.dispatchNext() }
     }
 
@@ -151,21 +150,23 @@ final class ChunkManager {
         os_log("[ChunkManager] pause")
         pendingDispatch?.cancel()
         pendingDispatch = nil
-        stopTimers()
+        logTimer?.invalidate()
+        logTimer = nil
         for (_, task) in activeTasks { task.pause() }
         activeTasks.removeAll()
     }
 
     func resume() {
         os_log("[ChunkManager] resume")
-        startTimers()
+        startLogTimer()
         syncQueue.async { self.dispatchNext() }
     }
 
     func cancel() {
         pendingDispatch?.cancel()
         pendingDispatch = nil
-        stopTimers()
+        logTimer?.invalidate()
+        logTimer = nil
         for (_, task) in activeTasks { task.cancel() }
         activeTasks.removeAll()
     }
@@ -248,7 +249,8 @@ final class ChunkManager {
         let done = chunks.filter { $0.status == .completed }.count
         let failed = chunks.filter { $0.status == .failed }.count
         if done + failed >= chunks.count, !chunks.isEmpty {
-            stopTimers()
+            logTimer?.invalidate()
+            logTimer = nil
             if failed > 0 {
                 onCompletion?(.failure(DownloadError.cancelled))
             } else {
@@ -283,7 +285,7 @@ final class ChunkManager {
         onProgress?(written, total, downloadSpeed)
     }
 
-    private func startTimers() {
+    private func startLogTimer() {
         logTimer?.invalidate()
         logTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -296,18 +298,6 @@ final class ChunkManager {
                 }
             }
         }
-        progressTimer?.invalidate()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.syncQueue.async { self.updateProgress() }
-        }
-    }
-
-    private func stopTimers() {
-        logTimer?.invalidate()
-        logTimer = nil
-        progressTimer?.invalidate()
-        progressTimer = nil
     }
 
     // MARK: - Helpers
