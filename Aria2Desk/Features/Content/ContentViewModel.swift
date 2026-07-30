@@ -125,13 +125,13 @@ final class ContentViewModel {
         }
 
         let dest = destinationURL(for: d)
-        let taskID = engine.start(url: sourceURL, destinationURL: dest, speedLimit: Int64(dlLimit))
+        engine.start(id: d.id, url: sourceURL, destinationURL: dest, speedLimit: Int64(dlLimit))
         if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
             downloads[idx].downloadedSize = 0
             downloads[idx].totalSize = 0
         }
 
-        engine.setProgressHandler(for: taskID) { [weak self] bytes, total, speed in
+        engine.setProgressHandler(for: d.id) { [weak self] bytes, total, speed in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
             self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
             self.downloads[idx].downloadedSize = bytes
@@ -142,7 +142,7 @@ final class ContentViewModel {
             self.updateProgress(for: d.id)
         }
 
-        engine.setCompletionHandler(for: taskID) { [weak self] result in
+        engine.setCompletionHandler(for: d.id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == d.id }) else { return }
             switch result {
             case .success:
@@ -184,11 +184,11 @@ final class ContentViewModel {
         }
 
         let dest = destinationURL(for: downloads[idx])
-        let taskID = engine.start(url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0))
+        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0))
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
 
-        engine.setProgressHandler(for: taskID) { [weak self] bytes, total, speed in
+        engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
             self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
             self.downloads[idx].downloadedSize = bytes
@@ -199,7 +199,7 @@ final class ContentViewModel {
             self.updateProgress(for: id)
         }
 
-        engine.setCompletionHandler(for: taskID) { [weak self] result in
+        engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
             switch result {
             case .success:
