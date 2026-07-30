@@ -135,6 +135,7 @@ final class ContentViewModel {
         }
 
         var seenGIDs = Set<String>()
+        var pendingResolved = Set<UUID>()
         var merged: [Download] = []
 
         for remote in remoteDownloads {
@@ -169,6 +170,34 @@ final class ContentViewModel {
                     unpublishProgress(for: updated.id)
                 }
                 merged.append(updated)
+            } else if let pendingIdx = pendingMatch(for: remote) {
+                var updated = downloads[pendingIdx]
+                updated.gid = gid
+                gidToDownload[gid] = updated
+                pendingResolved.insert(updated.id)
+                let prevStatus = updated.status
+                updated.totalSize = remote.totalSize
+                updated.downloadedSize = remote.downloadedSize
+                updated.downloadSpeed = remote.downloadSpeed
+                updated.uploadSpeed = remote.uploadSpeed
+                updated.status = remote.status
+                updated.errorMessage = remote.errorMessage
+                if prevStatus != .completed && remote.status == .completed {
+                    unpublishProgress(for: updated.id)
+                    await finalizeDownload(&updated)
+                } else {
+                    updateProgress(for: updated.id)
+                }
+                if remote.status == .active || remote.status == .waiting {
+                    hideAria2File(for: updated)
+                }
+                if remote.status == .active, progressMap[updated.id] == nil {
+                    publishProgress(for: updated)
+                }
+                if remote.status == .error || remote.status == .stopped {
+                    unpublishProgress(for: updated.id)
+                }
+                merged.append(updated)
             } else {
                 if remote.status == .active {
                     publishProgress(for: remote)
@@ -178,6 +207,7 @@ final class ContentViewModel {
         }
 
         for d in downloads {
+            if pendingResolved.contains(d.id) { continue }
             if d.gid == nil {
                 merged.append(d)
             } else if let gid = d.gid, !seenGIDs.contains(gid) {
@@ -190,6 +220,12 @@ final class ContentViewModel {
 
         downloads = merged
         persistence.save(downloads)
+    }
+
+    private func pendingMatch(for remote: Download) -> Int? {
+        downloads.firstIndex(where: {
+            $0.gid == nil && $0.url == remote.url && $0.filename == remote.filename
+        })
     }
 
     private func finalizeDownload(_ d: inout Download) async {
