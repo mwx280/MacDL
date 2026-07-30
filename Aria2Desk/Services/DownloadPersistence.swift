@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 final class DownloadPersistence {
     static let shared = DownloadPersistence()
@@ -6,41 +7,48 @@ final class DownloadPersistence {
     static var persistedFileURL: URL { fileURL }
 
     private static var fileURL: URL {
+        let base: URL
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            let tmp = FileManager.default.temporaryDirectory
+            base = FileManager.default.temporaryDirectory
                 .appendingPathComponent("com.xiaowu.Aria2Desk-tests")
-            try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
-            return tmp.appendingPathComponent("downloads.json")
+        } else {
+            base = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/com.xiaowu.Aria2Desk")
         }
-        let base = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/com.xiaowu.Aria2Desk")
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base.appendingPathComponent("downloads.json")
     }
 
-    private let queue = DispatchQueue(label: "com.xiaowu.save.downloads", qos: .utility)
-    private var saveWorkItem: DispatchWorkItem?
-
     func load() -> [Download] {
-        guard let data = try? Data(contentsOf: Self.fileURL),
-              let list = try? JSONDecoder().decode([Download].self, from: data)
-        else { return [] }
+        let url = Self.fileURL
+        guard let data = try? Data(contentsOf: url) else {
+            os_log("[Persistence] no file at %@", url.path)
+            return []
+        }
+        guard let list = try? JSONDecoder().decode([Download].self, from: data) else {
+            os_log("[Persistence] decode failed at %@", url.path)
+            return []
+        }
+        os_log("[Persistence] loaded %d downloads", list.count)
         return list
     }
 
     func save(_ downloads: [Download]) {
-        saveWorkItem?.cancel()
-        let item = DispatchWorkItem { [downloads] in
-            guard let data = try? JSONEncoder().encode(downloads) else { return }
-            try? data.write(to: Self.fileURL, options: Data.WritingOptions.atomic)
-        }
-        saveWorkItem = item
-        queue.asyncAfter(deadline: .now() + 0.5, execute: item)
+        write(downloads)
     }
 
     func saveImmediately(_ downloads: [Download]) {
-        saveWorkItem?.cancel()
-        guard let data = try? JSONEncoder().encode(downloads) else { return }
-        try? data.write(to: Self.fileURL, options: Data.WritingOptions.atomic)
+        write(downloads)
+    }
+
+    private func write(_ downloads: [Download]) {
+        let url = Self.fileURL
+        do {
+            let data = try JSONEncoder().encode(downloads)
+            try data.write(to: url, options: .atomic)
+            os_log("[Persistence] saved %d downloads to %@", downloads.count, url.path)
+        } catch {
+            os_log("[Persistence] save error: %@", error.localizedDescription)
+        }
     }
 }
