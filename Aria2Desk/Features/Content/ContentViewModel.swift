@@ -14,7 +14,6 @@ final class ContentViewModel {
     private var progressMap: [UUID: Progress] = [:]
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
-    private var lastProgressSave: [UUID: Date] = [:]
 
     init() {
         downloads = persistence.load()
@@ -297,7 +296,6 @@ final class ContentViewModel {
 
         engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            self.lastProgressSave.removeValue(forKey: id)
             switch result {
             case .success:
                 self.downloads[idx].status = .completed
