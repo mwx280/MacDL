@@ -33,12 +33,12 @@ final class DownloadPersistence {
         }
     }
 
-    func save(_ downloads: [Download]) {
-        write(downloads)
+    func save(_ downloads: [Download], caller: String = #function) {
+        write(downloads, caller: caller)
     }
 
-    func saveImmediately(_ downloads: [Download]) {
-        write(downloads)
+    func saveImmediately(_ downloads: [Download], caller: String = #function) {
+        write(downloads, caller: caller)
     }
 
     private func migrateFromCaches() {
@@ -52,10 +52,16 @@ final class DownloadPersistence {
         try? FileManager.default.moveItem(at: old, to: new)
     }
 
-    private func write(_ downloads: [Download]) {
+    private func write(_ downloads: [Download], caller: String = "?") {
         let url = fileURL
         guard let data = try? JSONEncoder().encode(downloads) else { print("❌ write: encode failed"); return }
         try? data.write(to: url, options: .atomic)
-        print("📝 save: \(downloads.count) downloads, first=\(downloads.first?.filename ?? "nil") totalSize=\(downloads.first?.totalSize ?? -1)")
+        let first = downloads.first
+        let ts = first?.totalSize ?? -1
+        print("📝 save: count=\(downloads.count) file=\(first?.filename ?? "nil") ts=\(ts) caller=\(caller)")
+        if ts == 0 && downloads.count > 0 {
+            print("📝 save: 👇 caller stack:")
+            for frame in Thread.callStackSymbols.prefix(6) { print("  " + frame) }
+        }
     }
 }

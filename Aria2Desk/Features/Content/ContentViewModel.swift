@@ -146,7 +146,7 @@ final class ContentViewModel {
             self.updateProgress(for: id)
             if prevTotal == 0 {
                 print("📊 progress -> saving")
-                DownloadPersistence.shared.save(self.downloads)
+                DownloadPersistence.shared.save(self.downloads, caller: "progressHandler")
             }
         }
     }
