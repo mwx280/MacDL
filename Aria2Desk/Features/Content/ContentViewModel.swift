@@ -147,6 +147,7 @@ final class ContentViewModel {
 
         engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            let prevTotal = self.downloads[idx].totalSize
             self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
             self.downloads[idx].downloadedSize = bytes
             self.downloads[idx].downloadSpeed = speed
@@ -154,16 +155,16 @@ final class ContentViewModel {
                 self.publishProgress(for: self.downloads[idx])
             }
             self.updateProgress(for: id)
-            let now = Date()
-            if self.lastProgressSave[id] == nil || now.timeIntervalSince(self.lastProgressSave[id]!) >= 5 {
-                self.lastProgressSave[id] = now
-                self.persistence.save(self.downloads)
+            if prevTotal == 0 && self.downloads[idx].totalSize > 0 {
+                let snapshot = self.downloads
+                DispatchQueue.global().async {
+                    DownloadPersistence.shared.save(snapshot)
+                }
             }
         }
 
         engine.setCompletionHandler(for: id) { [weak self] result in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            self.lastProgressSave.removeValue(forKey: id)
             switch result {
             case .success:
                 self.downloads[idx].status = .completed
@@ -275,6 +276,7 @@ final class ContentViewModel {
 
         engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
             guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+            let prevTotal = self.downloads[idx].totalSize
             self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
             self.downloads[idx].downloadedSize = bytes
             self.downloads[idx].downloadSpeed = speed
@@ -282,10 +284,11 @@ final class ContentViewModel {
                 self.publishProgress(for: self.downloads[idx])
             }
             self.updateProgress(for: id)
-            let now = Date()
-            if self.lastProgressSave[id] == nil || now.timeIntervalSince(self.lastProgressSave[id]!) >= 5 {
-                self.lastProgressSave[id] = now
-                self.persistence.save(self.downloads)
+            if prevTotal == 0 && self.downloads[idx].totalSize > 0 {
+                let snapshot = self.downloads
+                DispatchQueue.global().async {
+                    DownloadPersistence.shared.save(snapshot)
+                }
             }
         }
 
