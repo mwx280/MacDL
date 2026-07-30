@@ -12,11 +12,11 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
     private var session: URLSession?
     private var task: URLSessionDownloadTask?
     private(set) var resumeData: Data?
-    private var startTime: Date?
     private var lastCheckBytes: Int64 = 0
     private var lastCheckTime: Date = .distantPast
     private var progressThrottleTime: Date = .distantPast
     private var speedSamples: [(Date, Int64)] = []
+    private var isSuspended = false
 
     var onProgress: ((Int64, Int64, Int64) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
@@ -30,7 +30,6 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
 
     func start() {
         session = makeSession()
-        startTime = Date()
         lastCheckTime = Date()
         lastCheckBytes = 0
         speedSamples = [(Date(), 0)]
@@ -39,13 +38,10 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
     }
 
     func resume(from data: Data?) {
-        totalBytesWritten = 0
-        downloadSpeed = 0
         session = makeSession()
-        startTime = Date()
         lastCheckTime = Date()
-        lastCheckBytes = 0
-        speedSamples = [(Date(), 0)]
+        lastCheckBytes = totalBytesWritten
+        speedSamples = [(Date(), totalBytesWritten)]
         if let data {
             task = session?.downloadTask(withResumeData: data)
         } else {
@@ -83,15 +79,19 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let fm = FileManager.default
         let destDir = destinationURL.deletingLastPathComponent().path
-        try? fm.createDirectory(atPath: destDir, withIntermediateDirectories: true)
-        try? fm.removeItem(at: destinationURL)
-        try? fm.moveItem(at: location, to: destinationURL)
+        do {
+            try fm.createDirectory(atPath: destDir, withIntermediateDirectories: true)
+            try fm.removeItem(at: destinationURL)
+            try fm.moveItem(at: location, to: destinationURL)
+        } catch {
+            onCompletion?(.failure(error))
+        }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error as NSError? {
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
-                if resumeData != nil { return }
+                return
             }
             onCompletion?(.failure(error))
         } else {
@@ -103,7 +103,9 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         self.totalBytesWritten = totalBytesWritten
-        self.totalBytesExpected = max(totalBytesExpectedToWrite, self.totalBytesExpected)
+        if totalBytesExpectedToWrite > 0 {
+            self.totalBytesExpected = max(totalBytesExpectedToWrite, self.totalBytesExpected)
+        }
 
         let now = Date()
 
@@ -118,12 +120,14 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         let elapsed = now.timeIntervalSince(lastCheckTime)
         if elapsed >= 0.5 {
             let instantSpeed = Int64(Double(totalBytesWritten - lastCheckBytes) / elapsed)
-            if speedLimit > 0, instantSpeed > speedLimit {
+            if speedLimit > 0, instantSpeed > speedLimit, !isSuspended {
                 let ratio = Double(instantSpeed) / Double(speedLimit)
                 let sleepTime = min(0.5 * (ratio - 1), 3.0)
+                isSuspended = true
                 self.task?.suspend()
-                DispatchQueue.global().asyncAfter(deadline: .now() + sleepTime) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + sleepTime) { [weak self] in
                     self?.task?.resume()
+                    self?.isSuspended = false
                 }
             }
             lastCheckBytes = totalBytesWritten
