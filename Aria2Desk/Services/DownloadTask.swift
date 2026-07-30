@@ -9,6 +9,7 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
     var totalBytesWritten: Int64 = 0
     var downloadSpeed: Int64 = 0
 
+    private var session: URLSession?
     private var task: URLSessionDownloadTask?
     private var resumeData: Data?
     private var startTime: Date?
@@ -27,24 +28,34 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         self.speedLimit = speedLimit
     }
 
-    func start(session: URLSession) {
+    func start() {
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 16
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 86400
+        session = URLSession(configuration: config, delegate: self, delegateQueue: .main)
         startTime = Date()
         lastCheckTime = Date()
         lastCheckBytes = 0
         speedSamples = [(Date(), 0)]
-        task = session.downloadTask(with: url)
+        task = session?.downloadTask(with: url)
         task?.resume()
     }
 
-    func resume(session: URLSession, with resumeData: Data?) {
+    func resume(with resumeData: Data?) {
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 16
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 86400
+        session = URLSession(configuration: config, delegate: self, delegateQueue: .main)
         startTime = Date()
         lastCheckTime = Date()
         lastCheckBytes = totalBytesWritten
         speedSamples = [(Date(), totalBytesWritten)]
         if let data = resumeData {
-            task = session.downloadTask(withResumeData: data)
+            task = session?.downloadTask(withResumeData: data)
         } else {
-            task = session.downloadTask(with: url)
+            task = session?.downloadTask(with: url)
         }
         task?.resume()
         self.resumeData = nil
@@ -55,17 +66,23 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
             guard let self else { return }
             self.resumeData = data
             self.onResumeData?(data)
+            self.session?.invalidateAndCancel()
+            self.session = nil
         }
     }
 
     func cancel() {
         task?.cancel()
+        session?.invalidateAndCancel()
+        session = nil
     }
 
     // MARK: - URLSessionDownloadDelegate
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let fm = FileManager.default
+        let destDir = destinationURL.deletingLastPathComponent().path
+        try? fm.createDirectory(atPath: destDir, withIntermediateDirectories: true)
         try? fm.removeItem(at: destinationURL)
         try? fm.moveItem(at: location, to: destinationURL)
     }
@@ -79,6 +96,8 @@ final class DownloadTask: NSObject, URLSessionDownloadDelegate {
         } else {
             onCompletion?(.success(()))
         }
+        self.session?.invalidateAndCancel()
+        self.session = nil
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
