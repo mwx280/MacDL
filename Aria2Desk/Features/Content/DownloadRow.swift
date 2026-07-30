@@ -14,18 +14,6 @@ struct DownloadRow: View {
     private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
     private let speedOptions = [0, 102400, 512000, 1_048_576, 2_097_152, 5_242_880, 10_485_760, 52_428_800, 104_857_600]
 
-    private var displaySize: Int64 {
-        download.displayedDownloadedSize ?? download.downloadedSize
-    }
-
-    private var displayProgress: Double {
-        download.totalSize > 0 ? min(Double(displaySize) / Double(download.totalSize), 1.0) : 0
-    }
-
-    private var displaySpeed: Int64 {
-        download.localDownloadSpeed ?? download.downloadSpeed
-    }
-
     var body: some View {
         HStack(spacing: 12) {
             fileIcon
@@ -36,20 +24,20 @@ struct DownloadRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                ProgressView(value: displayProgress)
+                ProgressView(value: download.progress)
                     .tint(progressTint)
 
                 HStack(spacing: 16) {
                     statusLabel
                     if download.status == .active || download.status == .waiting {
-                        Text(displayProgress, format: .percent.precision(.fractionLength(1)))
+                        Text(download.progress, format: .percent.precision(.fractionLength(1)))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(formatSpeed(displaySpeed))
+                        Text(formatSpeed(download.downloadSpeed))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    Text(formatSize(displaySize) + " / " + formatSize(download.totalSize))
+                    Text(formatSize(download.downloadedSize) + " / " + formatSize(download.totalSize))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -133,8 +121,8 @@ struct DownloadRow: View {
             Circle()
                 .fill(download.status.displayColor)
                 .frame(width: 6, height: 6)
-            if download.status == .active && displaySpeed > 0 {
-                Text(formatSpeed(displaySpeed))
+            if download.status == .active && download.downloadSpeed > 0 {
+                Text(formatSpeed(download.downloadSpeed))
                     .font(.caption)
                     .foregroundStyle(download.status.displayColor)
             } else if download.status == .error, let msg = download.errorMessage {

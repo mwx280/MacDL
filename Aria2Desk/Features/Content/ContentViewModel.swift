@@ -15,12 +15,8 @@ final class ContentViewModel {
     private var termObserver: NSObjectProtocol?
     private var speedObserver: NSObjectProtocol?
     private var progressMap: [UUID: Progress] = [:]
-    private var lastSyncTime: [UUID: Date] = [:]
-    private var lastSyncSize: [UUID: Int64] = [:]
-    private var inFlightSize: [UUID: Int64] = [:]
     private var globalSpeedGeneration: UInt64 = 0
     private var reconciledGeneration: [UUID: UInt64] = [:]
-    private var speedSamples: [UUID: [(Date, Int64)]] = [:]
 
     init() {
         downloads = persistence.load()
@@ -80,7 +76,7 @@ final class ContentViewModel {
                 if rpc.isConnected {
                     await self.syncFromRPC()
                 }
-                try? await Task.sleep(for: .seconds(0.5))
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
@@ -141,46 +137,12 @@ final class ContentViewModel {
     }
 
     private func applySmoothing(to download: inout Download, remote: Download) {
-        let now = Date()
-        let elapsed = lastSyncTime[download.id].map { now.timeIntervalSince($0) } ?? 0
-        let actualDelta = remote.downloadedSize - (lastSyncSize[download.id] ?? remote.downloadedSize)
-
-        if remote.status == .active {
-            var samples = speedSamples[download.id] ?? []
-            samples.append((now, remote.downloadedSize))
-            if samples.count > 6 { samples.removeFirst() }
-            speedSamples[download.id] = samples
-
-            if samples.count >= 2 {
-                let totalDelta = remote.downloadedSize - samples.first!.1
-                let totalElapsed = now.timeIntervalSince(samples.first!.0)
-                let speed = totalElapsed > 0 ? Int64(Double(totalDelta) / totalElapsed) : 0
-                download.localDownloadSpeed = max(0, speed)
-            } else {
-                download.localDownloadSpeed = remote.downloadSpeed
-            }
-        } else {
-            download.localDownloadSpeed = nil
-            download.displayedDownloadedSize = nil
-            speedSamples[download.id] = nil
-            inFlightSize[download.id] = nil
-        }
-
-        if remote.status == .active, remote.downloadSpeed > 0 {
-            var inFlight = (inFlightSize[download.id] ?? 0)
-                + Int64(Double(remote.downloadSpeed) * elapsed)
-                - max(actualDelta, 0)
-            inFlight = max(0, inFlight)
-            let displayed = remote.downloadedSize + inFlight
-            download.displayedDownloadedSize = remote.totalSize > 0
-                ? min(displayed, remote.totalSize) : displayed
-            inFlightSize[download.id] = inFlight
-        }
-
+        download.totalSize = remote.totalSize
+        download.downloadedSize = remote.downloadedSize
         download.downloadSpeed = remote.downloadSpeed
-
-        lastSyncTime[download.id] = now
-        lastSyncSize[download.id] = remote.downloadedSize
+        download.uploadSpeed = remote.uploadSpeed
+        download.status = remote.status
+        download.errorMessage = remote.errorMessage
     }
 
     private func syncFromRPC() async {
@@ -280,14 +242,6 @@ final class ContentViewModel {
                 }
                 merged.append(d)
             }
-        }
-
-        let mergedIDs = Set(merged.map(\.id))
-        for id in lastSyncTime.keys where !mergedIDs.contains(id) {
-            lastSyncTime.removeValue(forKey: id)
-            lastSyncSize.removeValue(forKey: id)
-            inFlightSize.removeValue(forKey: id)
-            speedSamples.removeValue(forKey: id)
         }
 
         downloads = merged
