@@ -24,6 +24,7 @@ final class ChunkManager {
     private var lastTokenTime: Date = Date()
 
     var onProgress: ((Int64, Int64, Int64) -> Void)?
+    var onChunksChanged: (([Chunk]) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
 
     init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
@@ -77,6 +78,7 @@ final class ChunkManager {
                 self.pendingIndices = Array(1..<built.count)
                 self.lastTokenTime = Date()
                 self.tokens = self.speedLimit > 0 ? 0 : Double(self.chunkSize) * Double(self.maxConcurrent)
+                self.onChunksChanged?(self.chunks)
                 self.dispatchNext()
             }
         }
@@ -100,18 +102,19 @@ final class ChunkManager {
                 self.activeTasks.removeValue(forKey: index)
                 switch result {
                 case .success:
-                    guard index < self.chunks.count else { return }
-                    self.chunks[index].status = .completed
-                    let c = self.chunks[index]
-                    let speed = weakTask?.speed ?? 0
-                    self.chunks[index].downloadedSize = c.size
-                    print("📊 [Chunk #\(index)] ✅ speed=\(formatSpeed(speed)) size=\(c.size)")
-                case .failure(let error):
-                    guard index < self.chunks.count else { return }
-                    self.chunks[index].status = .failed
-                    print("📊 [Chunk #\(index)] ❌ \(error.localizedDescription)")
+                guard index < self.chunks.count else { return }
+                self.chunks[index].status = .completed
+                let c = self.chunks[index]
+                let speed = weakTask?.speed ?? 0
+                self.chunks[index].downloadedSize = c.size
+                print("📊 [Chunk #\(index)] ✅ speed=\(formatSpeed(speed)) size=\(c.size)")
+            case .failure(let error):
+                guard index < self.chunks.count else { return }
+                self.chunks[index].status = .failed
+                print("📊 [Chunk #\(index)] ❌ \(error.localizedDescription)")
                 }
                 self.updateProgress()
+                self.onChunksChanged?(self.chunks)
                 self.checkDone()
                 self.dispatchNext()
             }
@@ -164,6 +167,8 @@ final class ChunkManager {
 
     // MARK: - Scheduling
 
+    private var pendingDispatch: DispatchWorkItem?
+
     private func dispatchNext() {
         let now = Date()
         if speedLimit > 0 {
@@ -180,10 +185,20 @@ final class ChunkManager {
         let activeCount = activeTasks.count
         let canStart = max(0, maxConcurrent - activeCount)
 
+        var waited = false
         if canStart > 0 && !pendingIndices.isEmpty {
             var started = 0
             while started < canStart && !pendingIndices.isEmpty {
                 if speedLimit > 0, tokens < Double(chunkSize) {
+                    if !waited && activeCount == 0 {
+                        let wait = Double(chunkSize) / Double(speedLimit)
+                        pendingDispatch?.cancel()
+                        let item = DispatchWorkItem { [weak self] in self?.dispatchNext() }
+                        pendingDispatch = item
+                        syncQueue.asyncAfter(deadline: .now() + wait, execute: item)
+                        waited = true
+                        print("📊 [ChunkManager] waiting tokens=\(Int(tokens)) will retry in \(String(format: "%.1f", wait))s")
+                    }
                     break
                 }
                 let idx = pendingIndices.removeFirst()
