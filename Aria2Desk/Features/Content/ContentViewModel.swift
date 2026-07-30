@@ -143,6 +143,8 @@ final class ContentViewModel {
             seenGIDs.insert(gid)
 
             if let existing = gidToDownload[gid] {
+                if pendingResolved.contains(existing.id) { continue }
+                pendingResolved.insert(existing.id)
                 var updated = existing
                 let prevStatus = existing.status
                 updated.totalSize = remote.totalSize
