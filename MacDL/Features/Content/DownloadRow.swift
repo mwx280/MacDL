@@ -458,6 +458,13 @@ struct DownloadRow: View {
                                 Text(formatRemainingTime(remaining))
                             }
                         }
+                    } else {
+                        HStack(spacing: 3) {
+                            Image(systemName: d.status.displayIcon)
+                                .font(.system(size: 9))
+                            Text(LanguageManager.shared.localized(d.status.labelKey))
+                        }
+                        .foregroundStyle(d.status.displayColor)
                     }
                     Spacer()
                     Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
