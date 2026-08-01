@@ -13,33 +13,52 @@ struct DownloadRow: View {
     var onCopyURL: ((UUID) -> Void)?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 10) {
             fileIcon
-                .frame(width: 32, height: 32)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(download.filename)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(download.filename)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    HStack(spacing: 8) {
+                        statusGroup
+                        if let canResume = download.supportsResume, download.status != .completed {
+                            resumeGroup(canResume)
+                        }
+                    }
+                }
 
                 ProgressView(value: download.progress)
-                    .tint(progressTint)
+                    .tint(download.status == .active ? .blue : .secondary)
 
-                HStack(spacing: 16) {
-                    statusLabel
-                    if download.status == .active || download.status == .waiting {
+                HStack(spacing: 8) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "gauge.with.dots.needle.50percent")
+                            .font(.system(size: 9))
                         Text(download.progress, format: .percent.precision(.fractionLength(1)))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(formatSpeed(download.downloadSpeed))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
+                    if download.status == .active || download.status == .waiting {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 9))
+                            Text(formatSpeed(download.downloadSpeed))
+                        }
+                        if let remaining = download.estimatedTimeRemaining {
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 9))
+                                Text(formatRemainingTime(remaining))
+                            }
+                        }
+                    }
+                    Spacer()
                     Text(formatSize(download.downloadedSize) + " / " + formatSize(download.totalSize))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    resumeBadge
                 }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)
@@ -93,63 +112,49 @@ struct DownloadRow: View {
     private var fileIcon: some View {
         ZStack(alignment: .bottomTrailing) {
             Image(systemName: download.fileTypeIcon)
-                .font(.title2)
+                .font(.title)
                 .foregroundStyle(download.fileTypeColor)
-            statusBadge
-        }
-    }
-
-    private var statusBadge: some View {
-        ZStack {
             Circle()
                 .fill(download.status.displayColor)
-                .frame(width: 14, height: 14)
-            Image(systemName: download.status.displayIcon)
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(.white)
+                .frame(width: 15, height: 15)
+                .overlay {
+                    Image(systemName: download.status.displayIcon)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .offset(x: 4, y: 4)
         }
-        .offset(x: 6, y: 6)
     }
 
     @ViewBuilder
-    private var statusLabel: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(download.status.displayColor)
-                .frame(width: 6, height: 6)
+    private var statusGroup: some View {
+        HStack(spacing: 3) {
+            Image(systemName: download.status.displayIcon)
+                .font(.caption2)
             if download.status == .error, let msg = download.errorMessage {
                 Text(msg)
-                    .font(.caption)
-                    .foregroundStyle(download.status.displayColor)
+                    .font(.caption2)
                     .lineLimit(1)
                     .truncationMode(.tail)
             } else {
-                LocalizedText(key: download.status.labelKey)
-                    .font(.caption)
-                    .foregroundStyle(download.status.displayColor)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var resumeBadge: some View {
-        if let canResume = download.supportsResume,
-           download.status == .active || download.status == .paused || download.status == .waiting {
-            HStack(spacing: 3) {
-                Image(systemName: "arrow.triangle.2.circlepath")
+                Text(LanguageManager.shared.localized(download.status.labelKey))
                     .font(.caption2)
-                Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
-                    .font(.caption)
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
-            .foregroundStyle(canResume ? .green : .red)
         }
+        .foregroundStyle(download.status.displayColor)
     }
 
-    private var progressTint: Color {
-        download.status == .active ? .blue : .secondary
+    private func resumeGroup(_ canResume: Bool) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.caption2)
+            Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
+                .font(.caption2)
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
+        .foregroundStyle(canResume ? .green : .red)
     }
 
     @ViewBuilder
@@ -192,291 +197,4 @@ struct DownloadRow: View {
             }
         }
     }
-}
-
-#Preview("下载任务") {
-    List {
-        DownloadRow(
-            download: Download(
-                filename: "ubuntu-24.04-desktop-amd64.iso",
-                url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
-                totalSize: 6_100_000_000,
-                downloadedSize: 2_800_000_000,
-                downloadSpeed: 12_582_912,
-                status: .active,
-                downloadLimit: nil,
-                maxConcurrentChunks: 8,
-                supportsResume: true
-            )
-        )
-    }
-    .listStyle(.inset)
-    .frame(width: 560, height: 80)
-    .environment(LanguageManager.shared)
-}
-
-#Preview("下载任务（含路径）") {
-    let d = Download(
-        filename: "ubuntu-24.04-desktop-amd64.iso",
-        url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
-        totalSize: 6_100_000_000,
-        downloadedSize: 2_800_000_000,
-        downloadSpeed: 12_582_912,
-        status: .active,
-        savePath: "/Users/xiaowu/Downloads",
-        maxConcurrentChunks: 8,
-        supportsResume: true
-    )
-    return VStack(spacing: 0) {
-        List {
-            DownloadRow(download: d)
-            HStack(spacing: 6) {
-                Image(systemName: "folder")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text((d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-        }
-        .listStyle(.inset)
-    }
-    .frame(width: 560, height: 120)
-    .environment(LanguageManager.shared)
-}
-
-#Preview("下载任务（重设计）") {
-    let d1 = Download(
-        filename: "ubuntu-24.04-desktop-amd64.iso",
-        url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
-        totalSize: 6_100_000_000,
-        downloadedSize: 2_800_000_000,
-        downloadSpeed: 12_582_912,
-        status: .active,
-        savePath: "/Users/xiaowu/Downloads",
-        maxConcurrentChunks: 8,
-        supportsResume: true
-    )
-    let d2 = Download(
-        filename: "legacy-app.bin",
-        url: "http://127.0.0.1:8000/noresume/legacy-app.bin",
-        totalSize: 268_435_456,
-        downloadedSize: 150_000_000,
-        downloadSpeed: 0,
-        status: .paused,
-        savePath: "/Users/xiaowu/Downloads",
-        maxConcurrentChunks: 1,
-        supportsResume: false
-    )
-
-    @ViewBuilder
-    func card(_ d: Download) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(systemName: d.fileTypeIcon)
-                    .font(.title)
-                    .foregroundStyle(d.fileTypeColor)
-                Circle()
-                    .fill(d.status.displayColor)
-                    .frame(width: 15, height: 15)
-                    .overlay {
-                        Image(systemName: d.status.displayIcon)
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                    .offset(x: 4, y: 4)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(d.filename)
-                        .font(.callout.weight(.medium))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    HStack(spacing: 6) {
-                        HStack(spacing: 3) {
-                            Circle()
-                                .fill(d.status.displayColor)
-                                .frame(width: 5, height: 5)
-                            Text(LanguageManager.shared.localized(d.status.labelKey))
-                                .font(.caption2)
-                        }
-                        .foregroundStyle(d.status.displayColor)
-                        if let canResume = d.supportsResume {
-                            Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
-                                .font(.caption2)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 0)
-                                .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
-                                .foregroundStyle(canResume ? .green : .red)
-                        }
-                    }
-                }
-
-                ProgressView(value: d.progress)
-                    .tint(d.status == .active ? .blue : .secondary)
-
-                HStack(spacing: 6) {
-                    Text(d.progress, format: .percent.precision(.fractionLength(1)))
-                    if d.status == .active || d.status == .waiting {
-                        Text(formatSpeed(d.downloadSpeed))
-                        if let remaining = d.estimatedTimeRemaining {
-                            HStack(spacing: 3) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 9))
-                                Text(formatRemainingTime(remaining))
-                            }
-                        }
-                    }
-                    Spacer()
-                    Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-                HStack(spacing: 3) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 9))
-                    Text((d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    return VStack(spacing: 8) {
-        card(d1)
-        card(d2)
-    }
-    .padding(10)
-    .frame(width: 560)
-    .environment(LanguageManager.shared)
-}
-
-#Preview("下载任务（v5）") {
-    let d1 = Download(
-        filename: "ubuntu-24.04-desktop-amd64.iso",
-        url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
-        totalSize: 6_100_000_000,
-        downloadedSize: 2_800_000_000,
-        downloadSpeed: 12_582_912,
-        status: .active,
-        savePath: "/Users/xiaowu/Downloads",
-        maxConcurrentChunks: 8,
-        supportsResume: true
-    )
-    let d2 = Download(
-        filename: "legacy-app.bin",
-        url: "http://127.0.0.1:8000/noresume/legacy-app.bin",
-        totalSize: 268_435_456,
-        downloadedSize: 150_000_000,
-        downloadSpeed: 0,
-        status: .paused,
-        savePath: "/Users/xiaowu/Downloads",
-        maxConcurrentChunks: 1,
-        supportsResume: false
-    )
-
-    @ViewBuilder
-    func card(_ d: Download) -> some View {
-        HStack(alignment: .center, spacing: 10) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(systemName: d.fileTypeIcon)
-                    .font(.title)
-                    .foregroundStyle(d.fileTypeColor)
-                Circle()
-                    .fill(d.status.displayColor)
-                    .frame(width: 15, height: 15)
-                    .overlay {
-                        Image(systemName: d.status.displayIcon)
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                    .offset(x: 4, y: 4)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(d.filename)
-                        .font(.callout.weight(.medium))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    HStack(spacing: 8) {
-                        HStack(spacing: 3) {
-                            Image(systemName: d.status.displayIcon)
-                                .font(.caption2)
-                            Text(LanguageManager.shared.localized(d.status.labelKey))
-                                .font(.caption2)
-                        }
-                        .foregroundStyle(d.status.displayColor)
-                        if let canResume = d.supportsResume {
-                            HStack(spacing: 3) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.caption2)
-                                Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
-                                    .font(.caption2)
-                            }
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
-                            .foregroundStyle(canResume ? .green : .red)
-                        }
-                    }
-                }
-
-                ProgressView(value: d.progress)
-                    .tint(d.status == .active ? .blue : .secondary)
-
-                HStack(spacing: 8) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "gauge.with.dots.needle.50percent")
-                            .font(.system(size: 9))
-                        Text(d.progress, format: .percent.precision(.fractionLength(1)))
-                    }
-                    if d.status == .active || d.status == .waiting {
-                        HStack(spacing: 3) {
-                            Image(systemName: "arrow.down")
-                                .font(.system(size: 9))
-                            Text(formatSpeed(d.downloadSpeed))
-                        }
-                        if let remaining = d.estimatedTimeRemaining {
-                            HStack(spacing: 3) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 9))
-                                Text(formatRemainingTime(remaining))
-                            }
-                        }
-                    }
-                    Spacer()
-                    Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    return VStack(spacing: 8) {
-        card(d1)
-        card(d2)
-    }
-    .padding(10)
-    .frame(width: 560)
-    .environment(LanguageManager.shared)
 }
