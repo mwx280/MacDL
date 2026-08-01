@@ -278,18 +278,17 @@ struct DownloadRow: View {
         HStack(alignment: .center, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
                 Image(systemName: d.fileTypeIcon)
-                    .font(.title2)
+                    .font(.title)
                     .foregroundStyle(d.fileTypeColor)
-                    .frame(width: 32, height: 32)
                 Circle()
                     .fill(d.status.displayColor)
-                    .frame(width: 14, height: 14)
+                    .frame(width: 15, height: 15)
                     .overlay {
                         Image(systemName: d.status.displayIcon)
                             .font(.system(size: 8, weight: .bold))
                             .foregroundStyle(.white)
                     }
-                    .offset(x: 6, y: 6)
+                    .offset(x: 4, y: 4)
             }
 
             VStack(alignment: .leading, spacing: 3) {
