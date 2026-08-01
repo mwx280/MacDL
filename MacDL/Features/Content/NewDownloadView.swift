@@ -60,7 +60,7 @@ struct NewDownloadView: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Browse...")
+                    .help(LanguageManager.shared.localized("Browse..."))
                 }
             }
 

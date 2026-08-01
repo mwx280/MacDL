@@ -8,7 +8,20 @@
 
     },
     "%lld Threads" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 线程"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Threads"
+          }
+        }
+      }
     },
     "█" : {
 
@@ -354,7 +367,20 @@
       }
     },
     "Browse..." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浏览..."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browse..."
+          }
+        }
+      }
     },
     "Cancel" : {
       "extractionState" : "manual",
@@ -1763,7 +1789,20 @@
       }
     },
     "Quit MacDL" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出 MacDL"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit MacDL"
+          }
+        }
+      }
     },
     "Rename failed" : {
       "extractionState" : "manual",

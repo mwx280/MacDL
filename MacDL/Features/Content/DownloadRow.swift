@@ -193,7 +193,7 @@ struct DownloadRow: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "square.grid.3x2")
-                Text("\(current) Threads")
+                Text(String(format: LanguageManager.shared.localized("%lld Threads"), current))
             }
         }
     }

@@ -41,30 +41,30 @@ struct ContentView: View {
                 } label: { }
                 .labelsHidden()
                 .frame(width: 60)
-                .help("Filter")
+                .help(LanguageManager.shared.localized("Filter"))
 
                 Spacer()
 
-                Button { newDownloadURLs = ""; showNewDownloadSheet = true } label: { Label("New Download", systemImage: "plus") }
-                    .help("New Download")
-                Button { model.pauseAll() } label: { Label("Pause", systemImage: "pause") }
+                Button { newDownloadURLs = ""; showNewDownloadSheet = true } label: { Label(LanguageManager.shared.localized("New Download"), systemImage: "plus") }
+                    .help(LanguageManager.shared.localized("New Download"))
+                Button { model.pauseAll() } label: { Label(LanguageManager.shared.localized("Pause"), systemImage: "pause") }
                     .disabled(!model.downloads.contains { model.selectedDownloads.contains($0.id) && $0.status == .active })
-                    .help("Pause")
-                Button { model.resumeAll() } label: { Label("Resume", systemImage: "play") }
+                    .help(LanguageManager.shared.localized("Pause"))
+                Button { model.resumeAll() } label: { Label(LanguageManager.shared.localized("Resume"), systemImage: "play") }
                     .disabled(!model.downloads.contains { model.selectedDownloads.contains($0.id) && ($0.status == .paused || $0.status == .waiting) })
-                    .help("Resume")
-                Button { model.confirmDelete() } label: { Label("Delete", systemImage: "trash") }
+                    .help(LanguageManager.shared.localized("Resume"))
+                Button { model.confirmDelete() } label: { Label(LanguageManager.shared.localized("Delete"), systemImage: "trash") }
                     .disabled(model.selectedDownloads.isEmpty)
-                    .help("Delete")
+                    .help(LanguageManager.shared.localized("Delete"))
 
                 Spacer()
 
-                Button { model.pauseAllDownloads() } label: { Label("Pause All", systemImage: "pause.rectangle") }
+                Button { model.pauseAllDownloads() } label: { Label(LanguageManager.shared.localized("Pause All"), systemImage: "pause.rectangle") }
                     .disabled(!model.downloads.contains { $0.status == .active })
-                    .help("Pause All")
-                Button { model.resumeAllDownloads() } label: { Label("Resume All", systemImage: "play.rectangle") }
+                    .help(LanguageManager.shared.localized("Pause All"))
+                Button { model.resumeAllDownloads() } label: { Label(LanguageManager.shared.localized("Resume All"), systemImage: "play.rectangle") }
                     .disabled(!model.downloads.contains { $0.status == .paused || $0.status == .waiting })
-                    .help("Resume All")
+                    .help(LanguageManager.shared.localized("Resume All"))
             }
         }
         .sheet(isPresented: $showNewDownloadSheet) {

@@ -16,7 +16,7 @@ struct MacDLApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button { MacDLApp.showAbout() } label: {
-                    Label("About MacDL", systemImage: "info.circle")
+                    Label(LanguageManager.shared.localized("About MacDL"), systemImage: "info.circle")
                 }
             }
             CommandGroup(replacing: .appTermination) {
@@ -25,7 +25,7 @@ struct MacDLApp: App {
                         NSApp.terminate(nil)
                     }
                 } label: {
-                    Text("Quit MacDL")
+                    Text(LanguageManager.shared.localized("Quit MacDL"))
                 }.keyboardShortcut("q")
             }
         }
