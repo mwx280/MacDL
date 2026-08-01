@@ -1,4 +1,5 @@
 import Foundation
+import MacDLCore
 
 enum FileTypeFilter: String, CaseIterable {
     case all

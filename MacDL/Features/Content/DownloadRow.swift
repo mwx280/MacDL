@@ -1,4 +1,5 @@
 import SwiftUI
+import MacDLCore
 
 struct DownloadRow: View {
     let download: Download

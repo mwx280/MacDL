@@ -2,30 +2,30 @@ import Foundation
 import os
 
 // Shared byte-level token bucket for smooth throttling across all chunks.
-final class TokenBucket {
+public final class TokenBucket {
     private let lock = NSLock()
     private var rate: Double
     private var tokens: Double = 0
     private var lastRefill = Date()
     private var stopped = false
 
-    init(rate: Double) {
+    public init(rate: Double) {
         self.rate = max(0, rate)
     }
 
-    func setRate(_ newRate: Double) {
+    public func setRate(_ newRate: Double) {
         lock.lock()
         rate = max(0, newRate)
         lock.unlock()
     }
 
-    func stop() {
+    public func stop() {
         lock.lock()
         stopped = true
         lock.unlock()
     }
 
-    func reset(rate newRate: Double) {
+    public func reset(rate newRate: Double) {
         lock.lock()
         stopped = false
         rate = max(0, newRate)
@@ -36,7 +36,7 @@ final class TokenBucket {
 
     /// Blocks until `amount` bytes can be consumed, or until `stop()` is called. Returns false when stopped.
     @discardableResult
-    func take(_ amount: Double) -> Bool {
+    public func take(_ amount: Double) -> Bool {
         while true {
             lock.lock()
             if stopped {
@@ -66,13 +66,13 @@ final class TokenBucket {
     }
 }
 
-final class ChunkManager {
-    let id: UUID
-    let url: URL
-    let destinationURL: URL
-    private(set) var chunkSize: Int64
-    private(set) var totalSize: Int64 = 0
-    private(set) var downloadSpeed: Int64 = 0
+public final class ChunkManager {
+    public let id: UUID
+    public let url: URL
+    public let destinationURL: URL
+    public private(set) var chunkSize: Int64
+    public private(set) var totalSize: Int64 = 0
+    public private(set) var downloadSpeed: Int64 = 0
 
     private var maxConcurrent: Int
     private var speedLimit: Int64 = 0
@@ -95,12 +95,12 @@ final class ChunkManager {
     private var lastLogBytes: Int64 = 0
     private var lastLogTime: Date = .distantPast
 
-    var onProgress: ((Int64, Int64, Int64) -> Void)?
-    var onChunksChanged: (([Chunk]) -> Void)?
-    var onCompletion: ((Result<Void, Error>) -> Void)?
-    var onResumeSupport: ((Bool) -> Void)?
+    public var onProgress: ((Int64, Int64, Int64) -> Void)?
+    public var onChunksChanged: (([Chunk]) -> Void)?
+    public var onCompletion: ((Result<Void, Error>) -> Void)?
+    public var onResumeSupport: ((Bool) -> Void)?
 
-    init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
+    public init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
         self.id = id
         self.url = url
         self.destinationURL = destinationURL
@@ -110,13 +110,13 @@ final class ChunkManager {
 
     // MARK: - Public control
 
-    func start() {
+    public func start() {
         os_log("[ChunkManager] start probe chunkSize=%lld maxConcurrent=%d", chunkSize, maxConcurrent)
         startLogTimer()
         syncQueue.async { self.startProbe() }
     }
 
-    func start(withChunks existing: [Chunk], totalSize: Int64) {
+    public func start(withChunks existing: [Chunk], totalSize: Int64) {
         os_log("[ChunkManager] resume chunks=%d pending=%d completed=%d total=%lld",
                existing.count,
                existing.filter { $0.status != .completed }.count,
@@ -244,7 +244,7 @@ final class ChunkManager {
         }
     }
 
-    func setSpeedLimit(_ limit: Int64) {
+    public func setSpeedLimit(_ limit: Int64) {
         os_log("[ChunkManager] speedLimit=%lld/s", limit)
         syncQueue.async {
             self.speedLimit = limit
@@ -252,13 +252,13 @@ final class ChunkManager {
         }
     }
 
-    func setMaxConcurrent(_ max: Int) {
+    public func setMaxConcurrent(_ max: Int) {
         maxConcurrent = max
         os_log("[ChunkManager] maxConcurrent=%d", max)
         syncQueue.async { self.dispatchNext() }
     }
 
-    func pause() {
+    public func pause() {
         os_log("[ChunkManager] pause")
         syncQueue.async { [weak self] in
             guard let self else { return }
@@ -272,7 +272,7 @@ final class ChunkManager {
         }
     }
 
-    func resume() {
+    public func resume() {
         os_log("[ChunkManager] resume")
         startLogTimer()
         syncQueue.async { [weak self] in
@@ -292,7 +292,7 @@ final class ChunkManager {
         }
     }
 
-    func cancel() {
+    public func cancel() {
         os_log("[ChunkManager] cancel")
         syncQueue.async { [weak self] in
             guard let self else { return }
@@ -307,7 +307,7 @@ final class ChunkManager {
         }
     }
 
-    var hasActiveTasks: Bool {
+    public var hasActiveTasks: Bool {
         syncQueue.sync { !activeTasks.isEmpty || singleStreamTask != nil }
     }
 
@@ -485,7 +485,7 @@ final class ChunkManager {
 
     // MARK: - Helpers
 
-    func buildChunks(totalSize: Int64, chunkSize: Int64) -> [Chunk] {
+    public func buildChunks(totalSize: Int64, chunkSize: Int64) -> [Chunk] {
         let cs = max(Int64(1), chunkSize)
         var result: [Chunk] = []
         var offset: Int64 = 0

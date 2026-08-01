@@ -1,4 +1,5 @@
 import SwiftUI
+import MacDLCore
 
 struct DownloadListView: View {
     let downloads: [Download]

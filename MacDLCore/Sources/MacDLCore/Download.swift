@@ -1,6 +1,6 @@
 import Foundation
 
-enum DownloadStatus: String, Codable {
+public enum DownloadStatus: String, Codable {
     case active
     case paused
     case waiting
@@ -9,35 +9,35 @@ enum DownloadStatus: String, Codable {
     case error
 }
 
-struct Download: Identifiable, Codable {
-    let id: UUID
-    var filename: String
-    let url: String
-    var totalSize: Int64
-    var downloadedSize: Int64
-    var downloadSpeed: Int64
-    var status: DownloadStatus
-    var addedAt: Date
-    var savePath: String?
-    var downloadLimit: Int?
-    var errorMessage: String?
-    var chunkSize: Int64 = 262144
-    var maxConcurrentChunks: Int = 1
-    var chunks: [Chunk] = []
-    var supportsResume: Bool?
-    var isPriorityDownload: Bool?
-    var pausedForPriority: Bool?
+public struct Download: Identifiable, Codable {
+    public let id: UUID
+    public var filename: String
+    public let url: String
+    public var totalSize: Int64
+    public var downloadedSize: Int64
+    public var downloadSpeed: Int64
+    public var status: DownloadStatus
+    public var addedAt: Date
+    public var savePath: String?
+    public var downloadLimit: Int?
+    public var errorMessage: String?
+    public var chunkSize: Int64 = 262144
+    public var maxConcurrentChunks: Int = 1
+    public var chunks: [Chunk] = []
+    public var supportsResume: Bool?
+    public var isPriorityDownload: Bool?
+    public var pausedForPriority: Bool?
 
-    var progress: Double {
+    public var progress: Double {
         totalSize > 0 ? min(Double(downloadedSize) / Double(totalSize), 1.0) : 0
     }
 
-    var estimatedTimeRemaining: TimeInterval? {
+    public var estimatedTimeRemaining: TimeInterval? {
         guard downloadSpeed > 0, totalSize > downloadedSize else { return nil }
         return TimeInterval(totalSize - downloadedSize) / TimeInterval(downloadSpeed)
     }
 
-    init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 1, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil) {
+    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 1, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil) {
         self.id = id
         self.filename = filename
         self.url = url
@@ -58,7 +58,7 @@ struct Download: Identifiable, Codable {
     }
 }
 
-extension Download {
+public extension Download {
     func buildChunks() -> [Chunk] {
         guard totalSize > 0 else { return [] }
         var result: [Chunk] = []

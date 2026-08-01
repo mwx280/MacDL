@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5866C309301E9D2E00F0FD4D /* MacDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = BB0000000000000000000001 /* MacDLCore */; };
+		5866C30A301E9D2E00F0FD4D /* MacDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = BB0000000000000000000002 /* MacDLCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		58D1C36C301A5754003A4EEB /* MacDL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacDL.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		"F261E0EC-4C28-45E0-889C-A5CC7D7596E8" /* MacDLTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacDLTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -29,6 +34,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5866C309301E9D2E00F0FD4D /* MacDLCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36,6 +42,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5866C30A301E9D2E00F0FD4D /* MacDLCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +86,7 @@
 			);
 			name = MacDLTests;
 			packageProductDependencies = (
+				BB0000000000000000000002 /* MacDLCore */,
 			);
 			productName = MacDLTests;
 			productReference = "F261E0EC-4C28-45E0-889C-A5CC7D7596E8" /* MacDLTests.xctest */;
@@ -101,6 +109,7 @@
 			);
 			name = MacDL;
 			packageProductDependencies = (
+				BB0000000000000000000001 /* MacDLCore */,
 			);
 			productName = MacDL;
 			productReference = 58D1C36C301A5754003A4EEB /* MacDL.app */;
@@ -134,6 +143,9 @@
 			);
 			mainGroup = 58D1C363301A5754003A4EEB;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA0000000000000000000001 /* XCLocalSwiftPackageReference "MacDLCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 58D1C36D301A5754003A4EEB /* Products */;
 			projectDirPath = "";
@@ -420,6 +432,26 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA0000000000000000000001 /* XCLocalSwiftPackageReference "MacDLCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MacDLCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BB0000000000000000000001 /* MacDLCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000001 /* XCLocalSwiftPackageReference "MacDLCore" */;
+			productName = MacDLCore;
+		};
+		BB0000000000000000000002 /* MacDLCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000001 /* XCLocalSwiftPackageReference "MacDLCore" */;
+			productName = MacDLCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 58D1C364301A5754003A4EEB /* Project object */;
 }

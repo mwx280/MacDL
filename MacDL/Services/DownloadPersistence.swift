@@ -1,4 +1,5 @@
 import Foundation
+import MacDLCore
 
 final class DownloadPersistence {
     static let shared: DownloadPersistence = {

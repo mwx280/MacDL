@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MacDLCore
 
 struct ContentView: View {
     @State private var model = ContentViewModel()

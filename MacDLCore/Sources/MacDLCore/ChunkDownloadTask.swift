@@ -1,7 +1,10 @@
 import Foundation
 import os
 
-final class ChunkDownloadTask: NSObject {
+public final class ChunkDownloadTask: NSObject {
+    public nonisolated(unsafe) static var maxConnectionsProvider: (() -> Int)?
+    public nonisolated(unsafe) static var sessionConfigurationOverride: URLSessionConfiguration?
+
     let chunkIndex: Int
     let url: URL
     let fileURL: URL
@@ -61,8 +64,8 @@ final class ChunkDownloadTask: NSObject {
             finish(with: .success(()))
             return
         }
-        let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = max(1, SettingsStore.shared.maxConnections)
+        let config = Self.sessionConfigurationOverride ?? URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = max(1, Self.maxConnectionsProvider?() ?? 8)
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 86400
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
@@ -134,7 +137,7 @@ final class ChunkDownloadTask: NSObject {
 }
 
 extension ChunkDownloadTask: URLSessionDataDelegate {
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         if let http = response as? HTTPURLResponse, http.statusCode == 416 {
             os_log("[Chunk #%d] 416 range not satisfiable, marking chunk failed", chunkIndex)
             completionHandler(.cancel)
@@ -160,7 +163,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         completionHandler(.allow)
     }
 
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard !isCancelled, !isPaused else { return }
         dataLock.lock()
         pendingData.append(data)
@@ -212,12 +215,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                 if bucket?.take(Double(c.count)) == false { return }
                 if isCancelled || isPaused || isCompleted { return }
                 guard let fh = fileHandle else { return }
-                do {
-                    try fh.write(c)
-                } catch {
-                    finish(with: .failure(error))
-                    return
-                }
+                fh.write(c)
                 bytesWritten += Int64(c.count)
                 let now = Date()
                 if speedCheckTime == .distantPast {
@@ -241,7 +239,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         }
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error as NSError? {
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
                 if isPaused {

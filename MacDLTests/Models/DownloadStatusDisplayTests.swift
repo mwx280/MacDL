@@ -1,4 +1,5 @@
 import Testing
+import MacDLCore
 @testable import MacDL
 
 @Suite struct DownloadStatusDisplayTests {

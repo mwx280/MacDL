@@ -1,4 +1,5 @@
 import SwiftUI
+import MacDLCore
 
 @main
 struct MacDLApp: App {
@@ -6,6 +7,7 @@ struct MacDLApp: App {
 
     init() {
         NSWindow.allowsAutomaticWindowTabbing = false
+        ChunkDownloadTask.maxConnectionsProvider = { SettingsStore.shared.maxConnections }
     }
 
     var body: some Scene {

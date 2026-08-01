@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import MacDLCore
 @testable import MacDL
 
 let testDownloads: [Download] = [

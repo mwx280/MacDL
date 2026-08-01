@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Observation
+import MacDLCore
 
 @Observable
 final class ContentViewModel {
@@ -184,6 +185,22 @@ final class ContentViewModel {
         persistence.save(downloads, caller: "periodicProgressSave")
     }
 
+    private func localizedMessage(for error: Error) -> String {
+        guard let dl = error as? DownloadError else { return error.localizedDescription }
+        switch dl {
+        case .cancelled:
+            return LanguageManager.shared.localized("Cancelled")
+        case .fileDeleted:
+            return LanguageManager.shared.localized("Download file has been deleted")
+        case .rangeNotSatisfiable:
+            return LanguageManager.shared.localized("Server does not support this download range")
+        case .fileChanged:
+            return LanguageManager.shared.localized("File changed on server, resume not possible")
+        case .network(let e):
+            return String(format: LanguageManager.shared.localized("Network error: %@"), e.localizedDescription)
+        }
+    }
+
     private func installCompletionHandler(for id: UUID) {
         engine.setCompletionHandler(for: id) { [weak self] result in
             DispatchQueue.main.async { [weak self] in
@@ -199,7 +216,7 @@ final class ContentViewModel {
                     NSWorkspace.shared.noteFileSystemChanged(dir)
                 case .failure(let error):
                     self.downloads[idx].status = .error
-                    self.downloads[idx].errorMessage = error.localizedDescription
+                    self.downloads[idx].errorMessage = self.localizedMessage(for: error)
                     self.unpublishProgress(for: id)
                 }
                 self.engineTrackedDownloads.remove(id)

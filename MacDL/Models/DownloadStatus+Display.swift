@@ -1,4 +1,5 @@
 import SwiftUI
+import MacDLCore
 
 extension DownloadStatus {
     var displayIcon: String {

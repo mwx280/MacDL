@@ -18,3 +18,7 @@ DerivedData/
 
 # Project docs (not source code)
 TODO.md
+
+# Swift Package Manager
+MacDLCore/.build/
+MacDLCore/.swiftpm/

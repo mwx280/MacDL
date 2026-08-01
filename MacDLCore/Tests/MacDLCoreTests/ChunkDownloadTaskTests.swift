@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import MacDL
+@testable import MacDLCore
 
 @Suite struct ChunkDownloadTaskTests {
     @Test func cancelSetsCancelledFlag() {
