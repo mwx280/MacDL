@@ -118,7 +118,8 @@ struct DownloadRow: View {
 
     @ViewBuilder
     private var resumeBadge: some View {
-        if let canResume = download.supportsResume {
+        if let canResume = download.supportsResume,
+           download.status == .active || download.status == .paused || download.status == .waiting {
             HStack(spacing: 3) {
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.caption2)

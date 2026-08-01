@@ -79,6 +79,7 @@ final class ChunkManager {
     private var pendingIndices: [Int] = []
     private var retryCounts: [Int: Int] = [:]
     private var lastError: Error?
+    private var serverSupportsResume: Bool?
 
     private let maxRetries = 3
     private let bucket = TokenBucket(rate: 0)
@@ -91,6 +92,7 @@ final class ChunkManager {
     var onProgress: ((Int64, Int64, Int64) -> Void)?
     var onChunksChanged: (([Chunk]) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
+    var onResumeSupport: ((Bool) -> Void)?
 
     init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
         self.id = id
@@ -159,6 +161,14 @@ final class ChunkManager {
                 guard index < self.chunks.count else { return }
                 self.chunks[index].downloadedSize = bytes
                 self.updateProgress()
+            }
+        }
+        task.onSupportsResume = { [weak self] value in
+            guard let self else { return }
+            self.syncQueue.async {
+                guard self.serverSupportsResume == nil else { return }
+                self.serverSupportsResume = value
+                self.onResumeSupport?(value)
             }
         }
         task.onCompletion = { [weak self] result in

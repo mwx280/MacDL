@@ -17,4 +17,19 @@ import Foundation
         let d = Download(id: UUID(), filename: "t.bin", url: "https://e.com/t.bin", totalSize: 0, downloadedSize: 0, downloadSpeed: 0, status: .active, addedAt: Date())
         #expect(d.progress == 0)
     }
+
+    @Test func decodesWithoutSupportsResume() throws {
+        let json = """
+        {"id": "\(UUID().uuidString)", "filename": "a.bin", "url": "https://e.com/a.bin", "totalSize": 10, "downloadedSize": 0, "downloadSpeed": 0, "status": "active", "addedAt": 0, "chunkSize": 262144, "maxConcurrentChunks": 1, "chunks": []}
+        """
+        let d = try JSONDecoder().decode(Download.self, from: Data(json.utf8))
+        #expect(d.supportsResume == nil)
+    }
+
+    @Test func codableRoundTripsSupportsResume() throws {
+        let d = Download(filename: "a.bin", url: "https://e.com/a.bin", supportsResume: false)
+        let data = try JSONEncoder().encode(d)
+        let decoded = try JSONDecoder().decode(Download.self, from: data)
+        #expect(decoded.supportsResume == false)
+    }
 }

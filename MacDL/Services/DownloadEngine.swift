@@ -69,4 +69,8 @@ final class DownloadEngine {
     func setChunksChangeHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void) {
         syncQueue.sync { managers[id]?.onChunksChanged = handler }
     }
+
+    func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
+        syncQueue.sync { managers[id]?.onResumeSupport = handler }
+    }
 }

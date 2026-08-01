@@ -25,6 +25,7 @@ final class ChunkDownloadTask: NSObject {
 
     var onProgress: ((Int64) -> Void)?
     var onTotalSizeKnown: ((Int64) -> Void)?
+    var onSupportsResume: ((Bool) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
 
     init(chunkIndex: Int, url: URL, fileURL: URL, startOffset: Int64, endOffset: Int64) {
@@ -124,6 +125,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
             return
         }
         if let http = response as? HTTPURLResponse {
+            onSupportsResume?(http.statusCode == 206)
             if http.statusCode == 206 {
                 if let range = http.allHeaderFields["Content-Range"] as? String,
                    let slash = range.lastIndex(of: "/") {

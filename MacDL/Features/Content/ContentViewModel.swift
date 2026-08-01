@@ -202,6 +202,18 @@ final class ContentViewModel {
         }
     }
 
+    private func installResumeSupportHandler(for id: UUID) {
+        engine.setResumeSupportHandler(for: id) { [weak self] supports in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                if self.downloads[idx].supportsResume != supports {
+                    self.downloads[idx].supportsResume = supports
+                    self.persistence.save(self.downloads)
+                }
+            }
+        }
+    }
+
     private func setupEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
         let idx = downloads.firstIndex(where: { $0.id == id })
         let limit = dlLimit > 0 ? dlLimit : (idx.map { downloads[$0].downloadLimit ?? 0 } ?? 0)
@@ -230,6 +242,7 @@ final class ContentViewModel {
             }
         }
 
+        installResumeSupportHandler(for: id)
         installCompletionHandler(for: id)
     }
 
@@ -367,6 +380,7 @@ final class ContentViewModel {
             }
         }
 
+        installResumeSupportHandler(for: id)
         installCompletionHandler(for: id)
     }
 
