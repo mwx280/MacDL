@@ -277,7 +277,7 @@ final class ContentViewModel {
             status: .active,
             savePath: savePath,
             downloadLimit: dlLimit > 0 ? dlLimit : nil,
-            maxConcurrentChunks: SettingsStore.shared.maxConcurrentChunks
+            maxConcurrentChunks: SettingsStore.shared.maxConnections
         )
         downloads.append(d)
         persistence.save(downloads)

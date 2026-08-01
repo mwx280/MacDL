@@ -6,7 +6,10 @@ import Foundation
     let store = SettingsStore.shared
 
     @Test func defaultMaxConnections() {
-        #expect(store.maxConnections == 16)
+        let original = store.maxConnections
+        store.maxConnections = 0
+        #expect(store.maxConnections == 8)
+        store.maxConnections = original
     }
 
     @Test func defaultMaxConcurrentDownloads() {
@@ -15,8 +18,8 @@ import Foundation
 
     @Test func writeThenReadMaxConnections() {
         let original = store.maxConnections
-        store.maxConnections = 32
-        #expect(store.maxConnections == 32)
+        store.maxConnections = 4
+        #expect(store.maxConnections == 4)
         store.maxConnections = original
     }
 

@@ -59,7 +59,7 @@ private struct DownloadPane: View {
     @State private var downloadPath: String
     @State private var maxDownloadSpeed: Int
 
-    private let connectionOptions = [1, 2, 4, 8, 16, 32, 64]
+    private let connectionOptions = [1, 2, 4, 8]
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
 
     init() {
