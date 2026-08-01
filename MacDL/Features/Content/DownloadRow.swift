@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DownloadRow: View {
     let download: Download
+    var isMultiSelection: Bool = false
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
@@ -59,17 +60,19 @@ struct DownloadRow: View {
                 }
             }
             Divider()
-            speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
-            if download.supportsResume == false {
-                Label {
-                    Text(LanguageManager.shared.localized("Single connection · server does not support resume"))
-                } icon: {
-                    Image(systemName: "info.circle")
+            if !isMultiSelection {
+                speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
+                if download.supportsResume == false {
+                    Label {
+                        Text(LanguageManager.shared.localized("Single connection · server does not support resume"))
+                    } icon: {
+                        Image(systemName: "info.circle")
+                    }
+                    .foregroundStyle(.secondary)
+                    .disabled(true)
+                } else {
+                    chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
                 }
-                .foregroundStyle(.secondary)
-                .disabled(true)
-            } else {
-                chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
             }
             Divider()
             Button(action: { onCopyURL?(download.id) }) {

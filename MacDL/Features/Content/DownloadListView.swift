@@ -15,6 +15,7 @@ struct DownloadListView: View {
     var body: some View {
         List(downloads, selection: $selection) { download in
             DownloadRow(download: download,
+                isMultiSelection: selection.count > 1,
                 onPause: onPause, onResume: onResume, onRetry: onRetry,
                 onDelete: onDelete,
                 onSetDownloadLimit: onSetDownloadLimit,
