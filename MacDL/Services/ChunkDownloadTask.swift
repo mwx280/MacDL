@@ -16,11 +16,12 @@ final class ChunkDownloadTask: NSObject {
     private(set) var bytesWritten: Int64 = 0
     private(set) var speed: Int64 = 0
     private(set) var isPaused = false
+    private(set) var isCancelled = false
     private(set) var isCompleted = false
     private var speedCheckTime: Date = .distantPast
     private var speedCheckBytes: Int64 = 0
 
-    weak var bucket: TokenBucket?
+    var bucket: TokenBucket?
 
     var onProgress: ((Int64) -> Void)?
     var onTotalSizeKnown: ((Int64) -> Void)?
@@ -55,6 +56,19 @@ final class ChunkDownloadTask: NSObject {
             req.setValue("bytes=\(startOffset)-\(to)", forHTTPHeaderField: "Range")
         }
         os_log("[Chunk #%d] start range=%lld-%lld resumeFrom=%lld", chunkIndex, from, to, resumeFrom)
+
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            FileManager.default.createFile(atPath: fileURL.path, contents: nil)
+        }
+        guard let fh = FileHandle(forWritingAtPath: fileURL.path) else {
+            session?.invalidateAndCancel()
+            session = nil
+            finish(with: .failure(DownloadError.fileDeleted))
+            return
+        }
+        fileHandle = fh
+        try? fh.seek(toOffset: UInt64(startOffset + resumeFrom))
+
         dataTask = session?.dataTask(with: req)
         dataTask?.resume()
     }
@@ -67,6 +81,7 @@ final class ChunkDownloadTask: NSObject {
     }
 
     func cancel() {
+        isCancelled = true
         bucket?.stop()
         dataTask?.cancel()
         cleanup()
@@ -127,18 +142,8 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard !isCancelled else { return }
         guard bucket?.take(Double(data.count)) != false else { return }
-        if fileHandle == nil {
-            if !FileManager.default.fileExists(atPath: fileURL.path) {
-                FileManager.default.createFile(atPath: fileURL.path, contents: nil)
-            }
-            guard let fh = FileHandle(forWritingAtPath: fileURL.path) else {
-                finish(with: .failure(DownloadError.fileDeleted))
-                return
-            }
-            fileHandle = fh
-            try? fh.seek(toOffset: UInt64(startOffset + bytesWritten))
-        }
         fileHandle?.write(data)
         bytesWritten += Int64(data.count)
         if speedCheckTime == .distantPast {
