@@ -37,4 +37,13 @@ import Foundation
         store.maxDownloadSpeed = original
     }
 
+    @Test func launchAtLoginPersists() {
+        let original = store.launchAtLogin
+        store.launchAtLogin = true
+        #expect(store.launchAtLogin == true)
+        store.launchAtLogin = false
+        #expect(store.launchAtLogin == false)
+        store.launchAtLogin = original
+    }
+
 }

@@ -41,4 +41,9 @@ final class SettingsStore {
         get { defaults.integer(forKey: "maxDownloadSpeed") }
         set { defaults.set(newValue, forKey: "maxDownloadSpeed") }
     }
+
+    var launchAtLogin: Bool {
+        get { defaults.bool(forKey: "launchAtLogin") }
+        set { defaults.set(newValue, forKey: "launchAtLogin") }
+    }
 }

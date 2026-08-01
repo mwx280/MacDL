@@ -21,6 +21,8 @@ struct SettingsView: View {
 private struct GeneralPane: View {
     @Environment(LanguageManager.self) var lang
     @AppStorage("appearance") private var appearance: Appearance = .system
+    @State private var launchAtLogin = LaunchAtLoginService.isEnabled
+    @State private var launchAtLoginFailed = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -47,6 +49,29 @@ private struct GeneralPane: View {
                     .labelsHidden()
                     .frame(width: 140)
                 }
+
+                divider
+
+                prefRow("power", "Launch at Login") {
+                    Toggle("", isOn: Binding(
+                        get: { launchAtLogin },
+                        set: { newValue in
+                            do {
+                                try LaunchAtLoginService.setEnabled(newValue)
+                                launchAtLogin = newValue
+                            } catch {
+                                launchAtLoginFailed = true
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                }
+            }
+            .alert("Launch at Login", isPresented: $launchAtLoginFailed) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                LocalizedText(key: "Launch at Login requires the app to run from the Applications folder.")
             }
         }
         .padding(20)
