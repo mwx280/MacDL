@@ -16,6 +16,9 @@ final class ContentViewModel {
     private let persistence: DownloadPersistence
     private let settings: SettingsStore
     private let progress: ProgressPublisher
+    private let notifier: DownloadNotifier
+    private var startedNotified: Set<UUID> = []
+    private static var authorizationRequested = false
     private var termObserver: NSObjectProtocol?
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
@@ -27,12 +30,14 @@ final class ContentViewModel {
     init(
         engine: DownloadEngineProtocol = DownloadEngine.shared,
         persistence: DownloadPersistence = .shared,
-        settings: SettingsStore = .shared
+        settings: SettingsStore = .shared,
+        notifier: DownloadNotifier = .shared
     ) {
         self.engine = engine
         self.persistence = persistence
         self.settings = settings
         self.progress = ProgressPublisher()
+        self.notifier = notifier
         Self.current = self
         self.progress.setCancelHandler { [weak self] id in self?.cancelProgressDownload(id) }
         downloads = persistence.load()
@@ -192,10 +197,12 @@ final class ContentViewModel {
                     try? FileManager.default.moveItem(at: staging, to: final)
                     let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
                     NSWorkspace.shared.noteFileSystemChanged(dir)
+                    self.notifier.notifyCompleted(self.downloads[idx])
                 case .failure(let error):
                     self.downloads[idx].status = .error
                     self.downloads[idx].errorMessage = self.localizedMessage(for: error)
                     self.progress.unpublish(for: id)
+                    self.notifier.notifyFailed(self.downloads[idx])
                 }
                 self.engineTrackedDownloads.remove(id)
                 self.engine.cleanup(id: id)
@@ -235,6 +242,9 @@ final class ContentViewModel {
                 persistence.save(downloads)
             }
             return
+        }
+        if startedNotified.insert(id).inserted {
+            notifier.notifyStarted(src)
         }
         let dest = stagingURL(for: src)
 
@@ -298,6 +308,14 @@ final class ContentViewModel {
                 alert.addButton(withTitle: LanguageManager.shared.localized("Retry"))
                 alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
                 if alert.runModal() != .alertFirstButtonReturn { return }
+            }
+        }
+
+        if !Self.authorizationRequested {
+            Self.authorizationRequested = true
+            // Don't prompt during test runs.
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                notifier.requestAuthorization()
             }
         }
 
@@ -387,6 +405,10 @@ final class ContentViewModel {
 
         downloads[idx].status = .active
         persistence.save(downloads)
+
+        if startedNotified.insert(id).inserted {
+            notifier.notifyStarted(downloads[idx])
+        }
 
         if engine.resume(id: id) { return }
 

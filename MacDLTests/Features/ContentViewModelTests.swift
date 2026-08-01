@@ -10,7 +10,7 @@ let testDownloads: [Download] = [
     Download(filename: "error.log", url: "https://example.com/error.log", totalSize: 100, downloadedSize: 50, downloadSpeed: 0, status: .error),
 ]
 
-@Suite struct ContentViewModelTests {
+@Suite(.serialized) struct ContentViewModelTests {
     @Test func filteredDownloadsAll() {
         let vm = ContentViewModel()
         vm.downloads = testDownloads

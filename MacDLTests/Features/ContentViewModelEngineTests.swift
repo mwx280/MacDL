@@ -1,10 +1,11 @@
 import Testing
 import Foundation
+import UserNotifications
 import MacDLCore
 @testable import MacDL
 
 // Inject FakeEngine to verify ContentViewModel's action logic against the engine, no real network needed.
-@Suite struct ContentViewModelEngineTests {
+@Suite(.serialized) struct ContentViewModelEngineTests {
     private func makePersistence() -> DownloadPersistence {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("vm-tests-\(UUID().uuidString)", isDirectory: true)
@@ -152,5 +153,52 @@ import MacDLCore
         vm.setMaxChunks(id: d.id, count: 4)
         #expect(engine.maxConcurrents[d.id] == 4)
         #expect(vm.downloads.first { $0.id == d.id }?.maxConcurrentChunks == 4)
+    }
+
+    @Test func resumeSendsStartedNotification() {
+        let engine = FakeEngine()
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
+        let d = Download(filename: "notif.bin", url: "https://example.com/notif.bin", status: .paused)
+        vm.downloads = [d]
+        vm.resumeDownload(id: d.id)
+        #expect(requests.count == 1)
+        #expect(requests[0].identifier == d.id.uuidString)
+        #expect(requests[0].content.body == "notif.bin")
+    }
+
+    @Test func completionSendsCompletedNotification() {
+        let engine = FakeEngine()
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
+        let d = Download(filename: "done.bin", url: "https://example.com/done.bin", status: .paused)
+        vm.downloads = [d]
+        vm.resumeDownload(id: d.id)
+        engine.fireCompletion(id: d.id, result: .success(()))
+        drainMain()
+        #expect(requests.contains { $0.identifier == d.id.uuidString && $0.content.body == AppConfig.defaultDownloadDir + "/done.bin" })
+    }
+
+    @Test func failureSendsFailedNotification() {
+        let engine = FakeEngine()
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
+        let d = Download(filename: "fail.bin", url: "https://example.com/fail.bin", status: .paused)
+        vm.downloads = [d]
+        vm.resumeDownload(id: d.id)
+        engine.fireCompletion(id: d.id, result: .failure(DownloadError.network(URLError(.notConnectedToInternet))))
+        drainMain()
+        #expect(requests.contains { $0.identifier == d.id.uuidString && $0.content.body.hasPrefix("fail.bin — ") })
+    }
+
+    private func drainMain() {
+        // Let the queued main-async completion handler run before asserting.
+        DispatchQueue.main.sync { }
     }
 }

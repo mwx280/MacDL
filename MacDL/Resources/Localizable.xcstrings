@@ -1512,6 +1512,40 @@
         }
       }
     },
+    "Launch at Login" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch at Login"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开机自启动"
+          }
+        }
+      }
+    },
+    "Launch at Login requires the app to run from the Applications folder." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch at Login requires the app to run from the Applications folder."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开机自启动需要把 App 放在「应用程序」文件夹中。"
+          }
+        }
+      }
+    },
     "Light" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1653,6 +1687,9 @@
           }
         }
       }
+    },
+    "OK" : {
+
     },
     "One URL per line, multiple URLs supported" : {
       "extractionState" : "manual",
@@ -2609,36 +2646,36 @@
         }
       }
     },
-    "Launch at Login" : {
+    "Download Started" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开机自启动"
+            "value" : "开始下载"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Launch at Login"
+            "value" : "Download Started"
           }
         }
       }
     },
-    "Launch at Login requires the app to run from the Applications folder." : {
+    "Download Completed" : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开机自启动需要把 App 放在「应用程序」文件夹中。"
+            "value" : "下载完成"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Launch at Login requires the app to run from the Applications folder."
+            "value" : "Download Completed"
           }
         }
       }
