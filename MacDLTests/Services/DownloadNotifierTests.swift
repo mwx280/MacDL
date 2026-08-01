@@ -48,12 +48,26 @@ import MacDLCore
         #expect(requests[0].content.sound != nil)
     }
 
-    @Test func notAuthorizedSkips() {
+    @Test func notAuthorizedQueuesInsteadOfPosting() {
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
         notifier.authorized = false
         let d = Download(filename: "a.bin", url: "https://e.com/a.bin")
         notifier.notifyStarted(d)
         #expect(requests.isEmpty)
+    }
+
+    @Test func pendingFlushedWhenAuthorized() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = false
+        let d = Download(filename: "a.bin", url: "https://e.com/a.bin")
+        notifier.notifyStarted(d)
+        #expect(requests.isEmpty)
+        notifier.authorized = true
+        notifier.flushPending()
+        #expect(requests.count == 1)
+        #expect(requests[0].identifier == d.id.uuidString)
+        #expect(requests[0].content.body == "a.bin")
     }
 }

@@ -18,7 +18,6 @@ final class ContentViewModel {
     private let progress: ProgressPublisher
     private let notifier: DownloadNotifier
     private var startedNotified: Set<UUID> = []
-    private static var authorizationRequested = false
     private var termObserver: NSObjectProtocol?
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
@@ -308,14 +307,6 @@ final class ContentViewModel {
                 alert.addButton(withTitle: LanguageManager.shared.localized("Retry"))
                 alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
                 if alert.runModal() != .alertFirstButtonReturn { return }
-            }
-        }
-
-        if !Self.authorizationRequested {
-            Self.authorizationRequested = true
-            // Don't prompt during test runs.
-            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-                notifier.requestAuthorization()
             }
         }
 

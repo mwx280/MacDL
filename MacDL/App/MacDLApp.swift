@@ -8,6 +8,11 @@ struct MacDLApp: App {
     init() {
         NSWindow.allowsAutomaticWindowTabbing = false
         ChunkDownloadTask.maxConnectionsProvider = { SettingsStore.shared.maxConnections }
+        // Ask up front so the first download's "started" banner isn't dropped
+        // while the permission prompt is still pending. No-op if already decided.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            DownloadNotifier.shared.requestAuthorization()
+        }
     }
 
     var body: some Scene {

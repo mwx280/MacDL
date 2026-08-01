@@ -9,13 +9,16 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     var authorized = false
     var post: (UNNotificationRequest) -> Void
+    private var pending: [UNNotificationRequest] = []
 
     override private init() {
         post = { UNUserNotificationCenter.current().add($0) }
         super.init()
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
-            self?.authorized = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+            DispatchQueue.main.async {
+                self?.authorized = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+            }
         }
     }
 
@@ -26,7 +29,11 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func requestAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
-            self?.authorized = granted
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.authorized = granted
+                if granted { self.flushPending() }
+            }
         }
     }
 
@@ -54,12 +61,24 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func send(title: String, body: String, id: UUID, sound: Bool) {
-        guard authorized else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         if sound { content.sound = .default }
-        post(UNNotificationRequest(identifier: id.uuidString, content: content, trigger: nil))
+        let request = UNNotificationRequest(identifier: id.uuidString, content: content, trigger: nil)
+        // If the permission prompt is still pending, hold the banner and deliver
+        // it once the user grants access (otherwise the first download's
+        // "started" notification would be silently dropped).
+        guard authorized else {
+            pending.append(request)
+            return
+        }
+        post(request)
+    }
+
+    func flushPending() {
+        for request in pending { post(request) }
+        pending.removeAll()
     }
 
     // Show the banner even while the app (or its menu bar UI) is frontmost.
