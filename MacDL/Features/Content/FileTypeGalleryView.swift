@@ -10,7 +10,7 @@ struct FileTypeGalleryView: View {
         "gguf", "bin", "pt", "safetensors", "onnx", "tflite", "ckpt",
         "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "rtf", "epub", "mobi", "pages", "numbers", "keynote",
         "txt", "md", "json", "xml", "yaml", "yml", "csv",
-        "swift", "py", "js", "ts", "rs", "go", "c", "cpp", "h", "java", "rb", "php", "html", "css", "sql",
+        "swift", "py", "js", "jsx", "ts", "tsx", "rs", "go", "c", "cpp", "h", "java", "rb", "php", "html", "css", "sql",
         "sh", "bat", "cmd", "bash", "zsh",
         "jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff", "tif", "ico", "psd",
         "mp3", "flac", "wav", "aac", "m4a", "ogg", "opus", "wma",
