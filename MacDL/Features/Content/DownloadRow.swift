@@ -250,7 +250,7 @@ struct DownloadRow: View {
 }
 
 #Preview("下载任务（重设计）") {
-    let d = Download(
+    let d1 = Download(
         filename: "ubuntu-24.04-desktop-amd64.iso",
         url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
         totalSize: 6_100_000_000,
@@ -261,8 +261,20 @@ struct DownloadRow: View {
         maxConcurrentChunks: 8,
         supportsResume: true
     )
-    let path = (d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename
-    return VStack(spacing: 0) {
+    let d2 = Download(
+        filename: "legacy-app.bin",
+        url: "http://127.0.0.1:8000/noresume/legacy-app.bin",
+        totalSize: 268_435_456,
+        downloadedSize: 150_000_000,
+        downloadSpeed: 0,
+        status: .paused,
+        savePath: "/Users/xiaowu/Downloads",
+        maxConcurrentChunks: 1,
+        supportsResume: false
+    )
+
+    @ViewBuilder
+    func card(_ d: Download) -> some View {
         HStack(alignment: .center, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
                 Image(systemName: d.fileTypeIcon)
@@ -308,11 +320,13 @@ struct DownloadRow: View {
                 }
 
                 ProgressView(value: d.progress)
-                    .tint(.blue)
+                    .tint(d.status == .active ? .blue : .secondary)
 
                 HStack(spacing: 6) {
-                    Text(d.progress, format: .percent.precision(.fractionLength(1)))
-                    Text(formatSpeed(d.downloadSpeed))
+                    if d.status == .active || d.status == .waiting {
+                        Text(d.progress, format: .percent.precision(.fractionLength(1)))
+                        Text(formatSpeed(d.downloadSpeed))
+                    }
                     Spacer()
                     Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
                 }
@@ -322,7 +336,7 @@ struct DownloadRow: View {
                 HStack(spacing: 3) {
                     Image(systemName: "folder")
                         .font(.system(size: 9))
-                    Text(path)
+                    Text((d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -332,9 +346,14 @@ struct DownloadRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        Spacer()
+        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
-    .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
-    .frame(width: 560, height: 104)
+
+    return VStack(spacing: 8) {
+        card(d1)
+        card(d2)
+    }
+    .padding(10)
+    .frame(width: 560)
     .environment(LanguageManager.shared)
 }
