@@ -262,6 +262,12 @@ final class ChunkManager {
             if self.singleStreamMode {
                 self.enterSingleStream()
             } else {
+                // pause() clears activeTasks, orphaning in-flight (.downloading) chunks;
+                // reset them to pending and rebuild the schedule so resume can't hang
+                for i in self.chunks.indices where self.chunks[i].status == .downloading {
+                    self.chunks[i].status = .pending
+                }
+                self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
                 self.dispatchNext()
             }
         }
