@@ -109,10 +109,10 @@ struct DownloadRow: View {
                 }
             }
             Divider()
-            Button(action: { onCopyURL?(download.id) }) {
-                Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")
-            }
             if !isMultiSelection {
+                Button(action: { onCopyURL?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")
+                }
                 Button(action: { onShowInFinder?(download.id) }) {
                     Label(LanguageManager.shared.localized("Show in Finder"), systemImage: "folder")
                 }
