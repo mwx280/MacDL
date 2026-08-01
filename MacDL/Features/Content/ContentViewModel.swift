@@ -233,7 +233,7 @@ final class ContentViewModel {
         installCompletionHandler(for: id)
     }
 
-    func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0) {
+    func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0, connections: Int? = nil) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let dir = savePath ?? AppConfig.defaultDownloadDir
 
@@ -277,7 +277,7 @@ final class ContentViewModel {
             status: .active,
             savePath: savePath,
             downloadLimit: dlLimit > 0 ? dlLimit : nil,
-            maxConcurrentChunks: SettingsStore.shared.maxConnections
+            maxConcurrentChunks: connections ?? SettingsStore.shared.maxConnections
         )
         downloads.append(d)
         persistence.save(downloads)

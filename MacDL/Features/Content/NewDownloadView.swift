@@ -3,17 +3,19 @@ import AppKit
 
 struct NewDownloadView: View {
     @Binding var text: String
-    let onDownload: (String, String, Int) -> Void
+    let onDownload: (String, String, Int, Int) -> Void
     @State private var downloadPath: String
     @State private var downloadLimit: Int
+    @State private var downloadConnections: Int
     @State private var refresh = UUID()
     @Environment(\.dismiss) var dismiss
 
-    init(text: Binding<String>, onDownload: @escaping (String, String, Int) -> Void) {
+    init(text: Binding<String>, onDownload: @escaping (String, String, Int, Int) -> Void) {
         _text = text
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
         _downloadLimit = State(initialValue: SettingsStore.shared.maxDownloadSpeed)
+        _downloadConnections = State(initialValue: SettingsStore.shared.maxConnections)
     }
 
     var body: some View {
@@ -72,13 +74,24 @@ struct NewDownloadView: View {
                     .labelsHidden()
                     .frame(width: 100)
                 }
+
+                prefRow("square.grid.3x2", "Connections") {
+                    Picker(selection: $downloadConnections) {
+                        ForEach([1, 2, 4, 8], id: \.self) { count in
+                            Text("\(count)")
+                                .tag(count)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .frame(width: 100)
+                }
             }
 
             HStack(spacing: 12) {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {
-                    onDownload(text, downloadPath, downloadLimit)
+                    onDownload(text, downloadPath, downloadLimit, downloadConnections)
                     SettingsStore.shared.downloadPath = downloadPath
                     dismiss()
                 }
