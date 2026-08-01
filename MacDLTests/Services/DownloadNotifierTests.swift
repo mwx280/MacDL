@@ -12,7 +12,7 @@ import MacDLCore
         let d = Download(filename: "a.bin", url: "https://e.com/a.bin")
         notifier.notifyStarted(d)
         #expect(requests.count == 1)
-        #expect(requests[0].identifier == d.id.uuidString)
+        #expect(requests[0].identifier == d.id.uuidString + "-started")
         #expect(requests[0].content.body == "a.bin")
         #expect(requests[0].content.sound != nil)
     }
@@ -67,7 +67,7 @@ import MacDLCore
         notifier.authorized = true
         notifier.flushPending()
         #expect(requests.count == 1)
-        #expect(requests[0].identifier == d.id.uuidString)
+        #expect(requests[0].identifier == d.id.uuidString + "-started")
         #expect(requests[0].content.body == "a.bin")
     }
 
@@ -81,6 +81,6 @@ import MacDLCore
         // Simulates getNotificationSettings reporting .authorized without a new prompt.
         notifier.setAuthorized(true)
         #expect(requests.count == 1)
-        #expect(requests[0].identifier == d.id.uuidString)
+        #expect(requests[0].identifier == d.id.uuidString + "-started")
     }
 }

@@ -56,6 +56,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: LanguageManager.shared.localized("Download Started"),
              body: download.filename,
              id: download.id,
+             kind: "started",
              sound: true)
     }
 
@@ -65,6 +66,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: LanguageManager.shared.localized("Download Completed"),
              body: dir + "/" + download.filename,
              id: download.id,
+             kind: "completed",
              sound: true)
     }
 
@@ -74,15 +76,18 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: LanguageManager.shared.localized("Download failed"),
              body: download.filename + " — " + reason,
              id: download.id,
+             kind: "failed",
              sound: true)
     }
 
-    private func send(title: String, body: String, id: UUID, sound: Bool) {
+    private func send(title: String, body: String, id: UUID, kind: String, sound: Bool) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         if sound { content.sound = .default }
-        let request = UNNotificationRequest(identifier: id.uuidString, content: content, trigger: nil)
+        // Distinct identifier per event type so "started" isn't replaced by
+        // "completed" for fast downloads.
+        let request = UNNotificationRequest(identifier: id.uuidString + "-" + kind, content: content, trigger: nil)
         // If the permission prompt is still pending, hold the banner and deliver
         // it once access is granted (otherwise the first download's "started"
         // notification would be silently dropped).

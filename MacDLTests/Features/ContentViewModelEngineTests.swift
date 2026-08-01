@@ -165,7 +165,7 @@ import MacDLCore
         vm.downloads = [d]
         vm.resumeDownload(id: d.id)
         #expect(requests.count == 1)
-        #expect(requests[0].identifier == d.id.uuidString)
+        #expect(requests[0].identifier == d.id.uuidString + "-started")
         #expect(requests[0].content.body == "notif.bin")
     }
 
@@ -180,7 +180,7 @@ import MacDLCore
         vm.resumeDownload(id: d.id)
         engine.fireCompletion(id: d.id, result: .success(()))
         drainMain()
-        #expect(requests.contains { $0.identifier == d.id.uuidString && $0.content.body == AppConfig.defaultDownloadDir + "/done.bin" })
+        #expect(requests.contains { $0.identifier == d.id.uuidString + "-completed" && $0.content.body == AppConfig.defaultDownloadDir + "/done.bin" })
     }
 
     @Test func failureSendsFailedNotification() {
@@ -194,7 +194,7 @@ import MacDLCore
         vm.resumeDownload(id: d.id)
         engine.fireCompletion(id: d.id, result: .failure(DownloadError.network(URLError(.notConnectedToInternet))))
         drainMain()
-        #expect(requests.contains { $0.identifier == d.id.uuidString && $0.content.body.hasPrefix("fail.bin — ") })
+        #expect(requests.contains { $0.identifier == d.id.uuidString + "-failed" && $0.content.body.hasPrefix("fail.bin — ") })
     }
 
     private func drainMain() {
