@@ -5,6 +5,9 @@ import MacDLCore
 
 @Observable
 final class ContentViewModel {
+    // One instance for the whole app session: reopening a window reuses it, so
+    // downloads keep their real state instead of being forced to paused.
+    static let shared = ContentViewModel()
     static var current: ContentViewModel?
     private static var terminationSaved = false
 

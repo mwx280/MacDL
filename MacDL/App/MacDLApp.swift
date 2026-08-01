@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import MacDLCore
 
 @main
@@ -107,6 +108,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // menu bar and downloads continue. Quit is only via Cmd+Q / the Quit menu.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        os_log("[MacDL] didFinishLaunching")
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        os_log("[MacDL] willTerminate")
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

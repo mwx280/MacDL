@@ -3,7 +3,7 @@ import AppKit
 import MacDLCore
 
 struct ContentView: View {
-    @State private var model = ContentViewModel()
+    @State private var model = ContentViewModel.shared
     @State private var selected: SidebarItem? = .all
     @State private var showNewDownloadSheet = false
     @State private var newDownloadURLs = ""
