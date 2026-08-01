@@ -2590,7 +2590,24 @@
         }
       }
     },
-    "小舞 / xiaowu": {}
+    "小舞 / xiaowu": {},
+    "Download folder access lost. Choose it again in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载文件夹访问权限丢失，请在设置中重新选择。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download folder access lost. Choose it again in Settings."
+          }
+        }
+      }
+    }
   },
   "version": "1.0"
 }
