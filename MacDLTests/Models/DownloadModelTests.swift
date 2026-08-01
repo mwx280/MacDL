@@ -32,4 +32,12 @@ import Foundation
         let decoded = try JSONDecoder().decode(Download.self, from: data)
         #expect(decoded.supportsResume == false)
     }
+
+    @Test func codableRoundTripsPriorityFlags() throws {
+        let d = Download(filename: "a.bin", url: "https://e.com/a.bin", isPriorityDownload: true, pausedForPriority: false)
+        let data = try JSONEncoder().encode(d)
+        let decoded = try JSONDecoder().decode(Download.self, from: data)
+        #expect(decoded.isPriorityDownload == true)
+        #expect(decoded.pausedForPriority == false)
+    }
 }

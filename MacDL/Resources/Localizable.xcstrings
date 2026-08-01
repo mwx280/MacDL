@@ -1618,6 +1618,23 @@
         }
       }
     },
+    "Priority Download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority Download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先下载"
+          }
+        }
+      }
+    },
     "Pause All" : {
       "extractionState" : "manual",
       "localizations" : {

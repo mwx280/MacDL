@@ -19,12 +19,20 @@ final class ContentViewModel {
     private var engineTrackedDownloads: Set<UUID> = []
     private var needsProgressSave = false
     private var lastProgressSaveTime: Date = .distantPast
+    private var priorityDownloadID: UUID?
+    private var pausedForPriority: Set<UUID> = []
 
     init() {
         Self.current = self
         downloads = persistence.load()
         for i in downloads.indices where downloads[i].status == .active {
             downloads[i].status = .paused
+        }
+        pausedForPriority = Set(downloads.filter { $0.pausedForPriority == true }.map(\.id))
+        let priority = downloads.first { $0.isPriorityDownload == true }?.id
+        if let priority {
+            priorityDownloadID = priority
+            resumeDownload(id: priority)
         }
         termObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
@@ -197,7 +205,12 @@ final class ContentViewModel {
                 self.engineTrackedDownloads.remove(id)
                 self.engine.cleanup(id: id)
                 self.persistence.save(self.downloads)
-                self.startNextWaitingDownload()
+                if id == self.priorityDownloadID {
+                    // TODO: notify when a priority task's retry budget is exhausted (together with the notifications feature)
+                    self.endPriorityMode()
+                } else {
+                    self.startNextWaitingDownload()
+                }
             }
         }
     }
@@ -394,6 +407,10 @@ final class ContentViewModel {
 
     func deleteDownload(id: UUID) {
         unpublishProgress(for: id)
+        if id == priorityDownloadID {
+            endPriorityMode(excluding: id)
+        }
+        pausedForPriority.remove(id)
         guard let d = downloads.first(where: { $0.id == id }) else { return }
         if d.status == .active {
             engine.cancel(id: id)
@@ -471,6 +488,60 @@ final class ContentViewModel {
         for id in ids { resumeDownload(id: id) }
     }
 
+    // MARK: - Priority download
+
+    func setPriorityDownload(id: UUID) {
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        guard [.active, .paused, .waiting].contains(downloads[idx].status) else { return }
+
+        // Ensure the target is active
+        if downloads[idx].status == .paused || downloads[idx].status == .waiting {
+            resumeDownload(id: id)
+        }
+
+        // Replace: pause the old priority task and add it to the resume set
+        if let old = priorityDownloadID, old != id {
+            if let oi = downloads.firstIndex(where: { $0.id == old }) {
+                downloads[oi].isPriorityDownload = false
+                if downloads[oi].status == .active {
+                    engine.pause(id: old)
+                    downloads[oi].status = .paused
+                }
+            }
+            pausedForPriority.insert(old)
+        }
+
+        // Pause other active tasks (only those auto-paused for this priority)
+        for i in downloads.indices where downloads[i].id != id && downloads[i].status == .active {
+            engine.pause(id: downloads[i].id)
+            downloads[i].status = .paused
+            downloads[i].pausedForPriority = true
+            pausedForPriority.insert(downloads[i].id)
+        }
+
+        priorityDownloadID = id
+        if let ii = downloads.firstIndex(where: { $0.id == id }) {
+            downloads[ii].isPriorityDownload = true
+        }
+        persistence.save(downloads)
+    }
+
+    private func endPriorityMode(excluding skip: UUID? = nil) {
+        priorityDownloadID = nil
+        let toResume = pausedForPriority
+        pausedForPriority.removeAll()
+        for i in downloads.indices {
+            downloads[i].isPriorityDownload = false
+            if toResume.contains(downloads[i].id),
+               downloads[i].id != skip,
+               downloads[i].pausedForPriority == true {
+                downloads[i].pausedForPriority = false
+                resumeDownload(id: downloads[i].id)
+            }
+        }
+        persistence.save(downloads)
+    }
+
     func confirmDelete() {
         let alert = NSAlert()
         alert.messageText = String(format: LanguageManager.shared.localized("Are you sure you want to delete %lld download(s)?"), selectedDownloads.count)
@@ -490,6 +561,11 @@ final class ContentViewModel {
 
     private func clearSelected(deleteFiles: Bool = false) {
         let toDelete = downloads.filter { selectedDownloads.contains($0.id) }
+
+        if let pid = priorityDownloadID, toDelete.contains(where: { $0.id == pid }) {
+            endPriorityMode(excluding: pid)
+        }
+        for id in toDelete.map(\.id) { pausedForPriority.remove(id) }
 
         for d in toDelete {
             unpublishProgress(for: d.id)

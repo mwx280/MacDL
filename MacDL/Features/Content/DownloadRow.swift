@@ -3,9 +3,11 @@ import SwiftUI
 struct DownloadRow: View {
     let download: Download
     var isMultiSelection: Bool = false
+    var canPrioritize: Bool = false
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
+    var onSetPriority: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
     var onSetMaxChunks: ((UUID, Int) -> Void)?
@@ -76,6 +78,12 @@ struct DownloadRow: View {
             if download.status == .error || download.status == .stopped {
                 Button(action: { onRetry?(download.id) }) {
                     Label(LanguageManager.shared.localized("Retry"), systemImage: "arrow.clockwise")
+                }
+            }
+            if canPrioritize, !isMultiSelection,
+               download.status == .active || download.status == .paused || download.status == .waiting {
+                Button(action: { onSetPriority?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Priority Download"), systemImage: "arrow.up.circle")
                 }
             }
             Divider()
