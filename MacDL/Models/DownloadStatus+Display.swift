@@ -45,30 +45,6 @@ extension Download {
     static let codeExts: Set<String> = ["swift", "py", "pyw", "js", "jsx", "ts", "tsx", "rs", "go", "c", "cpp", "h", "java", "rb", "php", "html", "htm", "css", "scss", "sass", "less", "sql"]
     static let scriptExts: Set<String> = ["sh", "bat", "cmd", "bash", "zsh"]
 
-    static let codeIconMap: [String: String] = [
-        "html": "chevron.left.forwardslash.chevron.right",
-        "htm": "chevron.left.forwardslash.chevron.right",
-        "css": "paintbrush",
-        "scss": "paintbrush",
-        "sass": "paintbrush",
-        "less": "paintbrush",
-        "js": "curlybraces",
-        "jsx": "curlybraces",
-        "ts": "curlybraces",
-        "tsx": "curlybraces",
-        "py": "function",
-        "pyw": "function",
-        "swift": "bird",
-        "rs": "gearshape",
-        "c": "memorychip",
-        "cpp": "memorychip",
-        "h": "memorychip",
-        "java": "cup.and.saucer.fill",
-        "rb": "diamond",
-        "php": "dollarsign.circle",
-        "sql": "cylinder.split.1x2",
-    ]
-
     static let codeColorMap: [String: Color] = [
         "html": .orange,
         "htm": .orange,
@@ -107,7 +83,7 @@ extension Download {
         if Self.modelExts.contains(ext) { return "cpu" }
         if Self.officeExts.contains(ext) { return "doc.richtext" }
         if Self.textExts.contains(ext) { return "doc.text" }
-        if Self.codeExts.contains(ext) { return Self.codeIconMap[ext] ?? "curlybraces" }
+        if Self.codeExts.contains(ext) { return "curlybraces" }
         if Self.scriptExts.contains(ext) { return "terminal" }
         if Self.imageExts.contains(ext) { return "photo" }
         if Self.audioExts.contains(ext) { return "music.note" }
