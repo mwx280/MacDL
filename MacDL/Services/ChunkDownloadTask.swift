@@ -21,8 +21,16 @@ final class ChunkDownloadTask: NSObject {
     private var speedCheckTime: Date = .distantPast
     private var speedCheckBytes: Int64 = 0
 
-    weak var bucket: TokenBucket?
+    weak     var bucket: TokenBucket?
     var requestsWholeFile = false
+
+    private var pendingData = Data()
+    private let dataLock = NSLock()
+    private var writeScheduled = false
+    private var responseComplete = false
+    private let writerQueue = DispatchQueue(label: "com.xiaowu.chunkwriter")
+    private let bufferCap = 8 * 1024 * 1024
+    private let writeChunk = 64 * 1024
 
     var onProgress: ((Int64) -> Void)?
     var onTotalSizeKnown: ((Int64) -> Void)?
@@ -147,34 +155,101 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        guard !isCancelled else { return }
-        guard bucket?.take(Double(data.count)) != false else { return }
-        fileHandle?.write(data)
-        bytesWritten += Int64(data.count)
-        if speedCheckTime == .distantPast {
-            speedCheckTime = Date()
-            speedCheckBytes = bytesWritten
+        guard !isCancelled, !isPaused else { return }
+        dataLock.lock()
+        pendingData.append(data)
+        let overCap = pendingData.count > bufferCap
+        dataLock.unlock()
+        scheduleWrite()
+        guard overCap else { return }
+        // Buffer over its cap: block briefly as backpressure to keep memory bounded on large files
+        while true {
+            if isCancelled || isPaused { return }
+            dataLock.lock()
+            let big = pendingData.count > bufferCap
+            dataLock.unlock()
+            if !big { break }
+            Thread.sleep(forTimeInterval: 0.01)
         }
-        let now = Date()
-        let elapsed = now.timeIntervalSince(speedCheckTime)
-        if elapsed >= 0.3 {
-            speed = Int64(Double(bytesWritten - speedCheckBytes) / elapsed)
-            speedCheckTime = now
-            speedCheckBytes = bytesWritten
+    }
+
+    private func scheduleWrite() {
+        dataLock.lock()
+        guard !writeScheduled else { dataLock.unlock(); return }
+        writeScheduled = true
+        dataLock.unlock()
+        writerQueue.async { [weak self] in
+            guard let self else { return }
+            self.drainLoop()
+            self.dataLock.lock()
+            self.writeScheduled = false
+            self.dataLock.unlock()
         }
-        onProgress?(bytesWritten)
+    }
+
+    private func drainLoop() {
+        while true {
+            if isCancelled || isPaused || isCompleted { return }
+            dataLock.lock()
+            let chunk: Data?
+            if pendingData.isEmpty {
+                chunk = nil
+            } else {
+                let n = min(pendingData.count, writeChunk)
+                chunk = pendingData.prefix(n)
+                pendingData.removeFirst(n)
+            }
+            let done = responseComplete
+            dataLock.unlock()
+
+            if let c = chunk {
+                if bucket?.take(Double(c.count)) == false { return }
+                if isCancelled || isPaused || isCompleted { return }
+                fileHandle?.write(c)
+                bytesWritten += Int64(c.count)
+                let now = Date()
+                if speedCheckTime == .distantPast {
+                    speedCheckTime = now
+                    speedCheckBytes = bytesWritten
+                }
+                let elapsed = now.timeIntervalSince(speedCheckTime)
+                if elapsed >= 0.3 {
+                    speed = Int64(Double(bytesWritten - speedCheckBytes) / elapsed)
+                    speedCheckTime = now
+                    speedCheckBytes = bytesWritten
+                }
+                onProgress?(bytesWritten)
+            } else {
+                if done {
+                    finish(with: .success(()))
+                    return
+                }
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+        }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error as NSError? {
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
-                if isPaused { return }
+                if isPaused {
+                    dataLock.lock()
+                    responseComplete = true
+                    dataLock.unlock()
+                    return
+                }
                 finish(with: .failure(DownloadError.cancelled))
             } else {
                 finish(with: .failure(error))
             }
+            dataLock.lock()
+            responseComplete = true
+            dataLock.unlock()
         } else {
-            finish(with: .success(()))
+            dataLock.lock()
+            responseComplete = true
+            dataLock.unlock()
+            scheduleWrite()
         }
         session.invalidateAndCancel()
         self.session = nil
