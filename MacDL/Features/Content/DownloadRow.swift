@@ -214,3 +214,37 @@ struct DownloadRow: View {
     .frame(width: 560, height: 80)
     .environment(LanguageManager.shared)
 }
+
+#Preview("下载任务（含路径）") {
+    let d = Download(
+        filename: "ubuntu-24.04-desktop-amd64.iso",
+        url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
+        totalSize: 6_100_000_000,
+        downloadedSize: 2_800_000_000,
+        downloadSpeed: 12_582_912,
+        status: .active,
+        savePath: "/Users/xiaowu/Downloads",
+        maxConcurrentChunks: 8,
+        supportsResume: true
+    )
+    return VStack(spacing: 0) {
+        List {
+            DownloadRow(download: d)
+            HStack(spacing: 6) {
+                Image(systemName: "folder")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text((d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .listStyle(.inset)
+    }
+    .frame(width: 560, height: 120)
+    .environment(LanguageManager.shared)
+}
