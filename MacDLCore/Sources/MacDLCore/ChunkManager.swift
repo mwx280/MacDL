@@ -66,6 +66,8 @@ public final class TokenBucket {
     }
 }
 
+// All mutable state lives on syncQueue. Every callback re-enters through
+// syncQueue.async, so nothing is ever touched from two threads at once.
 public final class ChunkManager {
     public let id: UUID
     public let url: URL
@@ -136,6 +138,9 @@ public final class ChunkManager {
 
     private func startProbe() {
         updateBucket()
+        // The first request is a probe: one chunk with a Range header. It reveals the
+        // total size (via Content-Range) and whether the server honors 206 at all;
+        // the rest of the file gets chunked only after that.
         let probe = Chunk(index: 0, startOffset: 0, endOffset: chunkSize, downloadedSize: 0, status: .downloading)
         chunks = [probe]
         let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: chunkSize)
@@ -237,6 +242,7 @@ public final class ChunkManager {
         chunks[index].status = .pending
         pendingIndices.append(index)
         pendingIndices.sort()
+        // Exponential backoff: 1s, 2s, 4s... capped at 10s.
         let delay = min(1.0 * pow(2.0, Double(attempt - 1)), 10.0)
         os_log("[ChunkManager] chunk %d failed, retry %d/%d in %.1fs", index, attempt, maxRetries, delay)
         syncQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
@@ -462,6 +468,7 @@ public final class ChunkManager {
             lastLogBytes = written
         }
         let elapsed = now.timeIntervalSince(lastLogTime)
+        // Average speed over the last full second; recompute at most once a second.
         if elapsed >= 1.0 {
             downloadSpeed = Int64(Double(written - lastLogBytes) / elapsed)
             lastLogTime = now

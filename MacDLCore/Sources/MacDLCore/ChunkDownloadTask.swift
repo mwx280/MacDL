@@ -27,6 +27,9 @@ public final class ChunkDownloadTask: NSObject {
     weak     var bucket: TokenBucket?
     var requestsWholeFile = false
 
+    // didReceive fires on URLSession's delegate queue. Blocking it stalls the whole
+    // transfer, so we only append to this buffer there and let a writer queue drain
+    // it at the throttle rate (see drainLoop).
     private var pendingData = Data()
     private let dataLock = NSLock()
     private let finishLock = NSLock()
@@ -119,6 +122,8 @@ public final class ChunkDownloadTask: NSObject {
     }
 
     private func finish(with result: Result<Void, Error>) {
+        // Reached from several paths (response, writer loop, early-range check);
+        // the lock keeps it from firing twice.
         finishLock.lock()
         defer { finishLock.unlock() }
         guard !isCompleted else { return }
@@ -242,6 +247,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error as NSError? {
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
+                // A pause cancels the task on purpose - treat it as a clean stop, not an error.
                 if isPaused {
                     dataLock.lock()
                     responseComplete = true

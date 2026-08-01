@@ -312,6 +312,8 @@ final class ContentViewModel {
             return
         }
 
+        // Count actives excluding the one we just added; otherwise the new download
+        // always nudges the count one over the limit and never starts at limit 1.
         let activeCount = downloads.filter { $0.status == .active && $0.id != d.id }.count
         if activeCount >= max(settings.maxConcurrentDownloads, 1),
            let idx = downloads.firstIndex(where: { $0.id == d.id }) {
@@ -429,6 +431,8 @@ final class ContentViewModel {
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
 
+        // Start clean: drop old chunks so a deleted or partial file isn't resumed
+        // from stale offsets.
         downloads[idx].status = .active
         downloads[idx].errorMessage = nil
         downloads[idx].downloadedSize = 0
@@ -528,6 +532,8 @@ final class ContentViewModel {
         priorityDownloadID = nil
         let toResume = pausedForPriority
         pausedForPriority.removeAll()
+        // Resume everything we auto-paused for the priority task, unless it was
+        // the one being deleted.
         for i in downloads.indices {
             downloads[i].isPriorityDownload = false
             if toResume.contains(downloads[i].id),
