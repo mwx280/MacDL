@@ -20,6 +20,8 @@ final class ChunkDownloadTask: NSObject {
     private var speedCheckTime: Date = .distantPast
     private var speedCheckBytes: Int64 = 0
 
+    weak var bucket: TokenBucket?
+
     var onProgress: ((Int64) -> Void)?
     var onTotalSizeKnown: ((Int64) -> Void)?
     var onCompletion: ((Result<Void, Error>) -> Void)?
@@ -39,7 +41,7 @@ final class ChunkDownloadTask: NSObject {
 
     func start(resumeFrom: Int64 = 0) {
         let config = URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = 16
+        config.httpMaximumConnectionsPerHost = max(1, SettingsStore.shared.maxConnections)
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 86400
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
@@ -59,11 +61,13 @@ final class ChunkDownloadTask: NSObject {
 
     func pause() {
         isPaused = true
+        bucket?.stop()
         dataTask?.cancel()
         cleanup()
     }
 
     func cancel() {
+        bucket?.stop()
         dataTask?.cancel()
         cleanup()
     }
@@ -87,7 +91,6 @@ final class ChunkDownloadTask: NSObject {
         let resultStr = (try? result.get()) != nil ? "success" : "failure"
         os_log("[Chunk #%d] done size=%lld speed=%lld/s time=%.2fs result=%{public}@",
                chunkIndex, bytesWritten, speed, elapsed, resultStr)
-        print("📊 [Chunk #\(chunkIndex)] size=\(bytesWritten) speed=\(formatSpeed(speed)) time=\(String(format: "%.2f", elapsed))s")
         fileHandle?.closeFile()
         fileHandle = nil
         DispatchQueue.main.async { [weak self] in
@@ -99,10 +102,10 @@ final class ChunkDownloadTask: NSObject {
 extension ChunkDownloadTask: URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         if let http = response as? HTTPURLResponse, http.statusCode == 416 {
-            os_log("[Chunk #%d] 416 range not satisfiable, restarting", chunkIndex)
+            os_log("[Chunk #%d] 416 range not satisfiable, marking chunk failed (restart from scratch required)", chunkIndex)
             try? FileManager.default.removeItem(at: fileURL)
             completionHandler(.cancel)
-            finish(with: .failure(DownloadError.cancelled))
+            finish(with: .failure(DownloadError.rangeNotSatisfiable))
             return
         }
         if let http = response as? HTTPURLResponse {
@@ -124,6 +127,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard bucket?.take(Double(data.count)) != false else { return }
         if fileHandle == nil {
             if !FileManager.default.fileExists(atPath: fileURL.path) {
                 FileManager.default.createFile(atPath: fileURL.path, contents: nil)

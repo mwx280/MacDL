@@ -56,13 +56,6 @@ final class DownloadPersistence {
         let url = fileURL
         guard let data = try? JSONEncoder().encode(downloads) else { print("❌ write: encode failed"); return }
         try? data.write(to: url, options: .atomic)
-        let first = downloads.first
-        let ts = first?.totalSize ?? -1
-        let ds = first?.downloadedSize ?? -1
-        print("📝 save: count=\(downloads.count) file=\(first?.filename ?? "nil") ts=\(ts) ds=\(ds) caller=\(caller)")
-        if ts == 0 && downloads.count > 0 {
-            print("📝 save: 👇 caller stack:")
-            for frame in Thread.callStackSymbols.prefix(6) { print("  " + frame) }
-        }
+        print("📝 save: count=\(downloads.count) file=\(downloads.first?.filename ?? "nil") ts=\(downloads.first?.totalSize ?? -1) ds=\(downloads.first?.downloadedSize ?? -1) caller=\(caller)")
     }
 }

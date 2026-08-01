@@ -1456,6 +1456,23 @@
         }
       }
     },
+    "Network error: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Network error: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络错误：%@"
+          }
+        }
+      }
+    },
     "Not Found" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1829,6 +1846,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择..."
+          }
+        }
+      }
+    },
+    "Server does not support this download range" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server does not support this download range"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器不支持该下载范围"
           }
         }
       }

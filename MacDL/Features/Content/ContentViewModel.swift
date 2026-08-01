@@ -145,19 +145,44 @@ final class ContentViewModel {
 
     private func progressHandler(for id: UUID) -> (Int64, Int64, Int64) -> Void {
         { [weak self] bytes, total, speed in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            let prevTotal = self.downloads[idx].totalSize
-            self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
-            self.downloads[idx].downloadedSize = bytes
-            self.downloads[idx].downloadSpeed = speed
-            print("📊 progress: bytes=\(bytes) total=\(total) modelds=\(self.downloads[idx].downloadedSize)")
-            if self.progressMap[id] == nil {
-                self.publishProgress(for: self.downloads[idx])
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                let prevTotal = self.downloads[idx].totalSize
+                self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
+                self.downloads[idx].downloadedSize = bytes
+                self.downloads[idx].downloadSpeed = speed
+                if self.progressMap[id] == nil {
+                    self.publishProgress(for: self.downloads[idx])
+                }
+                self.updateProgress(for: id)
+                if prevTotal == 0 {
+                    DownloadPersistence.shared.save(self.downloads, caller: "progressHandler")
+                }
             }
-            self.updateProgress(for: id)
-            if prevTotal == 0 {
-                print("📊 progress -> saving")
-                DownloadPersistence.shared.save(self.downloads, caller: "progressHandler")
+        }
+    }
+
+    private func installCompletionHandler(for id: UUID) {
+        engine.setCompletionHandler(for: id) { [weak self] result in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                switch result {
+                case .success:
+                    self.downloads[idx].status = .completed
+                    self.unpublishProgress(for: id)
+                    let staging = self.stagingURL(for: self.downloads[idx])
+                    let final = self.destinationURL(for: self.downloads[idx])
+                    try? FileManager.default.moveItem(at: staging, to: final)
+                    let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
+                    NSWorkspace.shared.noteFileSystemChanged(dir)
+                case .failure(let error):
+                    self.downloads[idx].status = .error
+                    self.downloads[idx].errorMessage = error.localizedDescription
+                    self.unpublishProgress(for: id)
+                }
+                self.engineTrackedDownloads.remove(id)
+                self.persistence.save(self.downloads)
+                self.startNextWaitingDownload()
             }
         }
     }
@@ -171,43 +196,26 @@ final class ContentViewModel {
 
         engineTrackedDownloads.insert(id)
         if let idx {
-            downloads[idx].chunks = downloads[idx].ensureChunks()
+            let built = downloads[idx].ensureChunks()
+            downloads[idx].chunks = built
+            downloads[idx].downloadedSize = built.reduce(0) { $0 + $1.downloadedSize }
+            downloads[idx].totalSize = built.last?.endOffset ?? 0
         }
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
                      chunkSize: downloads[idx ?? 0].chunkSize,
                      maxConcurrent: downloads[idx ?? 0].maxConcurrentChunks,
                      chunks: downloads[idx ?? 0].chunks)
-        if let idx {
-            downloads[idx].downloadedSize = 0
-            downloads[idx].totalSize = 0
-        }
 
         engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 
         engine.setChunksChangeHandler(for: id) { [weak self] chunks in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            self.downloads[idx].chunks = chunks
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                self.downloads[idx].chunks = chunks
+            }
         }
 
-        engine.setCompletionHandler(for: id) { [weak self] result in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            switch result {
-            case .success:
-                self.downloads[idx].status = .completed
-                self.unpublishProgress(for: id)
-                let staging = self.stagingURL(for: self.downloads[idx])
-                let final = self.destinationURL(for: self.downloads[idx])
-                try? FileManager.default.moveItem(at: staging, to: final)
-                let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
-                NSWorkspace.shared.noteFileSystemChanged(dir)
-            case .failure(let error):
-                self.downloads[idx].status = .error
-                self.downloads[idx].errorMessage = error.localizedDescription
-                self.unpublishProgress(for: id)
-            }
-            self.engineTrackedDownloads.remove(id)
-            self.persistence.save(self.downloads)
-        }
+        installCompletionHandler(for: id)
     }
 
     func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0) {
@@ -268,7 +276,31 @@ final class ContentViewModel {
             return
         }
 
+        let activeCount = downloads.filter { $0.status == .active }.count
+        if activeCount >= max(SettingsStore.shared.maxConcurrentDownloads, 1),
+           let idx = downloads.firstIndex(where: { $0.id == d.id }) {
+            downloads[idx].status = .waiting
+            persistence.save(downloads)
+            return
+        }
+
         setupEngineTask(for: d.id, url: sourceURL, dlLimit: dlLimit)
+    }
+
+    private func startNextWaitingDownload() {
+        let limit = max(SettingsStore.shared.maxConcurrentDownloads, 1)
+        while downloads.filter({ $0.status == .active }).count < limit,
+              let idx = downloads.firstIndex(where: { $0.status == .waiting }) {
+            downloads[idx].status = .active
+            persistence.save(downloads)
+            guard let sourceURL = URL(string: downloads[idx].url) else {
+                downloads[idx].status = .error
+                downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
+                persistence.save(downloads)
+                continue
+            }
+            setupEngineTask(for: downloads[idx].id, url: sourceURL, dlLimit: downloads[idx].downloadLimit ?? 0)
+        }
     }
 
     func pauseDownload(id: UUID) {
@@ -314,29 +346,13 @@ final class ContentViewModel {
         engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 
         engine.setChunksChangeHandler(for: id) { [weak self] chunks in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            self.downloads[idx].chunks = chunks
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
+                self.downloads[idx].chunks = chunks
+            }
         }
 
-        engine.setCompletionHandler(for: id) { [weak self] result in
-            guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-            switch result {
-            case .success:
-                self.downloads[idx].status = .completed
-                self.unpublishProgress(for: id)
-                let staging = self.stagingURL(for: self.downloads[idx])
-                let final = self.destinationURL(for: self.downloads[idx])
-                try? FileManager.default.moveItem(at: staging, to: final)
-                let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
-                NSWorkspace.shared.noteFileSystemChanged(dir)
-            case .failure(let error):
-                self.downloads[idx].status = .error
-                self.downloads[idx].errorMessage = error.localizedDescription
-                self.unpublishProgress(for: id)
-            }
-            self.engineTrackedDownloads.remove(id)
-            self.persistence.save(self.downloads)
-        }
+        installCompletionHandler(for: id)
     }
 
     func deleteDownload(id: UUID) {
