@@ -48,4 +48,13 @@ import Foundation
         bucket.reset(rate: 0)
         #expect(bucket.take(100) == true)
     }
+
+    @Test func capAllowsSingleTakeAfterIdle() {
+        let bucket = TokenBucket(rate: 1_000)
+        Thread.sleep(forTimeInterval: 5)
+        let start = Date()
+        // 5s idle accumulates 5000 tokens; cap floor is 1MB, so take(4000) must succeed immediately (a cap below the amount would deadlock)
+        #expect(bucket.take(4_000) == true)
+        #expect(Date().timeIntervalSince(start) < 3)
+    }
 }

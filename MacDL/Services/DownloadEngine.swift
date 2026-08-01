@@ -12,7 +12,10 @@ final class DownloadEngine {
     func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, resumeFrom: Int64 = 0, chunkSize: Int64 = 262144, maxConcurrent: Int = 4, chunks: [Chunk] = []) {
         let manager = ChunkManager(id: id, url: url, destinationURL: destinationURL, chunkSize: chunkSize, maxConcurrent: maxConcurrent)
         manager.setSpeedLimit(speedLimit)
-        syncQueue.sync { managers[id] = manager }
+        syncQueue.sync {
+            managers[id]?.cancel()
+            managers[id] = manager
+        }
         if chunks.isEmpty {
             manager.start()
         } else {

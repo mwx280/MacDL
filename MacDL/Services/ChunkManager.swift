@@ -52,6 +52,8 @@ final class TokenBucket {
             if elapsed > 0 {
                 tokens += rate * elapsed
                 lastRefill = now
+                // Token cap: allows ~2s of burst, but at least 1MB so a single take(<=1MB) always succeeds and low-speed throttling can't deadlock
+                tokens = min(tokens, max(rate * 2, 1_048_576))
             }
             if tokens >= amount {
                 tokens -= amount
@@ -188,6 +190,7 @@ final class ChunkManager {
                     guard index < self.chunks.count else { return }
                     self.chunks[index].status = .completed
                     self.chunks[index].downloadedSize = self.chunks[index].size
+                    self.retryCounts[index] = nil
                     os_log("[ChunkManager] chunk %d completed", index)
                 case .failure(let error):
                     self.handleChunkFailure(index, error: error)
@@ -227,10 +230,11 @@ final class ChunkManager {
     }
 
     func setSpeedLimit(_ limit: Int64) {
-        let oldLimit = speedLimit
-        speedLimit = limit
-        os_log("[ChunkManager] speedLimit=%lld/s old=%lld", limit, oldLimit)
-        syncQueue.async { self.updateBucket() }
+        os_log("[ChunkManager] speedLimit=%lld/s", limit)
+        syncQueue.async {
+            self.speedLimit = limit
+            self.updateBucket()
+        }
     }
 
     func setMaxConcurrent(_ max: Int) {

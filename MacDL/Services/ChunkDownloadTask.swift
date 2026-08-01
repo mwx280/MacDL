@@ -26,6 +26,7 @@ final class ChunkDownloadTask: NSObject {
 
     private var pendingData = Data()
     private let dataLock = NSLock()
+    private let finishLock = NSLock()
     private var writeScheduled = false
     private var responseComplete = false
     private let writerQueue = DispatchQueue(label: "com.xiaowu.chunkwriter")
@@ -51,21 +52,21 @@ final class ChunkDownloadTask: NSObject {
     }
 
     func start(resumeFrom: Int64 = 0) {
+        let from = startOffset + resumeFrom
+        let to = endOffset - 1
+        if !requestsWholeFile, resumeFrom >= endOffset - startOffset {
+            // Whole chunk already downloaded (edge case): treat as success to avoid sending an invalid Range
+            finish(with: .success(()))
+            return
+        }
         let config = URLSessionConfiguration.default
         config.httpMaximumConnectionsPerHost = max(1, SettingsStore.shared.maxConnections)
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 86400
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
 
-        let from = startOffset + resumeFrom
-        let to = endOffset - 1
         var req = URLRequest(url: url)
         if !requestsWholeFile {
-            // Whole chunk already downloaded (edge case): treat as success to avoid sending an invalid Range
-            if resumeFrom >= endOffset - startOffset {
-                finish(with: .success(()))
-                return
-            }
             // Always send a bounded Range so resuming near the chunk end never omits it (which made the server return the whole 200 file)
             req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
         }
@@ -113,6 +114,8 @@ final class ChunkDownloadTask: NSObject {
     }
 
     private func finish(with result: Result<Void, Error>) {
+        finishLock.lock()
+        defer { finishLock.unlock() }
         guard !isCompleted else { return }
         isCompleted = true
         let elapsed = Date().timeIntervalSince(chunkStartTime)
@@ -131,8 +134,7 @@ final class ChunkDownloadTask: NSObject {
 extension ChunkDownloadTask: URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         if let http = response as? HTTPURLResponse, http.statusCode == 416 {
-            os_log("[Chunk #%d] 416 range not satisfiable, marking chunk failed (restart from scratch required)", chunkIndex)
-            try? FileManager.default.removeItem(at: fileURL)
+            os_log("[Chunk #%d] 416 range not satisfiable, marking chunk failed", chunkIndex)
             completionHandler(.cancel)
             finish(with: .failure(DownloadError.rangeNotSatisfiable))
             return
@@ -207,7 +209,13 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
             if let c = chunk {
                 if bucket?.take(Double(c.count)) == false { return }
                 if isCancelled || isPaused || isCompleted { return }
-                fileHandle?.write(c)
+                guard let fh = fileHandle else { return }
+                do {
+                    try fh.write(c)
+                } catch {
+                    finish(with: .failure(error))
+                    return
+                }
                 bytesWritten += Int64(c.count)
                 let now = Date()
                 if speedCheckTime == .distantPast {
