@@ -80,6 +80,10 @@ final class ChunkManager {
     private var retryCounts: [Int: Int] = [:]
     private var lastError: Error?
     private var serverSupportsResume: Bool?
+    private var singleStreamMode = false
+    private var singleStreamTask: ChunkDownloadTask?
+    private var singleStreamTotal: Int64 = 0
+    private var singleStreamBytes: Int64 = 0
 
     private let maxRetries = 3
     private let bucket = TokenBucket(rate: 0)
@@ -141,6 +145,7 @@ final class ChunkManager {
                 guard total > 0 else { return }
                 self.totalSize = total
                 os_log("[ChunkManager] totalSize=%lld", total)
+                guard !self.singleStreamMode else { return }
                 let built = self.buildChunks(totalSize: total, chunkSize: self.chunkSize)
                 self.chunks = built
                 self.chunks[0].status = .downloading
@@ -169,6 +174,9 @@ final class ChunkManager {
                 guard self.serverSupportsResume == nil else { return }
                 self.serverSupportsResume = value
                 self.onResumeSupport?(value)
+                if !value {
+                    self.enterSingleStream()
+                }
             }
         }
         task.onCompletion = { [weak self] result in
@@ -240,6 +248,8 @@ final class ChunkManager {
             self.bucket.stop()
             for (_, task) in self.activeTasks { task.pause() }
             self.activeTasks.removeAll()
+            self.singleStreamTask?.pause()
+            self.singleStreamTask = nil
         }
     }
 
@@ -249,7 +259,11 @@ final class ChunkManager {
         syncQueue.async { [weak self] in
             guard let self else { return }
             self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
-            self.dispatchNext()
+            if self.singleStreamMode {
+                self.enterSingleStream()
+            } else {
+                self.dispatchNext()
+            }
         }
     }
 
@@ -262,18 +276,99 @@ final class ChunkManager {
             self.bucket.stop()
             for (_, task) in self.activeTasks { task.cancel() }
             self.activeTasks.removeAll()
+            self.singleStreamTask?.cancel()
+            self.singleStreamTask = nil
             self.pendingIndices.removeAll()
         }
     }
 
     var hasActiveTasks: Bool {
-        syncQueue.sync { !activeTasks.isEmpty }
+        syncQueue.sync { !activeTasks.isEmpty || singleStreamTask != nil }
     }
 
     // MARK: - Scheduling
 
     private func updateBucket() {
         bucket.setRate(speedLimit > 0 ? Double(speedLimit) : 0)
+    }
+
+    // MARK: - Single-stream mode (used when the server lacks Range support)
+
+    private func enterSingleStream() {
+        guard singleStreamTask == nil else { return }
+        singleStreamMode = true
+        os_log("[ChunkManager] server does not support Range, switch to single-stream from scratch")
+        for (_, task) in activeTasks { task.cancel() }
+        activeTasks.removeAll()
+        pendingIndices.removeAll()
+        chunks = []
+        totalSize = 0
+        lastLogTime = .distantPast
+        lastLogBytes = 0
+        try? FileManager.default.removeItem(at: destinationURL)
+        onChunksChanged?([])
+
+        let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: Int64.max)
+        task.requestsWholeFile = true
+        task.bucket = bucket
+        task.onProgress = { [weak self] (bytes: Int64) in
+            guard let self else { return }
+            self.syncQueue.async {
+                self.singleStreamBytes = bytes
+                self.updateSingleStreamProgress()
+            }
+        }
+        task.onTotalSizeKnown = { [weak self] (total: Int64) in
+            guard let self else { return }
+            self.syncQueue.async {
+                guard total > 0 else { return }
+                self.singleStreamTotal = total
+                self.totalSize = total
+            }
+        }
+        task.onSupportsResume = { [weak self] (_: Bool) in
+            guard let self else { return }
+            self.syncQueue.async {
+                guard self.serverSupportsResume == nil else { return }
+                self.serverSupportsResume = false
+                self.onResumeSupport?(false)
+            }
+        }
+        task.onCompletion = { [weak self] (result: Result<Void, Error>) in
+            guard let self else { return }
+            self.syncQueue.async {
+                self.singleStreamTask = nil
+                self.activeTasks.removeAll()
+                self.logTimer?.invalidate()
+                self.logTimer = nil
+                switch result {
+                case .success:
+                    self.onProgress?(self.singleStreamTotal, self.singleStreamTotal, self.downloadSpeed)
+                    self.onCompletion?(.success(()))
+                case .failure(let error):
+                    self.lastError = error
+                    self.onCompletion?(.failure(error))
+                }
+            }
+        }
+        singleStreamTask = task
+        task.start(resumeFrom: 0)
+    }
+
+    private func updateSingleStreamProgress() {
+        let now = Date()
+        if lastLogTime == .distantPast {
+            lastLogTime = now
+            lastLogBytes = singleStreamBytes
+        }
+        let elapsed = now.timeIntervalSince(lastLogTime)
+        if elapsed >= 1.0 {
+            downloadSpeed = Int64(Double(singleStreamBytes - lastLogBytes) / elapsed)
+            lastLogTime = now
+            lastLogBytes = singleStreamBytes
+        }
+        let total = max(singleStreamTotal, singleStreamBytes)
+        onProgress?(singleStreamBytes, total, downloadSpeed)
     }
 
     private func dispatchNext() {

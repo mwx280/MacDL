@@ -21,7 +21,8 @@ final class ChunkDownloadTask: NSObject {
     private var speedCheckTime: Date = .distantPast
     private var speedCheckBytes: Int64 = 0
 
-    var bucket: TokenBucket?
+    weak var bucket: TokenBucket?
+    var requestsWholeFile = false
 
     var onProgress: ((Int64) -> Void)?
     var onTotalSizeKnown: ((Int64) -> Void)?
@@ -51,12 +52,14 @@ final class ChunkDownloadTask: NSObject {
         let from = startOffset + resumeFrom
         let to = endOffset - 1
         var req = URLRequest(url: url)
-        if from < to {
-            req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
-        } else if from == startOffset {
-            req.setValue("bytes=\(startOffset)-\(to)", forHTTPHeaderField: "Range")
+        if !requestsWholeFile {
+            if from < to {
+                req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
+            } else if from == startOffset {
+                req.setValue("bytes=\(startOffset)-\(to)", forHTTPHeaderField: "Range")
+            }
         }
-        os_log("[Chunk #%d] start range=%lld-%lld resumeFrom=%lld", chunkIndex, from, to, resumeFrom)
+        os_log("[Chunk #%d] start range=%lld-%lld resumeFrom=%lld wholeFile=%d", chunkIndex, from, to, resumeFrom, requestsWholeFile ? 1 : 0)
 
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             FileManager.default.createFile(atPath: fileURL.path, contents: nil)
