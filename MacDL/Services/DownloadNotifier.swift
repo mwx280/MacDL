@@ -16,8 +16,12 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         post = { UNUserNotificationCenter.current().add($0) }
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        os_log("[DownloadNotifier] delegate set")
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
+                os_log("[DownloadNotifier] settings auth=%@ alert=%@",
+                       String(describing: settings.authorizationStatus),
+                       String(describing: settings.alertSetting))
                 self?.setAuthorized(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
             }
         }
@@ -35,6 +39,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
                 if let error {
                     os_log("[DownloadNotifier] authorization error: %{public}@", String(describing: error))
                 }
+                os_log("[DownloadNotifier] authorization granted=%d", granted ? 1 : 0)
                 self.setAuthorized(granted)
             }
         }
@@ -51,7 +56,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: LanguageManager.shared.localized("Download Started"),
              body: download.filename,
              id: download.id,
-             sound: false)
+             sound: true)
     }
 
     func notifyCompleted(_ download: Download) {
@@ -98,6 +103,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        os_log("[DownloadNotifier] willPresent called id=%{public}@", notification.request.identifier)
+        completionHandler([.banner, .list, .sound])
     }
 }

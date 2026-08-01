@@ -14,7 +14,7 @@ import MacDLCore
         #expect(requests.count == 1)
         #expect(requests[0].identifier == d.id.uuidString)
         #expect(requests[0].content.body == "a.bin")
-        #expect(requests[0].content.sound == nil)
+        #expect(requests[0].content.sound != nil)
     }
 
     @Test func completedSendsRequestWithPath() {

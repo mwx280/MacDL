@@ -103,6 +103,12 @@ struct MacDLApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    // Closing the last window must not quit the app - it keeps running in the
+    // menu bar and downloads continue. Quit is only via Cmd+Q / the Quit menu.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         MacDLApp.quitWithCheck() ? .terminateNow : .terminateCancel
     }
