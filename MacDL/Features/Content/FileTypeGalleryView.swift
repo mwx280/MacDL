@@ -36,21 +36,10 @@ struct FileTypeGalleryView: View {
         let download = Download(filename: "sample.\(ext)", url: "", status: .completed)
         return VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .bottomTrailing) {
-                Group {
-                    if let logo = download.fileTypeLogo {
-                        Image(logo)
-                            .resizable()
-                            .renderingMode(.template)
-                            .scaledToFit()
-                            .frame(width: 32, height: 32)
-                            .foregroundStyle(download.fileTypeColor)
-                    } else {
-                        Image(systemName: download.fileTypeIcon)
-                            .font(.system(size: 28))
-                            .foregroundStyle(download.fileTypeColor)
-                    }
-                }
-                .frame(width: 44, height: 44)
+                Image(systemName: download.fileTypeIcon)
+                    .font(.system(size: 28))
+                    .foregroundStyle(download.fileTypeColor)
+                    .frame(width: 44, height: 44)
                 statusBadge
             }
 
@@ -58,7 +47,7 @@ struct FileTypeGalleryView: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.primary)
 
-            Text(download.fileTypeLogo ?? download.fileTypeIcon)
+            Text(download.fileTypeIcon)
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.secondary)
         }

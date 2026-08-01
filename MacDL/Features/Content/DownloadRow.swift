@@ -76,19 +76,9 @@ struct DownloadRow: View {
 
     private var fileIcon: some View {
         ZStack(alignment: .bottomTrailing) {
-            if let logo = download.fileTypeLogo {
-                Image(logo)
-                    .resizable()
-                    .renderingMode(.template)
-                    .scaledToFit()
-                    .frame(width: 28, height: 28)
-                    .foregroundStyle(download.fileTypeColor)
-            } else {
-                // Old approach: SF Symbols (to revert, uncomment this and comment out the branch above)
-                Image(systemName: download.fileTypeIcon)
-                    .font(.title2)
-                    .foregroundStyle(download.fileTypeColor)
-            }
+            Image(systemName: download.fileTypeIcon)
+                .font(.title2)
+                .foregroundStyle(download.fileTypeColor)
             statusBadge
         }
     }
