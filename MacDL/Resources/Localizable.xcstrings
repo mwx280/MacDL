@@ -1558,6 +1558,40 @@
         }
       }
     },
+    "Pause non-resumable download?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause non-resumable download?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂停不可续传的任务？"
+          }
+        }
+      }
+    },
+    "This download does not support resuming. Pausing it means it must restart from the beginning. Pause anyway?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This download does not support resuming. Pausing it means it must restart from the beginning. Pause anyway?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该下载不支持断点续传，暂停后需要从头重新下载。仍要暂停吗？"
+          }
+        }
+      }
+    },
     "Paused" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -333,6 +333,14 @@ final class ContentViewModel {
 
     func pauseDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }), downloads[idx].status == .active else { return }
+        if downloads[idx].supportsResume == false {
+            let alert = NSAlert()
+            alert.messageText = LanguageManager.shared.localized("Pause non-resumable download?")
+            alert.informativeText = LanguageManager.shared.localized("This download does not support resuming. Pausing it means it must restart from the beginning. Pause anyway?")
+            alert.addButton(withTitle: LanguageManager.shared.localized("Pause"))
+            alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
         engine.pause(id: id)
         if engineTrackedDownloads.contains(id) {
             if !FileManager.default.fileExists(atPath: stagingURL(for: downloads[idx]).path) {
