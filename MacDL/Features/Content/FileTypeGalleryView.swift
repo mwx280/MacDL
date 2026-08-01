@@ -2,15 +2,20 @@ import SwiftUI
 
 struct FileTypeGalleryView: View {
     private let extensions: [String] = [
-        "iso",
-        "mkv", "mp4", "avi", "mov", "wmv", "flv", "m4v",
+        "iso", "img", "vmdk", "qcow2",
+        "mkv", "mp4", "avi", "mov", "wmv", "flv", "m4v", "webm", "mpg", "mpeg", "3gp", "m2ts", "ogv",
         "xip", "zip", "tar", "gz", "bz2", "7z", "rar",
-        "dmg", "pkg", "exe",
-        "gguf", "bin", "pt", "safetensors",
-        "pdf",
+        "dmg", "pkg", "apk", "ipa", "deb", "rpm", "app",
+        "exe", "msi",
+        "gguf", "bin", "pt", "safetensors", "onnx", "tflite", "ckpt",
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "rtf", "epub", "mobi", "pages", "numbers", "keynote",
         "txt", "md", "json", "xml", "yaml", "yml", "csv",
-        "jpg", "jpeg", "png", "gif", "webp", "heic",
-        "mp3", "flac", "wav", "aac",
+        "swift", "py", "js", "ts", "rs", "go", "c", "cpp", "h", "java", "rb", "php", "html", "css", "sql",
+        "sh", "bat", "cmd", "bash", "zsh",
+        "jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff", "tif", "ico", "psd",
+        "mp3", "flac", "wav", "aac", "m4a", "ogg", "opus", "wma",
+        "ttf", "otf", "woff", "woff2",
+        "torrent",
         "unknown",
     ]
 

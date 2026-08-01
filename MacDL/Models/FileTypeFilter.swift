@@ -40,14 +40,27 @@ enum FileTypeFilter: String, CaseIterable {
         guard self != .all else { return true }
         let ext = (file.filename as NSString).pathExtension.lowercased()
         switch self {
-        case .video: return ["mkv", "mp4", "avi", "mov", "wmv", "flv", "m4v"].contains(ext)
-        case .document: return ["pdf", "txt", "md", "json", "xml", "yaml", "yml", "csv"].contains(ext)
-        case .archive: return ["zip", "tar", "gz", "bz2", "7z", "rar", "xip"].contains(ext)
-        case .image: return ["jpg", "jpeg", "png", "gif", "webp", "heic"].contains(ext)
-        case .audio: return ["mp3", "flac", "wav", "aac"].contains(ext)
-        case .code: return ["gguf", "bin", "pt", "safetensors", "swift", "py", "js", "ts", "rs", "go", "c", "cpp", "h"].contains(ext)
-        case .other: return !["mkv", "mp4", "avi", "mov", "wmv", "flv", "m4v", "pdf", "txt", "md", "json", "xml", "yaml", "yml", "csv", "zip", "tar", "gz", "bz2", "7z", "rar", "xip", "jpg", "jpeg", "png", "gif", "webp", "heic", "mp3", "flac", "wav", "aac", "gguf", "bin", "pt", "safetensors", "swift", "py", "js", "ts", "rs", "go", "c", "cpp", "h"].contains(ext)
+        case .video: return Download.videoExts.contains(ext)
+        case .document: return Download.officeExts.contains(ext) || Download.textExts.contains(ext)
+        case .archive: return Download.archiveExts.contains(ext) || Download.installerExts.contains(ext)
+        case .image: return Download.imageExts.contains(ext)
+        case .audio: return Download.audioExts.contains(ext)
+        case .code: return Download.codeExts.contains(ext) || Download.scriptExts.contains(ext) || Download.modelExts.contains(ext)
+        case .other: return !Self.allKnown.contains(ext)
         case .all: return true
         }
+    }
+
+    private static var allKnown: Set<String> {
+        Download.videoExts
+            .union(Download.officeExts)
+            .union(Download.textExts)
+            .union(Download.archiveExts)
+            .union(Download.installerExts)
+            .union(Download.imageExts)
+            .union(Download.audioExts)
+            .union(Download.codeExts)
+            .union(Download.scriptExts)
+            .union(Download.modelExts)
     }
 }
