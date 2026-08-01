@@ -428,6 +428,9 @@ struct DownloadRow: View {
                                 Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
                                     .font(.caption2)
                             }
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
                             .foregroundStyle(canResume ? .green : .red)
                         }
                     }
