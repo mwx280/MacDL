@@ -322,8 +322,8 @@ struct DownloadRow: View {
                     .tint(d.status == .active ? .blue : .secondary)
 
                 HStack(spacing: 6) {
+                    Text(d.progress, format: .percent.precision(.fractionLength(1)))
                     if d.status == .active || d.status == .waiting {
-                        Text(d.progress, format: .percent.precision(.fractionLength(1)))
                         Text(formatSpeed(d.downloadSpeed))
                         if let remaining = d.estimatedTimeRemaining {
                             HStack(spacing: 3) {
@@ -437,12 +437,12 @@ struct DownloadRow: View {
                     .tint(d.status == .active ? .blue : .secondary)
 
                 HStack(spacing: 8) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "gauge.with.dots.needle.50percent")
+                            .font(.system(size: 9))
+                        Text(d.progress, format: .percent.precision(.fractionLength(1)))
+                    }
                     if d.status == .active || d.status == .waiting {
-                        HStack(spacing: 3) {
-                            Image(systemName: "gauge.with.dots.needle.50percent")
-                                .font(.system(size: 9))
-                            Text(d.progress, format: .percent.precision(.fractionLength(1)))
-                        }
                         HStack(spacing: 3) {
                             Image(systemName: "arrow.down")
                                 .font(.system(size: 9))
