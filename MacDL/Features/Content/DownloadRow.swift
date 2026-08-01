@@ -248,3 +248,92 @@ struct DownloadRow: View {
     .frame(width: 560, height: 120)
     .environment(LanguageManager.shared)
 }
+
+#Preview("下载任务（重设计）") {
+    let d = Download(
+        filename: "ubuntu-24.04-desktop-amd64.iso",
+        url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
+        totalSize: 6_100_000_000,
+        downloadedSize: 2_800_000_000,
+        downloadSpeed: 12_582_912,
+        status: .active,
+        savePath: "/Users/xiaowu/Downloads",
+        maxConcurrentChunks: 8,
+        supportsResume: true
+    )
+    let path = (d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename
+    return VStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: d.fileTypeIcon)
+                    .font(.title2)
+                    .foregroundStyle(d.fileTypeColor)
+                    .frame(width: 38, height: 38)
+                Circle()
+                    .fill(d.status.displayColor)
+                    .frame(width: 14, height: 14)
+                    .overlay {
+                        Image(systemName: d.status.displayIcon)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .offset(x: 5, y: 5)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(d.filename)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(d.status.displayColor)
+                                .frame(width: 6, height: 6)
+                            Text(LanguageManager.shared.localized(d.status.labelKey))
+                                .font(.caption)
+                        }
+                        .foregroundStyle(d.status.displayColor)
+                        if let canResume = d.supportsResume {
+                            Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
+                                .font(.caption2)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
+                                .foregroundStyle(canResume ? .green : .red)
+                        }
+                    }
+                }
+
+                ProgressView(value: d.progress)
+                    .tint(.blue)
+
+                HStack(spacing: 6) {
+                    Text(d.progress, format: .percent.precision(.fractionLength(1)))
+                    Text(formatSpeed(d.downloadSpeed))
+                    Spacer()
+                    Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "folder")
+                        .font(.caption2)
+                    Text(path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(12)
+        Spacer()
+    }
+    .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    .frame(width: 560, height: 150)
+    .environment(LanguageManager.shared)
+}
