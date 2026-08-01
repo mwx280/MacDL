@@ -12,10 +12,11 @@ final class ContentViewModel {
     var selectedDownloads = Set<UUID>()
     var fileTypeFilter: FileTypeFilter = .all
 
-    private let engine = DownloadEngine.shared
-    private let persistence = DownloadPersistence.shared
+    private let engine: DownloadEngineProtocol
+    private let persistence: DownloadPersistence
+    private let settings: SettingsStore
+    private let progress: ProgressPublisher
     private var termObserver: NSObjectProtocol?
-    private var progressMap: [UUID: Progress] = [:]
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
     private var needsProgressSave = false
@@ -23,8 +24,17 @@ final class ContentViewModel {
     private var priorityDownloadID: UUID?
     private var pausedForPriority: Set<UUID> = []
 
-    init() {
+    init(
+        engine: DownloadEngineProtocol = DownloadEngine.shared,
+        persistence: DownloadPersistence = .shared,
+        settings: SettingsStore = .shared
+    ) {
+        self.engine = engine
+        self.persistence = persistence
+        self.settings = settings
+        self.progress = ProgressPublisher()
         Self.current = self
+        self.progress.setCancelHandler { [weak self] id in self?.cancelProgressDownload(id) }
         downloads = persistence.load()
         for i in downloads.indices where downloads[i].status == .active {
             downloads[i].status = .paused
@@ -45,7 +55,7 @@ final class ContentViewModel {
             Self.terminationSaved = true
             self.fileCheckTimer?.invalidate()
             self.fileCheckTimer = nil
-            self.unpublishAllProgress()
+            self.progress.unpublishAll()
             if self.downloads.contains(where: { $0.totalSize > 0 }) {
                 self.persistence.saveImmediately(self.downloads)
             }
@@ -59,8 +69,19 @@ final class ContentViewModel {
 
     deinit {
         fileCheckTimer?.invalidate()
-        unpublishAllProgress()
+        progress.unpublishAll()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
+    }
+
+    private func cancelProgressDownload(_ id: UUID) {
+        if let idx = downloads.firstIndex(where: { $0.id == id }) {
+            let d = downloads[idx]
+            if d.status == .active {
+                engine.pause(id: id)
+            }
+            downloads[idx].status = .paused
+            persistence.save(downloads)
+        }
     }
 
     // MARK: - Filtering
@@ -90,49 +111,6 @@ final class ContentViewModel {
         return URL(fileURLWithPath: dir + "/" + download.filename + ".macdl")
     }
 
-    private func publishProgress(for download: Download) {
-        let fileURL = stagingURL(for: download)
-        let downloadID = download.id
-
-        let p = Progress(totalUnitCount: max(download.totalSize, 1))
-        p.kind = .file
-        p.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
-        p.setUserInfoObject(fileURL, forKey: .fileURLKey)
-        p.completedUnitCount = download.downloadedSize
-        p.cancellationHandler = { [weak self] in
-            guard let self else { return }
-            self.unpublishProgress(for: downloadID)
-            if let idx = self.downloads.firstIndex(where: { $0.id == downloadID }) {
-                let d = self.downloads[idx]
-                if d.status == .active {
-                    self.engine.pause(id: downloadID)
-                }
-                self.downloads[idx].status = .paused
-            }
-        }
-        p.publish()
-        progressMap[download.id] = p
-    }
-
-    private func updateProgress(for id: UUID) {
-        guard let d = downloads.first(where: { $0.id == id }),
-              let p = progressMap[id]
-        else { return }
-        p.totalUnitCount = max(d.totalSize, 1)
-        p.completedUnitCount = d.downloadedSize
-        p.isCancellable = d.status == .active
-    }
-
-    private func unpublishProgress(for id: UUID) {
-        guard let p = progressMap.removeValue(forKey: id) else { return }
-        p.unpublish()
-    }
-
-    private func unpublishAllProgress() {
-        for (_, p) in progressMap { p.unpublish() }
-        progressMap.removeAll()
-    }
-
     // MARK: - File Integrity
 
     private func checkDownloadFiles() {
@@ -148,7 +126,7 @@ final class ContentViewModel {
                 }
                 downloads[i].status = .error
                 downloads[i].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
-                unpublishProgress(for: d.id)
+                progress.unpublish(for: d.id)
                 persistence.save(downloads)
             }
         }
@@ -165,10 +143,10 @@ final class ContentViewModel {
                 self.downloads[idx].downloadedSize = bytes
                 self.downloads[idx].downloadSpeed = speed
                 self.needsProgressSave = true
-                if self.progressMap[id] == nil {
-                    self.publishProgress(for: self.downloads[idx])
+                if !self.progress.isPublished(for: id) {
+                    self.progress.publish(for: self.downloads[idx], fileURL: self.stagingURL(for: self.downloads[idx]))
                 }
-                self.updateProgress(for: id)
+                self.progress.update(for: id, download: self.downloads[idx])
                 if prevTotal == 0 {
                     DownloadPersistence.shared.save(self.downloads, caller: "progressHandler")
                 }
@@ -208,7 +186,7 @@ final class ContentViewModel {
                 switch result {
                 case .success:
                     self.downloads[idx].status = .completed
-                    self.unpublishProgress(for: id)
+                    self.progress.unpublish(for: id)
                     let staging = self.stagingURL(for: self.downloads[idx])
                     let final = self.destinationURL(for: self.downloads[idx])
                     try? FileManager.default.moveItem(at: staging, to: final)
@@ -217,7 +195,7 @@ final class ContentViewModel {
                 case .failure(let error):
                     self.downloads[idx].status = .error
                     self.downloads[idx].errorMessage = self.localizedMessage(for: error)
-                    self.unpublishProgress(for: id)
+                    self.progress.unpublish(for: id)
                 }
                 self.engineTrackedDownloads.remove(id)
                 self.engine.cleanup(id: id)
@@ -320,7 +298,7 @@ final class ContentViewModel {
             status: .active,
             savePath: savePath,
             downloadLimit: dlLimit > 0 ? dlLimit : nil,
-            maxConcurrentChunks: connections ?? SettingsStore.shared.maxConnections
+            maxConcurrentChunks: connections ?? settings.maxConnections
         )
         downloads.append(d)
         persistence.save(downloads)
@@ -334,8 +312,8 @@ final class ContentViewModel {
             return
         }
 
-        let activeCount = downloads.filter { $0.status == .active }.count
-        if activeCount >= max(SettingsStore.shared.maxConcurrentDownloads, 1),
+        let activeCount = downloads.filter { $0.status == .active && $0.id != d.id }.count
+        if activeCount >= max(settings.maxConcurrentDownloads, 1),
            let idx = downloads.firstIndex(where: { $0.id == d.id }) {
             downloads[idx].status = .waiting
             persistence.save(downloads)
@@ -346,7 +324,7 @@ final class ContentViewModel {
     }
 
     private func startNextWaitingDownload() {
-        let limit = max(SettingsStore.shared.maxConcurrentDownloads, 1)
+        let limit = max(settings.maxConcurrentDownloads, 1)
         while downloads.filter({ $0.status == .active }).count < limit,
               let idx = downloads.firstIndex(where: { $0.status == .waiting }) {
             downloads[idx].status = .active
@@ -422,7 +400,7 @@ final class ContentViewModel {
     }
 
     func deleteDownload(id: UUID) {
-        unpublishProgress(for: id)
+        progress.unpublish(for: id)
         if id == priorityDownloadID {
             endPriorityMode(excluding: id)
         }
@@ -445,7 +423,7 @@ final class ContentViewModel {
         if d.status == .active {
             engine.cancel(id: id)
             engineTrackedDownloads.remove(id)
-            unpublishProgress(for: id)
+            progress.unpublish(for: id)
         }
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
@@ -588,7 +566,7 @@ final class ContentViewModel {
         for id in toDelete.map(\.id) { pausedForPriority.remove(id) }
 
         for d in toDelete {
-            unpublishProgress(for: d.id)
+            progress.unpublish(for: d.id)
             if d.status == .active {
                 engine.cancel(id: d.id)
                 engineTrackedDownloads.remove(d.id)

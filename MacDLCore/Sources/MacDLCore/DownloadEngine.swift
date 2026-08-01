@@ -1,6 +1,6 @@
 import Foundation
 
-public final class DownloadEngine: @unchecked Sendable {
+public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
 
     public static let shared = DownloadEngine()
 

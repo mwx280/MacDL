@@ -10,17 +10,20 @@ final class DownloadPersistence {
 
     private let queue = DispatchQueue(label: "com.xiaowu.persistence", qos: .utility)
 
-    private var fileURL: URL {
-        let base: URL
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
-            base = FileManager.default.temporaryDirectory
+    private let fileURL: URL
+
+    init(fileURL: URL? = nil) {
+        if let fileURL {
+            self.fileURL = fileURL
+        } else if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            self.fileURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("com.xiaowu.MacDL-tests")
+                .appendingPathComponent("downloads.json")
         } else {
-            base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            self.fileURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
                 .appendingPathComponent("com.xiaowu.MacDL")
+                .appendingPathComponent("downloads.json")
         }
-        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        return base.appendingPathComponent("downloads.json")
     }
 
     func load() -> [Download] {
@@ -28,8 +31,7 @@ final class DownloadPersistence {
             let url = fileURL
             guard let data = try? Data(contentsOf: url),
                   let list = try? JSONDecoder().decode([Download].self, from: data)
-            else { print("📖 load: no file or decode failed at \(url.path)"); return [] }
-            print("📖 load: \(list.count) downloads, file=\(list.first?.filename ?? "nil") ts=\(list.first?.totalSize ?? -1) ds=\(list.first?.downloadedSize ?? -1)")
+            else { return [] }
             return list
         }
     }
@@ -57,8 +59,8 @@ final class DownloadPersistence {
 
     private func write(_ downloads: [Download], caller: String = "?") {
         let url = fileURL
-        guard let data = try? JSONEncoder().encode(downloads) else { print("❌ write: encode failed"); return }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard let data = try? JSONEncoder().encode(downloads) else { return }
         try? data.write(to: url, options: .atomic)
-        print("📝 save: count=\(downloads.count) file=\(downloads.first?.filename ?? "nil") ts=\(downloads.first?.totalSize ?? -1) ds=\(downloads.first?.downloadedSize ?? -1) caller=\(caller)")
     }
 }
