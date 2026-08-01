@@ -30,28 +30,28 @@ final class DownloadEngine {
     }
 
     func pause(id: UUID) {
-        syncQueue.sync { managers[id]?.pause() }
+        syncQueue.sync { _ = managers[id]?.pause() }
     }
 
     func cancel(id: UUID) {
         syncQueue.sync {
-            managers[id]?.cancel()
-            managers.removeValue(forKey: id)
+            _ = managers[id]?.cancel()
+            _ = managers.removeValue(forKey: id)
         }
     }
 
     func cleanup(id: UUID) {
         syncQueue.sync {
-            managers.removeValue(forKey: id)
+            _ = managers.removeValue(forKey: id)
         }
     }
 
     func setSpeedLimit(id: UUID, limit: Int64) {
-        syncQueue.sync { managers[id]?.setSpeedLimit(limit) }
+        syncQueue.sync { _ = managers[id]?.setSpeedLimit(limit) }
     }
 
     func setMaxConcurrent(id: UUID, max: Int) {
-        syncQueue.sync { managers[id]?.setMaxConcurrent(max) }
+        syncQueue.sync { _ = managers[id]?.setMaxConcurrent(max) }
     }
 
     var hasActiveTasks: Bool {
