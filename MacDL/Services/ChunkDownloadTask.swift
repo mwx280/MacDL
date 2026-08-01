@@ -61,11 +61,13 @@ final class ChunkDownloadTask: NSObject {
         let to = endOffset - 1
         var req = URLRequest(url: url)
         if !requestsWholeFile {
-            if from < to {
-                req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
-            } else if from == startOffset {
-                req.setValue("bytes=\(startOffset)-\(to)", forHTTPHeaderField: "Range")
+            // Whole chunk already downloaded (edge case): treat as success to avoid sending an invalid Range
+            if resumeFrom >= endOffset - startOffset {
+                finish(with: .success(()))
+                return
             }
+            // Always send a bounded Range so resuming near the chunk end never omits it (which made the server return the whole 200 file)
+            req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
         }
         os_log("[Chunk #%d] start range=%lld-%lld resumeFrom=%lld wholeFile=%d", chunkIndex, from, to, resumeFrom, requestsWholeFile ? 1 : 0)
 
