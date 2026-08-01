@@ -8,6 +8,7 @@ struct DownloadRow: View {
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
     var onSetPriority: ((UUID) -> Void)?
+    var onCancelPriority: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
     var onSetMaxChunks: ((UUID, Int) -> Void)?
@@ -81,9 +82,15 @@ struct DownloadRow: View {
                 }
             }
             if canPrioritize, !isMultiSelection,
+               download.isPriorityDownload != true,
                download.status == .active || download.status == .paused || download.status == .waiting {
                 Button(action: { onSetPriority?(download.id) }) {
                     Label(LanguageManager.shared.localized("Priority Download"), systemImage: "arrow.up.circle")
+                }
+            }
+            if download.isPriorityDownload == true, !isMultiSelection {
+                Button(action: { onCancelPriority?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Cancel Priority Download"), systemImage: "arrow.down.circle")
                 }
             }
             Divider()

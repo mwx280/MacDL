@@ -399,6 +399,23 @@
         }
       }
     },
+    "Cancel Priority Download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel Priority Download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消优先下载"
+          }
+        }
+      }
+    },
     "Cancelled" : {
       "extractionState" : "manual",
       "localizations" : {

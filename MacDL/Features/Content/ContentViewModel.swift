@@ -493,7 +493,6 @@ final class ContentViewModel {
     func setPriorityDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         guard [.active, .paused, .waiting].contains(downloads[idx].status) else { return }
-
         // Ensure the target is active
         if downloads[idx].status == .paused || downloads[idx].status == .waiting {
             resumeDownload(id: id)
@@ -524,6 +523,11 @@ final class ContentViewModel {
             downloads[ii].isPriorityDownload = true
         }
         persistence.save(downloads)
+    }
+
+    func cancelPriorityDownload(id: UUID) {
+        guard id == priorityDownloadID else { return }
+        endPriorityMode()
     }
 
     private func endPriorityMode(excluding skip: UUID? = nil) {

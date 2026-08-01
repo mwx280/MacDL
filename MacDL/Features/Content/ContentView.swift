@@ -101,6 +101,7 @@ struct ContentView: View {
                 onResume: { model.resumeDownload(id: $0) },
                 onRetry: { model.retryDownload(id: $0) },
                 onSetPriority: { model.setPriorityDownload(id: $0) },
+                onCancelPriority: { model.cancelPriorityDownload(id: $0) },
                 onDelete: { id in model.selectedDownloads.insert(id); model.confirmDelete() },
                 onSetDownloadLimit: { model.setDownloadLimit(id: $0, limit: $1) },
                 onSetMaxChunks: { model.setMaxChunks(id: $0, count: $1) },

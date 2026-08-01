@@ -7,6 +7,7 @@ struct DownloadListView: View {
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
     var onSetPriority: ((UUID) -> Void)?
+    var onCancelPriority: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
     var onSetDownloadLimit: ((UUID, Int) -> Void)?
     var onSetMaxChunks: ((UUID, Int) -> Void)?
@@ -16,33 +17,34 @@ struct DownloadListView: View {
     var body: some View {
         let priority = downloads.filter { $0.isPriorityDownload == true }
         let rest = downloads.filter { $0.isPriorityDownload != true }
-        let activeCount = downloads.filter { $0.status == .active }.count
+        let canPrioritize = downloads.filter { [.active, .paused, .waiting].contains($0.status) }.count > 1
         List(selection: $selection) {
             if !priority.isEmpty {
                 Section {
-                    ForEach(priority) { row($0, activeCount: activeCount) }
+                    ForEach(priority) { row($0, canPrioritize: canPrioritize) }
                 } header: {
                     priorityHeader(count: priority.count)
                 }
                 Section {
-                    ForEach(rest) { row($0, activeCount: activeCount) }
+                    ForEach(rest) { row($0, canPrioritize: canPrioritize) }
                 } header: {
                     queueHeader
                 }
             } else {
-                ForEach(downloads) { row($0, activeCount: activeCount) }
+                ForEach(downloads) { row($0, canPrioritize: canPrioritize) }
             }
         }
         .listStyle(.inset)
     }
 
     @ViewBuilder
-    private func row(_ d: Download, activeCount: Int) -> some View {
+    private func row(_ d: Download, canPrioritize: Bool) -> some View {
         DownloadRow(download: d,
             isMultiSelection: selection.count > 1,
-            canPrioritize: activeCount > 1,
+            canPrioritize: canPrioritize,
             onPause: onPause, onResume: onResume, onRetry: onRetry,
             onSetPriority: onSetPriority,
+            onCancelPriority: onCancelPriority,
             onDelete: onDelete,
             onSetDownloadLimit: onSetDownloadLimit,
             onSetMaxChunks: onSetMaxChunks,
