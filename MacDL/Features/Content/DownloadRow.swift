@@ -431,7 +431,6 @@ struct DownloadRow: View {
                             .foregroundStyle(canResume ? .green : .red)
                         }
                     }
-                    .frame(width: 132, alignment: .trailing)
                 }
 
                 ProgressView(value: d.progress)
