@@ -53,11 +53,15 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func notifyStarted(_ download: Download) {
         os_log("[DownloadNotifier] notifyStarted %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
+        // Small delay so the banner lands after the new-download sheet has fully
+        // dismissed - a notification posted mid-transition gets parked in the
+        // notification center instead of presenting.
         send(title: LanguageManager.shared.localized("Download Started"),
              body: download.filename,
              id: download.id,
              kind: "started",
-             sound: true)
+             sound: true,
+             delay: 0.5)
     }
 
     func notifyCompleted(_ download: Download) {
@@ -80,14 +84,17 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
              sound: true)
     }
 
-    private func send(title: String, body: String, id: UUID, kind: String, sound: Bool) {
+    private func send(title: String, body: String, id: UUID, kind: String, sound: Bool, delay: TimeInterval = 0) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         if sound { content.sound = .default }
         // Distinct identifier per event type so "started" isn't replaced by
         // "completed" for fast downloads.
-        let request = UNNotificationRequest(identifier: id.uuidString + "-" + kind, content: content, trigger: nil)
+        let trigger: UNNotificationTrigger? = delay > 0
+            ? UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            : nil
+        let request = UNNotificationRequest(identifier: id.uuidString + "-" + kind, content: content, trigger: trigger)
         // If the permission prompt is still pending, hold the banner and deliver
         // it once access is granted (otherwise the first download's "started"
         // notification would be silently dropped).
