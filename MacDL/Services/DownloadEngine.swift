@@ -40,6 +40,12 @@ final class DownloadEngine {
         }
     }
 
+    func cleanup(id: UUID) {
+        syncQueue.sync {
+            managers.removeValue(forKey: id)
+        }
+    }
+
     func setSpeedLimit(id: UUID, limit: Int64) {
         syncQueue.sync { managers[id]?.setSpeedLimit(limit) }
     }

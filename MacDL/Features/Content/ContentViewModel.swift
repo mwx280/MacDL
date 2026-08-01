@@ -17,6 +17,8 @@ final class ContentViewModel {
     private var progressMap: [UUID: Progress] = [:]
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
+    private var needsProgressSave = false
+    private var lastProgressSaveTime: Date = .distantPast
 
     init() {
         Self.current = self
@@ -40,7 +42,9 @@ final class ContentViewModel {
             }
         }
         fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.checkDownloadFiles()
+            guard let self else { return }
+            self.checkDownloadFiles()
+            self.persistProgressIfNeeded()
         }
     }
 
@@ -151,6 +155,7 @@ final class ContentViewModel {
                 self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
                 self.downloads[idx].downloadedSize = bytes
                 self.downloads[idx].downloadSpeed = speed
+                self.needsProgressSave = true
                 if self.progressMap[id] == nil {
                     self.publishProgress(for: self.downloads[idx])
                 }
@@ -160,6 +165,15 @@ final class ContentViewModel {
                 }
             }
         }
+    }
+
+    private func persistProgressIfNeeded() {
+        guard needsProgressSave else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastProgressSaveTime) >= 5 else { return }
+        lastProgressSaveTime = now
+        needsProgressSave = false
+        persistence.save(downloads, caller: "periodicProgressSave")
     }
 
     private func installCompletionHandler(for id: UUID) {
@@ -181,6 +195,7 @@ final class ContentViewModel {
                     self.unpublishProgress(for: id)
                 }
                 self.engineTrackedDownloads.remove(id)
+                self.engine.cleanup(id: id)
                 self.persistence.save(self.downloads)
                 self.startNextWaitingDownload()
             }
@@ -385,6 +400,7 @@ final class ContentViewModel {
         downloads[idx].errorMessage = nil
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
+        downloads[idx].chunks = []
         persistence.save(downloads)
 
         guard let sourceURL = URL(string: d.url) else {

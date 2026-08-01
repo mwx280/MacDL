@@ -99,4 +99,19 @@ let testDownloads: [Download] = [
         #expect(vm.downloads.count == before - 1)
         #expect(vm.downloads.allSatisfy { $0.id != first.id })
     }
+
+    @Test func retryDownloadClearsStaleChunks() {
+        let vm = ContentViewModel()
+        let tempDir = NSTemporaryDirectory() + "/retry-test-\(UUID().uuidString)"
+        try? FileManager.default.createDirectory(atPath: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: tempDir) }
+        let stale = [Chunk(index: 0, startOffset: 0, endOffset: 256, downloadedSize: 256, status: .completed)]
+        let d = Download(filename: "retry.bin", url: "http://exa mple.com/file.bin", status: .error, savePath: tempDir, chunks: stale)
+        vm.downloads = [d]
+        vm.retryDownload(id: d.id)
+        let result = vm.downloads.first { $0.id == d.id }
+        #expect(result?.chunks.isEmpty == true)
+        #expect(result?.downloadedSize == 0)
+        #expect(result?.totalSize == 0)
+    }
 }
