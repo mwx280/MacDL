@@ -41,7 +41,8 @@ extension Download {
         if ext == "iso" { return "opticaldisc" }
         if ["mkv", "mp4", "avi", "mov", "wmv", "flv", "m4v"].contains(ext) { return "film" }
         if ["xip", "zip", "tar", "gz", "bz2", "7z", "rar"].contains(ext) { return "shippingbox" }
-        if ["dmg", "pkg", "exe"].contains(ext) { return "app.dashed" }
+        if ["dmg", "pkg"].contains(ext) { return "app.dashed" }
+        if ext == "exe" { return "pc" }
         if ["gguf", "bin", "pt", "safetensors"].contains(ext) { return "cpu" }
         if ext == "pdf" { return "doc.richtext" }
         if ["txt", "md", "json", "xml", "yaml", "yml", "csv"].contains(ext) { return "doc.text" }
