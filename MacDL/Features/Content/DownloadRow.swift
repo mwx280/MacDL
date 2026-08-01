@@ -160,3 +160,23 @@ struct DownloadRow: View {
         }
     }
 }
+
+#Preview("下载任务") {
+    List {
+        DownloadRow(
+            download: Download(
+                filename: "ubuntu-24.04-desktop-amd64.iso",
+                url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
+                totalSize: 6_100_000_000,
+                downloadedSize: 2_800_000_000,
+                downloadSpeed: 12_582_912,
+                status: .active,
+                downloadLimit: nil,
+                maxConcurrentChunks: 8
+            )
+        )
+    }
+    .listStyle(.inset)
+    .frame(width: 560, height: 80)
+    .environment(LanguageManager.shared)
+}
