@@ -92,6 +92,37 @@ extension Download {
         "php": .indigo,
         "sql": .teal,
     ]
+
+    static let logoMap: [String: String] = [
+        "py": "logo.python",
+        "pyw": "logo.python",
+        "swift": "logo.swift",
+        "rs": "logo.rust",
+        "java": "logo.java",
+        "js": "logo.javascript",
+        "jsx": "logo.javascript",
+        "ts": "logo.typescript",
+        "tsx": "logo.typescript",
+        "go": "logo.go",
+        "rb": "logo.ruby",
+        "php": "logo.php",
+        "c": "logo.c",
+        "cpp": "logo.cplusplus",
+        "h": "logo.cplusplus",
+        "html": "logo.html5",
+        "htm": "logo.html5",
+        "css": "logo.css3",
+        "scss": "logo.css3",
+        "sass": "logo.css3",
+        "less": "logo.css3",
+        "exe": "logo.windows",
+        "msi": "logo.windows",
+    ]
+
+    var fileTypeLogo: String? {
+        let ext = (filename as NSString).pathExtension.lowercased()
+        return Self.logoMap[ext]
+    }
     static let imageExts: Set<String> = ["jpg", "jpeg", "png", "gif", "webp", "heic", "svg", "bmp", "tiff", "tif", "ico", "psd"]
     static let audioExts: Set<String> = ["mp3", "flac", "wav", "aac", "m4a", "ogg", "opus", "wma"]
     static let fontExts: Set<String> = ["ttf", "otf", "woff", "woff2"]
