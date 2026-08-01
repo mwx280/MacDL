@@ -1,4 +1,5 @@
 import Foundation
+import os
 import UserNotifications
 import MacDLCore
 
@@ -17,7 +18,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
-                self?.authorized = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+                self?.setAuthorized(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
             }
         }
     }
@@ -28,16 +29,25 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.authorized = granted
-                if granted { self.flushPending() }
+                if let error {
+                    os_log("[DownloadNotifier] authorization error: %{public}@", String(describing: error))
+                }
+                self.setAuthorized(granted)
             }
         }
     }
 
+    func setAuthorized(_ value: Bool) {
+        let was = authorized
+        authorized = value
+        if value && !was { flushPending() }
+    }
+
     func notifyStarted(_ download: Download) {
+        os_log("[DownloadNotifier] notifyStarted %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
         send(title: LanguageManager.shared.localized("Download Started"),
              body: download.filename,
              id: download.id,
@@ -46,6 +56,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func notifyCompleted(_ download: Download) {
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
+        os_log("[DownloadNotifier] notifyCompleted %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
         send(title: LanguageManager.shared.localized("Download Completed"),
              body: dir + "/" + download.filename,
              id: download.id,
@@ -54,6 +65,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func notifyFailed(_ download: Download) {
         let reason = download.errorMessage ?? LanguageManager.shared.localized("Unknown error")
+        os_log("[DownloadNotifier] notifyFailed %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
         send(title: LanguageManager.shared.localized("Download failed"),
              body: download.filename + " — " + reason,
              id: download.id,
@@ -67,12 +79,13 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         if sound { content.sound = .default }
         let request = UNNotificationRequest(identifier: id.uuidString, content: content, trigger: nil)
         // If the permission prompt is still pending, hold the banner and deliver
-        // it once the user grants access (otherwise the first download's
-        // "started" notification would be silently dropped).
+        // it once access is granted (otherwise the first download's "started"
+        // notification would be silently dropped).
         guard authorized else {
             pending.append(request)
             return
         }
+        os_log("[DownloadNotifier] posting %{public}@", title)
         post(request)
     }
 
@@ -82,9 +95,9 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     // Show the banner even while the app (or its menu bar UI) is frontmost.
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            willPresent notification: UNNotification,
+                                            withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
     }
 }

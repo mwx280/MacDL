@@ -70,4 +70,17 @@ import MacDLCore
         #expect(requests[0].identifier == d.id.uuidString)
         #expect(requests[0].content.body == "a.bin")
     }
+
+    @Test func pendingFlushedWhenSettingsReportAuthorized() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = false
+        let d = Download(filename: "a.bin", url: "https://e.com/a.bin")
+        notifier.notifyStarted(d)
+        #expect(requests.isEmpty)
+        // Simulates getNotificationSettings reporting .authorized without a new prompt.
+        notifier.setAuthorized(true)
+        #expect(requests.count == 1)
+        #expect(requests[0].identifier == d.id.uuidString)
+    }
 }
