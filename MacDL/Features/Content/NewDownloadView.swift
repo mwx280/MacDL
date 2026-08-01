@@ -7,6 +7,7 @@ struct NewDownloadView: View {
     @State private var downloadPath: String
     @State private var downloadLimit: Int
     @State private var downloadConnections: Int
+    @State private var resumeSupported: Bool?
     @State private var refresh = UUID()
     @Environment(\.dismiss) var dismiss
 
@@ -75,15 +76,28 @@ struct NewDownloadView: View {
                     .frame(width: 100)
                 }
 
-                prefRow("square.grid.3x2", "Connections") {
-                    Picker(selection: $downloadConnections) {
-                        ForEach([1, 2, 4, 8], id: \.self) { count in
-                            Text("\(count)")
-                                .tag(count)
-                        }
-                    } label: { }
-                    .labelsHidden()
-                    .frame(width: 100)
+                if resumeSupported == false {
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.body)
+                            .frame(width: 18)
+                            .foregroundStyle(.orange)
+                        LocalizedText(key: "Server does not support resume, will download with a single connection")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                } else {
+                    prefRow("square.grid.3x2", "Connections") {
+                        Picker(selection: $downloadConnections) {
+                            ForEach([1, 2, 4, 8], id: \.self) { count in
+                                Text("\(count)")
+                                    .tag(count)
+                            }
+                        } label: { }
+                        .labelsHidden()
+                        .frame(width: 100)
+                    }
                 }
             }
 
@@ -91,7 +105,7 @@ struct NewDownloadView: View {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {
-                    onDownload(text, downloadPath, downloadLimit, downloadConnections)
+                    onDownload(text, downloadPath, downloadLimit, resumeSupported == false ? 1 : downloadConnections)
                     SettingsStore.shared.downloadPath = downloadPath
                     dismiss()
                 }
@@ -104,14 +118,21 @@ struct NewDownloadView: View {
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
         }
+        .onChange(of: text) { _, _ in
+            detectResumeSupport()
+        }
         .onAppear {
-            guard text.isEmpty else { return }
+            guard text.isEmpty else {
+                detectResumeSupport()
+                return
+            }
             let pasteboard = NSPasteboard.general
             guard let str = pasteboard.string(forType: .string) else { return }
             let hasURL = str.components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .contains { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
             if hasURL { text = str }
+            detectResumeSupport()
         }
     }
 
@@ -137,5 +158,29 @@ struct NewDownloadView: View {
         panel.directoryURL = URL(fileURLWithPath: downloadPath)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         downloadPath = url.path
+    }
+
+    private func detectResumeSupport() {
+        guard let first = text.components(separatedBy: .newlines)
+            .map({ $0.trimmingCharacters(in: .whitespaces) })
+            .first(where: { !$0.isEmpty && ($0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://")) }),
+            let url = URL(string: first)
+        else {
+            resumeSupported = nil
+            return
+        }
+        resumeSupported = nil
+        var req = URLRequest(url: url)
+        req.setValue("bytes=0-0", forHTTPHeaderField: "Range")
+        let task = URLSession.shared.dataTask(with: req) { _, response, error in
+            let result: Bool?
+            if error == nil, let http = response as? HTTPURLResponse {
+                result = http.statusCode == 206
+            } else {
+                result = nil
+            }
+            DispatchQueue.main.async { self.resumeSupported = result }
+        }
+        task.resume()
     }
 }

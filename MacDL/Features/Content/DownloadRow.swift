@@ -60,7 +60,17 @@ struct DownloadRow: View {
             }
             Divider()
             speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
-            chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
+            if download.supportsResume == false {
+                Label {
+                    Text(LanguageManager.shared.localized("Single connection · server does not support resume"))
+                } icon: {
+                    Image(systemName: "info.circle")
+                }
+                .foregroundStyle(.secondary)
+                .disabled(true)
+            } else {
+                chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
+            }
             Divider()
             Button(action: { onCopyURL?(download.id) }) {
                 Label(LanguageManager.shared.localized("Copy Link"), systemImage: "link")

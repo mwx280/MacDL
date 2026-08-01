@@ -1952,6 +1952,40 @@
         }
       }
     },
+    "Server does not support resume, will download with a single connection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server does not support resume, will download with a single connection"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器不支持断点续传，将使用单线程下载"
+          }
+        }
+      }
+    },
+    "Single connection · server does not support resume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single connection · server does not support resume"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单线程 · 服务器不支持断点续传"
+          }
+        }
+      }
+    },
     "Server error" : {
       "extractionState" : "manual",
       "localizations" : {
