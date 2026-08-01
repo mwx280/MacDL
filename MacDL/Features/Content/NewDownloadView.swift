@@ -106,7 +106,6 @@ struct NewDownloadView: View {
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {
                     onDownload(text, downloadPath, downloadLimit, resumeSupported == false ? 1 : downloadConnections)
-                    SettingsStore.shared.downloadPath = downloadPath
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
