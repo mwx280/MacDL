@@ -1306,6 +1306,23 @@
         }
       }
     },
+    "In Queue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Queue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "队列中"
+          }
+        }
+      }
+    },
     "Initializing download sequence..." : {
       "extractionState" : "manual",
       "localizations" : {
