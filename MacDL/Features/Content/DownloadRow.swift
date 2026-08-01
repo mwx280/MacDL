@@ -37,6 +37,7 @@ struct DownloadRow: View {
                     Text(formatSize(download.downloadedSize) + " / " + formatSize(download.totalSize))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    resumeBadge
                 }
             }
         }
@@ -115,6 +116,22 @@ struct DownloadRow: View {
         }
     }
 
+    @ViewBuilder
+    private var resumeBadge: some View {
+        if let canResume = download.supportsResume {
+            HStack(spacing: 3) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.caption2)
+                Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
+                    .font(.caption)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
+            .foregroundStyle(canResume ? .green : .red)
+        }
+    }
+
     private var progressTint: Color {
         download.status == .active ? .blue : .secondary
     }
@@ -172,7 +189,8 @@ struct DownloadRow: View {
                 downloadSpeed: 12_582_912,
                 status: .active,
                 downloadLimit: nil,
-                maxConcurrentChunks: 8
+                maxConcurrentChunks: 8,
+                supportsResume: true
             )
         )
     }

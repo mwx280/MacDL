@@ -1714,6 +1714,40 @@
         }
       }
     },
+    "Resumable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resumable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可续传"
+          }
+        }
+      }
+    },
+    "Not Resumable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Resumable"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不可续传"
+          }
+        }
+      }
+    },
     "Resume All" : {
       "extractionState" : "manual",
       "localizations" : {
