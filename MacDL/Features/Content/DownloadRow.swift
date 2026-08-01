@@ -364,6 +364,129 @@ struct DownloadRow: View {
     .environment(LanguageManager.shared)
 }
 
+#Preview("下载任务（v5）") {
+    let d1 = Download(
+        filename: "ubuntu-24.04-desktop-amd64.iso",
+        url: "https://releases.ubuntu.com/24.04/ubuntu-24.04-desktop-amd64.iso",
+        totalSize: 6_100_000_000,
+        downloadedSize: 2_800_000_000,
+        downloadSpeed: 12_582_912,
+        status: .active,
+        savePath: "/Users/xiaowu/Downloads",
+        maxConcurrentChunks: 8,
+        supportsResume: true
+    )
+    let d2 = Download(
+        filename: "legacy-app.bin",
+        url: "http://127.0.0.1:8000/noresume/legacy-app.bin",
+        totalSize: 268_435_456,
+        downloadedSize: 150_000_000,
+        downloadSpeed: 0,
+        status: .paused,
+        savePath: "/Users/xiaowu/Downloads",
+        maxConcurrentChunks: 1,
+        supportsResume: false
+    )
+
+    @ViewBuilder
+    func card(_ d: Download) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: d.fileTypeIcon)
+                    .font(.title)
+                    .foregroundStyle(d.fileTypeColor)
+                Circle()
+                    .fill(d.status.displayColor)
+                    .frame(width: 15, height: 15)
+                    .overlay {
+                        Image(systemName: d.status.displayIcon)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .offset(x: 4, y: 4)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(d.filename)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    HStack(spacing: 8) {
+                        HStack(spacing: 3) {
+                            Image(systemName: d.status.displayIcon)
+                                .font(.caption2)
+                            Text(LanguageManager.shared.localized(d.status.labelKey))
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(d.status.displayColor)
+                        if let canResume = d.supportsResume {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.caption2)
+                                Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
+                                    .font(.caption2)
+                            }
+                            .foregroundStyle(canResume ? .green : .red)
+                        }
+                    }
+                }
+
+                ProgressView(value: d.progress)
+                    .tint(d.status == .active ? .blue : .secondary)
+
+                HStack(spacing: 8) {
+                    if d.status == .active || d.status == .waiting {
+                        HStack(spacing: 3) {
+                            Image(systemName: "gauge.with.dots.needle.50percent")
+                                .font(.system(size: 9))
+                            Text(d.progress, format: .percent.precision(.fractionLength(1)))
+                        }
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 9))
+                            Text(formatSpeed(d.downloadSpeed))
+                        }
+                        if let remaining = d.estimatedTimeRemaining {
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 9))
+                                Text(formatRemainingTime(remaining))
+                            }
+                        }
+                    }
+                    Spacer()
+                    Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+                HStack(spacing: 3) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 9))
+                    Text((d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    return VStack(spacing: 8) {
+        card(d1)
+        card(d2)
+    }
+    .padding(10)
+    .frame(width: 560)
+    .environment(LanguageManager.shared)
+}
+
 #Preview("下载任务（v3）") {
     let d1 = Download(
         filename: "ubuntu-24.04-desktop-amd64.iso",
