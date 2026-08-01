@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.cplusplus.png",
-      "idiom": "universal"
+      "filename": "logo.cplusplus.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

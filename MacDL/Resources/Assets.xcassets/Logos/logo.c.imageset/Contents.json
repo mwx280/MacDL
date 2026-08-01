@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.c.png",
-      "idiom": "universal"
+      "filename": "logo.c.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

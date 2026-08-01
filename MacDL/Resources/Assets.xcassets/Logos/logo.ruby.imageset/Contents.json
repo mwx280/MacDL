@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.ruby.png",
-      "idiom": "universal"
+      "filename": "logo.ruby.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

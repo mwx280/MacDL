@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.typescript.png",
-      "idiom": "universal"
+      "filename": "logo.typescript.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

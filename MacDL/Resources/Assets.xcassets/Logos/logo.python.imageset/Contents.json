@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.python.png",
-      "idiom": "universal"
+      "filename": "logo.python.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

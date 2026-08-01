@@ -108,7 +108,6 @@ extension Download {
         "php": "logo.php",
         "c": "logo.c",
         "cpp": "logo.cplusplus",
-        "h": "logo.cplusplus",
         "html": "logo.html5",
         "htm": "logo.html5",
         "css": "logo.css3",

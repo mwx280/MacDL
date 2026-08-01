@@ -46,6 +46,7 @@ import Foundation
         ("app.swift", "logo.swift"),
         ("setup.exe", "logo.windows"),
         ("page.html", "logo.html5"),
+        ("header.h", nil),
         ("notes.txt", nil),
     ]) func fileTypeLogo(filename: String, expected: String?) {
         let d = Download(id: UUID(), filename: filename, url: "", totalSize: 0, downloadedSize: 0, downloadSpeed: 0, status: .active, addedAt: Date())

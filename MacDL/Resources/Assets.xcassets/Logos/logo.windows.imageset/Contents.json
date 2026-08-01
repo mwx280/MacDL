@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.windows.png",
-      "idiom": "universal"
+      "filename": "logo.windows.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

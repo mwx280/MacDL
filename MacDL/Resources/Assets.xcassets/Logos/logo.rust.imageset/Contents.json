@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.rust.png",
-      "idiom": "universal"
+      "filename": "logo.rust.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

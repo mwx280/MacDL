@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.html5.png",
-      "idiom": "universal"
+      "filename": "logo.html5.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

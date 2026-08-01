@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.go.png",
-      "idiom": "universal"
+      "filename": "logo.go.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

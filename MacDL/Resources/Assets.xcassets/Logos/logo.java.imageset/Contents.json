@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.java.png",
-      "idiom": "universal"
+      "filename": "logo.java.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

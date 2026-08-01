@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.css3.png",
-      "idiom": "universal"
+      "filename": "logo.css3.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {

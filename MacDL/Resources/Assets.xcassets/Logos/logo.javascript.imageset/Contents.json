@@ -1,8 +1,9 @@
 {
   "images": [
     {
-      "filename": "logo.javascript.png",
-      "idiom": "universal"
+      "filename": "logo.javascript.pdf",
+      "idiom": "universal",
+      "preserves-vector-representation": true
     }
   ],
   "info": {
