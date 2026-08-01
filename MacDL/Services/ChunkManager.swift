@@ -305,6 +305,8 @@ final class ChunkManager {
         totalSize = 0
         lastLogTime = .distantPast
         lastLogBytes = 0
+        // cancel() of the old task stops the shared bucket; re-activate it and re-apply the throttle
+        bucket.reset(rate: speedLimit > 0 ? Double(speedLimit) : 0)
         try? FileManager.default.removeItem(at: destinationURL)
         onChunksChanged?([])
 
