@@ -8,6 +8,7 @@ import Foundation
         ("movie.mkv", "film"),
         ("archive.zip", "shippingbox"),
         ("app.dmg", "app.dashed"),
+        ("setup.exe", "app.dashed"),
         ("model.gguf", "cpu"),
         ("doc.pdf", "doc.richtext"),
         ("notes.txt", "doc.text"),
