@@ -263,44 +263,44 @@ struct DownloadRow: View {
     )
     let path = (d.savePath ?? AppConfig.defaultDownloadDir) + "/" + d.filename
     return VStack(spacing: 0) {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 10) {
             ZStack(alignment: .bottomTrailing) {
                 Image(systemName: d.fileTypeIcon)
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundStyle(d.fileTypeColor)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 32, height: 32)
                 Circle()
                     .fill(d.status.displayColor)
-                    .frame(width: 14, height: 14)
+                    .frame(width: 12, height: 12)
                     .overlay {
                         Image(systemName: d.status.displayIcon)
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 7, weight: .bold))
                             .foregroundStyle(.white)
                     }
-                    .offset(x: 5, y: 5)
+                    .offset(x: 4, y: 4)
             }
 
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(d.filename)
-                        .font(.body.weight(.medium))
+                        .font(.callout.weight(.medium))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
                     HStack(spacing: 6) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             Circle()
                                 .fill(d.status.displayColor)
-                                .frame(width: 6, height: 6)
+                                .frame(width: 5, height: 5)
                             Text(LanguageManager.shared.localized(d.status.labelKey))
-                                .font(.caption)
+                                .font(.caption2)
                         }
                         .foregroundStyle(d.status.displayColor)
                         if let canResume = d.supportsResume {
                             Text(LanguageManager.shared.localized(canResume ? "Resumable" : "Not Resumable"))
                                 .font(.caption2)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 0)
                                 .background((canResume ? Color.green : Color.red).opacity(0.15), in: Capsule())
                                 .foregroundStyle(canResume ? .green : .red)
                         }
@@ -316,24 +316,25 @@ struct DownloadRow: View {
                     Spacer()
                     Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
                 }
-                .font(.caption)
+                .font(.caption2)
                 .foregroundStyle(.secondary)
 
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Image(systemName: "folder")
-                        .font(.caption2)
+                        .font(.system(size: 9))
                     Text(path)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
-                .font(.caption2)
+                .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
             }
         }
-        .padding(12)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         Spacer()
     }
     .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
-    .frame(width: 560, height: 150)
+    .frame(width: 560, height: 104)
     .environment(LanguageManager.shared)
 }
