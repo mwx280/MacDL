@@ -181,6 +181,21 @@ final class ChunkManager {
                 }
             }
         }
+        task.onTotalSizeKnown = { [weak self] total in
+            guard let self else { return }
+            self.syncQueue.async {
+                // Resume: the server file size doesn't match the persisted total, so safe resume isn't possible
+                guard total > 0, self.totalSize > 0, total != self.totalSize else { return }
+                os_log("[ChunkManager] server total=%lld differs from %lld, abort resume", total, self.totalSize)
+                self.lastError = DownloadError.fileChanged
+                for (_, t) in self.activeTasks { t.cancel() }
+                self.activeTasks.removeAll()
+                self.pendingIndices.removeAll()
+                self.logTimer?.invalidate()
+                self.logTimer = nil
+                self.onCompletion?(.failure(DownloadError.fileChanged))
+            }
+        }
         task.onCompletion = { [weak self] result in
             guard let self else { return }
             self.syncQueue.async {

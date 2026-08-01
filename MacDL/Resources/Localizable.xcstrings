@@ -1150,6 +1150,23 @@
         }
       }
     },
+    "File changed on server, resume not possible" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File changed on server, resume not possible"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器文件已变化，无法续传"
+          }
+        }
+      }
+    },
     "File exists" : {
       "extractionState" : "manual",
       "localizations" : {

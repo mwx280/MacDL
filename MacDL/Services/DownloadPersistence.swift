@@ -34,11 +34,13 @@ final class DownloadPersistence {
     }
 
     func save(_ downloads: [Download], caller: String = #function) {
-        write(downloads, caller: caller)
+        // Write on a background queue so encoding + I/O don't stall the main thread
+        queue.async { self.write(downloads, caller: caller) }
     }
 
     func saveImmediately(_ downloads: [Download], caller: String = #function) {
-        write(downloads, caller: caller)
+        // Write synchronously (must-complete cases like quitting)
+        queue.sync { self.write(downloads, caller: caller) }
     }
 
     private func migrateFromCaches() {

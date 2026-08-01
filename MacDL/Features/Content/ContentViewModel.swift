@@ -384,10 +384,9 @@ final class ContentViewModel {
         }
 
         let dest = stagingURL(for: downloads[idx])
-        let persisted = downloads[idx].downloadedSize
         downloads[idx].chunks = downloads[idx].ensureChunks()
         let chunks = downloads[idx].chunks
-        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0), resumeFrom: persisted,
+        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0),
                      chunkSize: downloads[idx].chunkSize,
                      maxConcurrent: downloads[idx].maxConcurrentChunks,
                      chunks: chunks)

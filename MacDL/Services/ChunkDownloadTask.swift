@@ -29,6 +29,7 @@ final class ChunkDownloadTask: NSObject {
     private let finishLock = NSLock()
     private var writeScheduled = false
     private var responseComplete = false
+    private var resumeOffset: Int64 = 0
     private let writerQueue = DispatchQueue(label: "com.xiaowu.chunkwriter")
     private let bufferCap = 8 * 1024 * 1024
     private let writeChunk = 64 * 1024
@@ -52,6 +53,7 @@ final class ChunkDownloadTask: NSObject {
     }
 
     func start(resumeFrom: Int64 = 0) {
+        resumeOffset = resumeFrom
         let from = startOffset + resumeFrom
         let to = endOffset - 1
         if !requestsWholeFile, resumeFrom >= endOffset - startOffset {
@@ -228,7 +230,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     speedCheckTime = now
                     speedCheckBytes = bytesWritten
                 }
-                onProgress?(bytesWritten)
+                onProgress?(bytesWritten + resumeOffset)
             } else {
                 if done {
                     finish(with: .success(()))
