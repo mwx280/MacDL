@@ -107,7 +107,8 @@ let testDownloads: [Download] = [
         try? FileManager.default.createDirectory(atPath: tempDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: tempDir) }
         let stale = [Chunk(index: 0, startOffset: 0, endOffset: 256, downloadedSize: 256, status: .completed)]
-        let d = Download(filename: "retry.bin", url: "http://exa mple.com/file.bin", status: .error, savePath: tempDir, chunks: stale)
+        let bookmark = try? URL(fileURLWithPath: tempDir).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let d = Download(filename: "retry.bin", url: "http://exa mple.com/file.bin", status: .error, savePath: tempDir, saveBookmark: bookmark, chunks: stale)
         vm.downloads = [d]
         vm.retryDownload(id: d.id)
         let result = vm.downloads.first { $0.id == d.id }

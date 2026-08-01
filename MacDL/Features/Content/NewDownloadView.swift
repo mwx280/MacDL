@@ -3,15 +3,16 @@ import AppKit
 
 struct NewDownloadView: View {
     @Binding var text: String
-    let onDownload: (String, String, Int, Int) -> Void
+    let onDownload: (String, String, Data?, Int, Int) -> Void
     @State private var downloadPath: String
+    @State private var downloadBookmark: Data?
     @State private var downloadLimit: Int
     @State private var downloadConnections: Int
     @State private var resumeSupported: Bool?
     @State private var refresh = UUID()
     @Environment(\.dismiss) var dismiss
 
-    init(text: Binding<String>, onDownload: @escaping (String, String, Int, Int) -> Void) {
+    init(text: Binding<String>, onDownload: @escaping (String, String, Data?, Int, Int) -> Void) {
         _text = text
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
@@ -105,7 +106,7 @@ struct NewDownloadView: View {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {
-                    onDownload(text, downloadPath, downloadLimit, resumeSupported == false ? 1 : downloadConnections)
+                    onDownload(text, downloadPath, downloadBookmark, downloadLimit, resumeSupported == false ? 1 : downloadConnections)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -157,6 +158,8 @@ struct NewDownloadView: View {
         panel.directoryURL = URL(fileURLWithPath: downloadPath)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         downloadPath = url.path
+        downloadBookmark = try? url.bookmarkData(
+            options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
     private func detectResumeSupport() {

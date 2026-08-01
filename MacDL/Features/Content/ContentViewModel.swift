@@ -199,6 +199,7 @@ final class ContentViewModel {
                 }
                 self.engineTrackedDownloads.remove(id)
                 self.engine.cleanup(id: id)
+                SandboxAccess.shared.endAccess(for: id)
                 self.persistence.save(self.downloads)
                 if id == self.priorityDownloadID {
                     // TODO: notify when a priority task's retry budget is exhausted (together with the notifications feature)
@@ -227,6 +228,14 @@ final class ContentViewModel {
         let limit = dlLimit > 0 ? dlLimit : (idx.map { downloads[$0].downloadLimit ?? 0 } ?? 0)
         let speedLimit = Int64(limit)
         guard let src = downloads.first(where: { $0.id == id }) else { return }
+        if !SandboxAccess.shared.beginAccess(for: src) {
+            if let ei = downloads.firstIndex(where: { $0.id == id }) {
+                downloads[ei].status = .error
+                downloads[ei].errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
+                persistence.save(downloads)
+            }
+            return
+        }
         let dest = stagingURL(for: src)
 
         engineTrackedDownloads.insert(id)
@@ -254,7 +263,7 @@ final class ContentViewModel {
         installCompletionHandler(for: id)
     }
 
-    func addDownload(url: String, savePath: String? = nil, dlLimit: Int = 0, connections: Int? = nil) {
+    func addDownload(url: String, savePath: String? = nil, saveBookmark: Data? = nil, dlLimit: Int = 0, connections: Int? = nil) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let dir = savePath ?? AppConfig.defaultDownloadDir
 
@@ -297,6 +306,7 @@ final class ContentViewModel {
             url: url,
             status: .active,
             savePath: savePath,
+            saveBookmark: saveBookmark,
             downloadLimit: dlLimit > 0 ? dlLimit : nil,
             maxConcurrentChunks: connections ?? settings.maxConnections
         )
@@ -368,6 +378,13 @@ final class ContentViewModel {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         guard downloads[idx].status == .paused || downloads[idx].status == .waiting else { return }
 
+        if !SandboxAccess.shared.beginAccess(for: downloads[idx]) {
+            downloads[idx].status = .error
+            downloads[idx].errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
+            persistence.save(downloads)
+            return
+        }
+
         downloads[idx].status = .active
         persistence.save(downloads)
 
@@ -403,6 +420,7 @@ final class ContentViewModel {
 
     func deleteDownload(id: UUID) {
         progress.unpublish(for: id)
+        SandboxAccess.shared.endAccess(for: id)
         if id == priorityDownloadID {
             endPriorityMode(excluding: id)
         }
@@ -412,6 +430,7 @@ final class ContentViewModel {
             engine.cancel(id: id)
             engineTrackedDownloads.remove(id)
         }
+        SandboxAccess.shared.endAccess(for: id)
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
@@ -427,6 +446,7 @@ final class ContentViewModel {
             engineTrackedDownloads.remove(id)
             progress.unpublish(for: id)
         }
+        SandboxAccess.shared.endAccess(for: id)
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
                 try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
@@ -573,6 +593,7 @@ final class ContentViewModel {
 
         for d in toDelete {
             progress.unpublish(for: d.id)
+            SandboxAccess.shared.endAccess(for: d.id)
             if d.status == .active {
                 engine.cancel(id: d.id)
                 engineTrackedDownloads.remove(d.id)

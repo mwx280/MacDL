@@ -41,4 +41,22 @@ import MacDLCore
         #expect(decoded.isPriorityDownload == true)
         #expect(decoded.pausedForPriority == false)
     }
+
+    @Test func codableRoundTripsSaveBookmark() throws {
+        let bookmark = Data([0x01, 0x02, 0x03, 0x04])
+        let d = Download(filename: "a.bin", url: "https://e.com/a.bin", savePath: "/tmp/x", saveBookmark: bookmark)
+        let data = try JSONEncoder().encode(d)
+        let decoded = try JSONDecoder().decode(Download.self, from: data)
+        #expect(decoded.saveBookmark == bookmark)
+        #expect(decoded.savePath == "/tmp/x")
+    }
+
+    @Test func decodesWithoutSaveBookmark() throws {
+        let json = """
+        {"id": "\(UUID().uuidString)", "filename": "a.bin", "url": "https://e.com/a.bin", "totalSize": 10, "downloadedSize": 0, "downloadSpeed": 0, "status": "active", "addedAt": 0, "chunkSize": 262144, "maxConcurrentChunks": 1, "chunks": []}
+        """
+        let d = try JSONDecoder().decode(Download.self, from: Data(json.utf8))
+        #expect(d.saveBookmark == nil)
+        #expect(d.savePath == nil)
+    }
 }

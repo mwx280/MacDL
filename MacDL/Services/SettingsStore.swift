@@ -27,9 +27,14 @@ final class SettingsStore {
 
     var downloadPath: String {
         get {
-            defaults.string(forKey: "downloadPath") ?? NSHomeDirectory() + "/Downloads"
+            defaults.string(forKey: "downloadPath") ?? AppConfig.defaultDownloadDir
         }
         set { defaults.set(newValue, forKey: "downloadPath") }
+    }
+
+    var downloadPathBookmark: Data? {
+        get { defaults.data(forKey: "downloadPathBookmark") }
+        set { defaults.set(newValue, forKey: "downloadPathBookmark") }
     }
 
     var maxDownloadSpeed: Int {

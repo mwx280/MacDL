@@ -159,6 +159,10 @@ private struct DownloadPane: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         downloadPath = url.path
         SettingsStore.shared.downloadPath = url.path
+        // Save a security-scoped bookmark so the folder stays reachable on the
+        // next launch (sandbox grants access only for the current session).
+        SettingsStore.shared.downloadPathBookmark = try? url.bookmarkData(
+            options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 }
 
