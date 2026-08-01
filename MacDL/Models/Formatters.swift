@@ -21,3 +21,15 @@ func speedLabel(_ bytesPerSecond: Int) -> String {
     if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
     return "\(bytesPerSecond / 1_048_576) MB/s"
 }
+
+func formatRemainingTime(_ seconds: TimeInterval) -> String {
+    let s = max(Int(seconds), 0)
+    if s < 60 {
+        return String(format: LanguageManager.shared.localized("About %d seconds"), s)
+    }
+    let minutes = s / 60
+    if minutes < 60 {
+        return String(format: LanguageManager.shared.localized("About %d minutes"), minutes)
+    }
+    return String(format: LanguageManager.shared.localized("About %d hours"), minutes / 60)
+}

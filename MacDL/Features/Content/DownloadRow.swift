@@ -325,6 +325,13 @@ struct DownloadRow: View {
                     if d.status == .active || d.status == .waiting {
                         Text(d.progress, format: .percent.precision(.fractionLength(1)))
                         Text(formatSpeed(d.downloadSpeed))
+                        if let remaining = d.estimatedTimeRemaining {
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 9))
+                                Text(formatRemainingTime(remaining))
+                            }
+                        }
                     }
                     Spacer()
                     Text(formatSize(d.downloadedSize) + " / " + formatSize(d.totalSize))
