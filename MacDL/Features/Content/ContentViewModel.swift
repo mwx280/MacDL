@@ -275,6 +275,39 @@ final class ContentViewModel {
         installCompletionHandler(for: id)
     }
 
+    // Pulls http/https URLs out of arbitrary text (whitespace / newline separated).
+    static func downloadLinks(from text: String) -> [String] {
+        let trailing = CharacterSet(charactersIn: ",.;:!?)]}\"")
+        return text.split(whereSeparator: { $0.isWhitespace })
+            .map { String($0).trimmingCharacters(in: trailing) }
+            .filter { token in
+                guard let url = URL(string: token),
+                      let scheme = url.scheme?.lowercased(),
+                      scheme == "http" || scheme == "https",
+                      url.host != nil
+                else { return false }
+                return true
+            }
+    }
+
+    func downloadFromClipboard() {
+        let text = NSPasteboard.general.string(forType: .string) ?? ""
+        handleDownloadLinks(text)
+    }
+
+    func handleDownloadLinks(_ text: String) {
+        let links = Self.downloadLinks(from: text)
+        guard !links.isEmpty else {
+            notifier.notify(title: LanguageManager.shared.localized("No Download Link"),
+                            body: LanguageManager.shared.localized("The clipboard doesn't contain a valid download link."))
+            return
+        }
+        for link in links {
+            guard !downloads.contains(where: { $0.url == link }) else { continue }
+            addDownload(url: link)
+        }
+    }
+
     func addDownload(url: String, savePath: String? = nil, saveBookmark: Data? = nil, dlLimit: Int = 0, connections: Int? = nil) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let dir = savePath ?? AppConfig.defaultDownloadDir

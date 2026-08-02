@@ -2,6 +2,12 @@ import SwiftUI
 
 struct MenuBarContent: View {
     var body: some View {
+        Button { ContentViewModel.shared.downloadFromClipboard() } label: {
+            Label(title: { Text(verbatim: LanguageManager.shared.localized("Download from Clipboard")) }, icon: { Image(systemName: "arrow.down.doc") })
+        }
+
+        Divider()
+
         Button { MacDLApp.showWindow() } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Show Window")) }, icon: { Image(systemName: "macwindow") })
         }

@@ -64,6 +64,11 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
              delay: 0.5)
     }
 
+    func notify(title: String, body: String) {
+        os_log("[DownloadNotifier] notify %{public}@", title)
+        send(title: title, body: body, id: UUID(), kind: "message", sound: false)
+    }
+
     func notifyCompleted(_ download: Download) {
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
         os_log("[DownloadNotifier] notifyCompleted %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)

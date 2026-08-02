@@ -2680,6 +2680,57 @@
         }
       }
     },
+    "Download from Clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从剪切板下载"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download from Clipboard"
+          }
+        }
+      }
+    },
+    "No Download Link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到下载链接"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Download Link"
+          }
+        }
+      }
+    },
+    "The clipboard doesn't contain a valid download link." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪切板中没有有效的下载链接。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The clipboard doesn't contain a valid download link."
+          }
+        }
+      }
+    },
     "小舞 / xiaowu" : {
 
     }
