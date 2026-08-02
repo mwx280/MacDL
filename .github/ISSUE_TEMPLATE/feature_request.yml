@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an idea for MacDL
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the suggestion! Tell us what problem you're trying to solve.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What do you want to be able to do that you can't right now?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How do you imagine it working?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
