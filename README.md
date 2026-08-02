@@ -71,7 +71,8 @@ That's it. This is a download manager, not a productivity suite.
 - **Pure native** — `URLSession`, no aria2/wget sidecar, no cloud, no account.
 - **Token-bucket throttling** — byte-level speed limits, per task or global.
 - **Two codebases, one engine** — the engine is a standalone Swift Package
-  (`MacDLCore`) with zero AppKit, regression-tested in isolation.
+  (`MacDLCore`) with zero AppKit, regression-tested in isolation. It carries
+  its own GPL-3.0 [LICENSE](MacDLCore/LICENSE), so it stays protected when reused.
 
 ## 🛠️ Build
 

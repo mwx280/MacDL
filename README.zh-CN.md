@@ -61,6 +61,7 @@
 - **纯原生** — `URLSession`，无 aria2/wget 副进程，无云、无账号。
 - **令牌桶限速** — 字节级，可按任务或全局。
 - **一个引擎，两套代码** — 引擎是独立 Swift Package（`MacDLCore`），零 AppKit，可独立回归测试。
+  引擎自带 [GPL-3.0 LICENSE](MacDLCore/LICENSE)，被复用/拷贝时许可随包走。
 
 ## 🛠️ 构建
 
