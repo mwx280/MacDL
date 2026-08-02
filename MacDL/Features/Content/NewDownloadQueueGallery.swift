@@ -262,14 +262,6 @@ private struct QueueHorizontalCard: View {
                 }
             }
 
-            QueueCard {
-                HStack {
-                    QueueLabel(icon: "gauge", text: "Speed Limit")
-                    Spacer()
-                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-
             QueueActions()
         }
         .padding(18)
