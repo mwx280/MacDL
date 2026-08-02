@@ -8,7 +8,7 @@ struct NewDownloadQueueGallery: View {
             VStack(alignment: .leading, spacing: 28) {
                 Text("New Download — 多任务队列布局")
                     .font(.title2.weight(.semibold))
-                Text("共 3 个队列布局变体，选一个后告知方案名。")
+                Text("共 3 个队列布局变体；Q3 每行显示按扩展名的类型图标（与任务列表一致）。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
@@ -38,11 +38,11 @@ struct NewDownloadQueueGallery: View {
 }
 
 // MARK: - 样例
-private let sampleTasks: [(name: String, resumable: Bool)] = [
-    ("ubuntu-24.04.iso", true),
-    ("movie.mkv", false),
-    ("archive.zip", true),
-    ("paper.pdf", true),
+private let sampleTasks: [(name: String, icon: String, resumable: Bool)] = [
+    ("ubuntu-24.04.iso", "opticaldisc", true),
+    ("movie.mkv", "film", false),
+    ("archive.zip", "shippingbox", true),
+    ("paper.pdf", "doc.richtext", true),
 ]
 
 // 限速 chip
@@ -250,7 +250,7 @@ private struct QueueHorizontalCard: View {
                 QueueHeader()
                 ForEach(0..<sampleTasks.count, id: \.self) { i in
                     HStack(spacing: 8) {
-                        Image(systemName: "doc.fill").font(.system(size: 16)).foregroundStyle(.tint)
+                        Image(systemName: sampleTasks[i].icon).font(.system(size: 16)).foregroundStyle(.tint)
                         Text(sampleTasks[i].name).font(.caption).lineLimit(1)
                         Spacer()
                         ResumeBadge(resumable: sampleTasks[i].resumable)
