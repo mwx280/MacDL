@@ -15,7 +15,6 @@ jobs:
         run: |
           # Pick the newest Xcode present; the app needs an Xcode 26 SDK
           # (deployment target is macOS 26.5).
-          for d in /Applications/Xcode*.app; do [ -d "$d" ] && echo "$d"; done | sort -r | head -1
           NEWEST=$(for d in /Applications/Xcode*.app; do [ -d "$d" ] && echo "$d"; done | sort -r | head -1)
           if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
           xcodebuild -version
@@ -23,6 +22,17 @@ jobs:
       - name: Engine package tests
         working-directory: MacDLCore
         run: swift test
+
+      - name: Build app
+        # A standalone build first avoids the Xcode "Unable to resolve module
+        # dependency: 'MacDL'" bug that hits the hosted test target on a clean build.
+        run: |
+          xcodebuild build \
+            -project MacDL.xcodeproj \
+            -scheme MacDL \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=YES
 
       - name: App tests
         # -parallel-testing-enabled NO avoids a flaky Swift Observation registrar
