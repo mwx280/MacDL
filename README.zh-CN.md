@@ -11,6 +11,7 @@
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
 [![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
+[![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
 
 </div>
 
