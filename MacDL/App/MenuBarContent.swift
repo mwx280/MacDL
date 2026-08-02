@@ -8,6 +8,10 @@ struct MenuBarContent: View {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Download from Clipboard")) }, icon: { Image(systemName: "arrow.down.doc") })
         }
 
+        Button { MacDLApp.showQueueGallery() } label: {
+            Label(title: { Text(verbatim: "队列设计预览 (临时)") }, icon: { Image(systemName: "paintpalette") })
+        }
+
 
         Button {
             openWindow(id: "main")
