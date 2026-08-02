@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MenuBarContent: View {
+    @Environment(\.openWindow) private var openWindow
+
     var body: some View {
         Button { ContentViewModel.shared.downloadFromClipboard() } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Download from Clipboard")) }, icon: { Image(systemName: "arrow.down.doc") })
@@ -8,7 +10,7 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button { MacDLApp.showWindow() } label: {
+        Button { openWindow(id: "main") } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Show Window")) }, icon: { Image(systemName: "macwindow") })
         }
 
