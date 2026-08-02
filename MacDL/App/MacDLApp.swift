@@ -58,17 +58,6 @@ struct MacDLApp: App {
     }
 
     @MainActor
-    static func showDesignGallery() {
-        let vc = NSHostingController(rootView: NewDownloadDesignGallery())
-        let window = NSWindow(contentViewController: vc)
-        window.title = "New Download Designs"
-        window.setContentSize(NSSize(width: 520, height: 860))
-        window.center()
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-    }
-
-    @MainActor
     static func hideWindow() {
         NSApp.windows.first?.orderOut(nil)
     }

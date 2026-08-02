@@ -21,40 +21,57 @@ struct NewDownloadView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "square.and.arrow.down")
-                .font(.system(size: 28))
-                .foregroundStyle(.tint)
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.tint)
+                Text(LanguageManager.shared.localized("New Download"))
+                    .font(.headline)
+            }
 
-            Text(LanguageManager.shared.localized("New Download"))
-                .font(.headline)
-
-            VStack(alignment: .leading, spacing: 6) {
-                LocalizedText(key: "Download URLs")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
+            // 卡片 1：URL + 嵌入摘要
+            fieldCard {
+                cardLabel("link", "Download URLs")
                 PlaceholderTextEditor(
                     text: $text,
                     placeholder: LanguageManager.shared.localized("One URL per line, multiple URLs supported")
                 )
-                .frame(height: 80)
+                .frame(height: 76)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(.separator, lineWidth: 1)
                 }
+
+                if let name = summaryFilename {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(name)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        resumeBadge
+                    }
+                    .padding(8)
+                    .background(.quaternary.opacity(0.35))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                LocalizedText(key: "Save to")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                HStack(spacing: 8) {
+            // 卡片 2：保存位置
+            fieldCard {
+                cardLabel("folder", "Save to")
+                HStack(spacing: 6) {
                     TextField("", text: $downloadPath)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
+                        .padding(6)
+                        .background(.quaternary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
 
                     Button { browseFolder() } label: {
                         Image(systemName: "folder")
@@ -65,8 +82,11 @@ struct NewDownloadView: View {
                 }
             }
 
-            Group {
-                prefRow("arrow.down", "Download Limit") {
+            // 卡片 3：选项
+            fieldCard {
+                HStack {
+                    cardLabel("gauge", "Download Limit")
+                    Spacer()
                     Picker(selection: $downloadLimit) {
                         ForEach(speedOptions, id: \.self) { speed in
                             Text(speedLabel(speed))
@@ -74,14 +94,15 @@ struct NewDownloadView: View {
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 100)
+                    .frame(width: 110)
                 }
 
+                Divider()
+
                 if resumeSupported == false {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.body)
-                            .frame(width: 18)
                             .foregroundStyle(.orange)
                         LocalizedText(key: "Server does not support resume, will download with a single connection")
                             .font(.caption)
@@ -89,15 +110,14 @@ struct NewDownloadView: View {
                         Spacer()
                     }
                 } else {
-                    prefRow("square.grid.3x2", "Connections") {
-                        Picker(selection: $downloadConnections) {
-                            ForEach([1, 2, 4, 8], id: \.self) { count in
-                                Text("\(count)")
-                                    .tag(count)
+                    HStack {
+                        cardLabel("square.grid.3x2", "Connections")
+                        Spacer()
+                        HStack(spacing: 6) {
+                            ForEach([1, 2, 4, 8], id: \.self) { n in
+                                connectionChip(n)
                             }
-                        } label: { }
-                        .labelsHidden()
-                        .frame(width: 100)
+                        }
                     }
                 }
             }
@@ -112,8 +132,8 @@ struct NewDownloadView: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 400, height: 440)
+        .padding(18)
+        .frame(width: 400, height: 470)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
@@ -136,16 +156,79 @@ struct NewDownloadView: View {
         }
     }
 
-    private func prefRow<C: View>(_ icon: String, _ label: String, @ViewBuilder control: () -> C) -> some View {
-        HStack(spacing: 10) {
+    // MARK: - 摘要条数据
+
+    private var firstURL: String? {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first(where: { !$0.isEmpty && ($0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://")) })
+    }
+
+    private var summaryFilename: String? {
+        guard let first = firstURL, let url = URL(string: first) else { return nil }
+        let name = url.lastPathComponent
+        return name.isEmpty ? (url.host ?? first) : name
+    }
+
+    @ViewBuilder
+    private var resumeBadge: some View {
+        switch resumeSupported {
+        case true:
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.clockwise").font(.caption2)
+                LocalizedText(key: "Resumable").font(.caption2)
+            }
+            .foregroundStyle(.green)
+        case false:
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle").font(.caption2)
+                LocalizedText(key: "Not Resumable").font(.caption2)
+            }
+            .foregroundStyle(.orange)
+        default:
+            EmptyView()
+        }
+    }
+
+    // MARK: - 组件
+
+    private func connectionChip(_ n: Int) -> some View {
+        Button {
+            downloadConnections = n
+        } label: {
+            Text("\(n)")
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(downloadConnections == n ? Color.accentColor.opacity(0.18) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(downloadConnections == n ? Color.accentColor : Color.gray.opacity(0.4), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func fieldCard<C: View>(@ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 8) { content() }
+            .padding(12)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.separator, lineWidth: 1)
+            }
+    }
+
+    private func cardLabel(_ icon: String, _ label: String) -> some View {
+        HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.body)
-                .frame(width: 18)
+                .font(.caption)
                 .foregroundStyle(.secondary)
             LocalizedText(key: label)
-                .font(.body)
-            Spacer()
-            control()
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
