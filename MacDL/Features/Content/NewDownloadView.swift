@@ -30,7 +30,7 @@ struct NewDownloadView: View {
                     .font(.headline)
             }
 
-            // 卡片 1：URL + 嵌入摘要
+            // 卡片 1：URL + 内嵌摘要/无效提示
             fieldCard {
                 cardLabel("link", "Download URLs")
                 PlaceholderTextEditor(
@@ -44,21 +44,35 @@ struct NewDownloadView: View {
                         .stroke(.separator, lineWidth: 1)
                 }
 
-                if let name = summaryFilename {
-                    HStack(spacing: 8) {
-                        Image(systemName: "doc.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(name)
-                            .font(.caption)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                        resumeBadge
+                if !nonEmptyLines.isEmpty {
+                    if inputIsValid {
+                        if let name = summaryFilename {
+                            HStack(spacing: 8) {
+                                Image(systemName: "doc.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(name)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                resumeBadge
+                            }
+                            .padding(8)
+                            .background(.quaternary.opacity(0.35))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                            LocalizedText(key: "Invalid download link")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Spacer()
+                        }
+                        .foregroundStyle(.red)
                     }
-                    .padding(8)
-                    .background(.quaternary.opacity(0.35))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
             }
 
@@ -130,6 +144,7 @@ struct NewDownloadView: View {
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
+                .disabled(!inputIsValid)
             }
         }
         .padding(18)
@@ -157,6 +172,26 @@ struct NewDownloadView: View {
     }
 
     // MARK: - 摘要条数据
+
+    private var nonEmptyLines: [String] {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    // 每个非空行都必须是合法的 http/https 链接（含主机），否则视为无效
+    private var inputIsValid: Bool {
+        let lines = nonEmptyLines
+        guard !lines.isEmpty else { return false }
+        return lines.allSatisfy { line in
+            guard let url = URL(string: line),
+                  let scheme = url.scheme?.lowercased(),
+                  (scheme == "http" || scheme == "https"),
+                  url.host != nil
+            else { return false }
+            return true
+        }
+    }
 
     private var firstURL: String? {
         text.components(separatedBy: .newlines)
