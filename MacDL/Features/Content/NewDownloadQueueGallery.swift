@@ -38,7 +38,30 @@ struct NewDownloadQueueGallery: View {
 }
 
 // MARK: - 样例
-private let sampleFiles = ["ubuntu-24.04.iso", "movie.mkv", "archive.zip", "paper.pdf"]
+private let sampleTasks: [(name: String, resumable: Bool)] = [
+    ("ubuntu-24.04.iso", true),
+    ("movie.mkv", false),
+    ("archive.zip", true),
+    ("paper.pdf", true),
+]
+
+// 续传徽标
+private struct ResumeBadge: View {
+    let resumable: Bool
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: resumable ? "arrow.clockwise" : "exclamationmark.triangle")
+                .font(.system(size: 8))
+            Text(resumable ? "可续传" : "不可续传")
+                .font(.system(size: 9))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background((resumable ? Color.green : Color.orange).opacity(0.15))
+        .clipShape(Capsule())
+        .foregroundStyle(resumable ? Color.green : Color.orange)
+    }
+}
 
 // MARK: - 小组件
 private struct QueueCard<C: View>: View {
@@ -85,7 +108,7 @@ private struct QueueHeader: View {
         HStack {
             Text("即将下载").font(.headline)
             Spacer()
-            Text("\(sampleFiles.count) 个")
+            Text("\(sampleTasks.count) 个")
                 .font(.caption)
                 .padding(.horizontal, 8).padding(.vertical, 2)
                 .background(Color.accentColor.opacity(0.15))
@@ -110,18 +133,19 @@ private struct QueueListRemove: View {
                     .fill(.quaternary.opacity(0.35))
                     .frame(height: 60)
                     .overlay(alignment: .topLeading) {
-                        Text(sampleFiles[0]).font(.system(size: 10, design: .monospaced))
+                        Text("https://example.com/ubuntu-24.04.iso").font(.system(size: 10, design: .monospaced))
                             .padding(6)
                     }
             }
 
             QueueCard {
                 QueueHeader()
-                ForEach(0..<sampleFiles.count, id: \.self) { i in
+                ForEach(0..<sampleTasks.count, id: \.self) { i in
                     HStack(spacing: 6) {
                         Image(systemName: "doc.fill").font(.caption).foregroundStyle(.secondary)
-                        Text(sampleFiles[i]).font(.caption).lineLimit(1)
+                        Text(sampleTasks[i].name).font(.caption).lineLimit(1)
                         Spacer()
+                        ResumeBadge(resumable: sampleTasks[i].resumable)
                         Image(systemName: "xmark.circle.fill").font(.caption).foregroundStyle(.tertiary)
                     }
                     .padding(.vertical, 5)
@@ -163,14 +187,15 @@ private struct QueueNumbered: View {
 
             QueueCard {
                 QueueHeader()
-                ForEach(0..<sampleFiles.count, id: \.self) { i in
+                ForEach(0..<sampleTasks.count, id: \.self) { i in
                     HStack(spacing: 8) {
                         Text("\(i + 1)")
                             .font(.caption2.weight(.medium))
                             .frame(width: 18)
                             .foregroundStyle(.secondary)
-                        Text(sampleFiles[i]).font(.caption).lineLimit(1)
+                        Text(sampleTasks[i].name).font(.caption).lineLimit(1)
                         Spacer()
+                        ResumeBadge(resumable: sampleTasks[i].resumable)
                     }
                     .padding(.vertical, 4)
                 }
@@ -211,10 +236,11 @@ private struct QueueGrid: View {
             QueueCard {
                 QueueHeader()
                 LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(sampleFiles, id: \.self) { name in
+                    ForEach(Array(sampleTasks.enumerated()), id: \.offset) { _, task in
                         VStack(spacing: 4) {
                             Image(systemName: "doc.fill").font(.system(size: 20)).foregroundStyle(.tint)
-                            Text(name).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
+                            Text(task.name).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
+                            ResumeBadge(resumable: task.resumable)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
