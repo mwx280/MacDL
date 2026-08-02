@@ -61,4 +61,4 @@ MacDL/       App —— SwiftUI 菜单栏界面、持久化、通知、沙盒访
 
 ## 许可证
 
-[MIT](LICENSE)
+[GPL-3.0](LICENSE)

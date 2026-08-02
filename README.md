@@ -64,4 +64,4 @@ regression-tested in isolation (`swift test`) and could be reused elsewhere.
 
 ## License
 
-[MIT](LICENSE)
+[GPL-3.0](LICENSE)
