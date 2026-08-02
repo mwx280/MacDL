@@ -13,6 +13,8 @@ Paste a link. It downloads. Quit the app — it still downloads. That's the whol
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
 
+**English** · [简体中文](README.zh-CN.md)
+
 </div>
 
 ---

@@ -13,6 +13,8 @@
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
 
+**[English](README.md)** · 简体中文
+
 </div>
 
 ---
