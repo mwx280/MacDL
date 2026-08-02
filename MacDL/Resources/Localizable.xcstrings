@@ -2782,6 +2782,40 @@
         }
       }
     },
+    "Priority Download Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先下载失败"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority Download Failed"
+          }
+        }
+      }
+    },
+    "Priority download %@ failed. Other downloads have been resumed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先下载 %@ 失败，其余下载已恢复。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority download %@ failed. Other downloads have been resumed."
+          }
+        }
+      }
+    },
     "小舞 / xiaowu" : {
 
     }

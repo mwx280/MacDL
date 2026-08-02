@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          # Prefer a recent Xcode 26 if present (deployment target is macOS 26.5).
+          sudo xcode-select -s /Applications/Xcode_26*.app 2>/dev/null || true
+
+      - name: Engine package tests
+        working-directory: MacDLCore
+        run: swift test
+
+      - name: App tests
+        # -parallel-testing-enabled NO avoids a flaky Swift Observation registrar
+        # crash in the parallel test host.
+        run: |
+          xcodebuild test \
+            -project MacDL.xcodeproj \
+            -scheme MacDL \
+            -destination 'platform=macOS' \
+            -parallel-testing-enabled NO \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=YES

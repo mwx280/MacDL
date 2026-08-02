@@ -214,14 +214,23 @@ final class ContentViewModel {
                     self.downloads[idx].status = .error
                     self.downloads[idx].errorMessage = self.localizedMessage(for: error)
                     self.progress.unpublish(for: id)
-                    self.notifier.notifyFailed(self.downloads[idx])
+                    if id == self.priorityDownloadID {
+                        // The priority task gave up after retries; tell the user the
+                        // auto-paused downloads are being resumed.
+                        self.notifier.notify(
+                            title: LanguageManager.shared.localized("Priority Download Failed"),
+                            body: String(
+                                format: LanguageManager.shared.localized("Priority download %@ failed. Other downloads have been resumed."),
+                                self.downloads[idx].filename))
+                    } else {
+                        self.notifier.notifyFailed(self.downloads[idx])
+                    }
                 }
                 self.engineTrackedDownloads.remove(id)
                 self.engine.cleanup(id: id)
                 SandboxAccess.shared.endAccess(for: id)
                 self.persistence.save(self.downloads)
                 if id == self.priorityDownloadID {
-                    // TODO: notify when a priority task's retry budget is exhausted (together with the notifications feature)
                     self.endPriorityMode()
                 } else {
                     self.startNextWaitingDownload()

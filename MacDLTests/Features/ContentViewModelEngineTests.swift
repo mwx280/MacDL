@@ -197,6 +197,24 @@ import MacDLCore
         #expect(requests.contains { $0.identifier == d.id.uuidString + "-failed" && $0.content.body.hasPrefix("fail.bin — ") })
     }
 
+    @Test func priorityFailurePostsDedicatedNotification() {
+        let engine = FakeEngine()
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
+        let a = Download(filename: "pri.bin", url: "https://example.com/pri.bin", status: .paused)
+        let b = Download(filename: "other.bin", url: "https://example.com/other.bin", status: .active)
+        vm.downloads = [a, b]
+        vm.resumeDownload(id: a.id)
+        vm.setPriorityDownload(id: a.id)
+        engine.fireCompletion(id: a.id, result: .failure(DownloadError.network(URLError(.notConnectedToInternet))))
+        drainMain()
+        // A dedicated "message" notification replaces the generic "-failed" one.
+        #expect(requests.contains { $0.identifier.hasSuffix("-message") && $0.content.body.contains("pri.bin") })
+        #expect(!requests.contains { $0.identifier == a.id.uuidString + "-failed" })
+    }
+
     private func drainMain() {
         // Let the queued main-async completion handler run before asserting.
         DispatchQueue.main.sync { }
