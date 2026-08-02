@@ -2901,6 +2901,23 @@
         }
       }
     },
+    "Paste download links to see them here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴下载链接后将在此处列出任务"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste download links to see them here"
+          }
+        }
+      }
+    },
     "小舞 / xiaowu" : {
 
     }

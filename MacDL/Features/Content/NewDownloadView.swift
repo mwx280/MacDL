@@ -20,10 +20,7 @@ struct NewDownloadView: View {
     @State private var resumeStatus: [String: Bool] = [:]
     @State private var limits: [String: Int] = [:]
     @State private var probedURLs: Set<String> = []
-    @State private var queueContentHeight: CGFloat = 0
     @State private var refresh = UUID()
-
-    private let maxQueueHeight: CGFloat = 180
     @Environment(\.dismiss) var dismiss
 
     init(text: Binding<String>, onDownload: @escaping (String, NewDownloadPayload) -> Void) {
@@ -70,32 +67,42 @@ struct NewDownloadView: View {
                 }
             }
 
-            // 卡片：任务队列（横向任务卡）
-            if !validTasks.isEmpty {
-                fieldCard {
-                    HStack(spacing: 8) {
-                        Image(systemName: "list.bullet")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        LocalizedText(key: "Queue")
-                            .font(.headline)
-                        Text(String(format: LanguageManager.shared.localized("%lld downloads"), Int64(validTasks.count)))
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.15))
-                            .clipShape(Capsule())
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            ForEach([1, 2, 4, 8], id: \.self) { n in
-                                connectionChip(n)
-                            }
+            // 卡片：任务队列（始终显示，无任务时占位）
+            fieldCard {
+                HStack(spacing: 8) {
+                    Image(systemName: "list.bullet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    LocalizedText(key: "Queue")
+                        .font(.headline)
+                    Text(String(format: LanguageManager.shared.localized("%lld downloads"), Int64(validTasks.count)))
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.15))
+                        .clipShape(Capsule())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        ForEach([1, 2, 4, 8], id: \.self) { n in
+                            connectionChip(n)
                         }
                     }
+                }
 
-                    Divider()
+                Divider()
 
+                if validTasks.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 22))
+                            .foregroundStyle(.tertiary)
+                        LocalizedText(key: "Paste download links to see them here")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 76)
+                } else {
                     ScrollView(.vertical, showsIndicators: true) {
                         VStack(spacing: 6) {
                             ForEach(validTasks, id: \.url) { task in
@@ -118,16 +125,8 @@ struct NewDownloadView: View {
                             }
                         }
                         .padding(.vertical, 2)
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(key: TasksHeightKey.self, value: geo.size.height)
-                            }
-                        )
                     }
-                    .frame(height: min(max(queueContentHeight, 30), maxQueueHeight))
-                    .onPreferenceChange(TasksHeightKey.self) { value in
-                        queueContentHeight = value
-                    }
+                    .frame(maxHeight: 150)
                 }
             }
 
@@ -148,7 +147,7 @@ struct NewDownloadView: View {
             }
         }
         .padding(18)
-        .frame(width: 420)
+        .frame(width: 420, height: 540)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
@@ -321,13 +320,5 @@ struct NewDownloadView: View {
         downloadPath = url.path
         downloadBookmark = try? url.bookmarkData(
             options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
-    }
-}
-
-// 用于测量任务队列内容高度，驱动窗口自适应
-private struct TasksHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
