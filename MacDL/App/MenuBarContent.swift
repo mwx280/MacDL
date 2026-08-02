@@ -10,7 +10,16 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button { openWindow(id: "main") } label: {
+        Button {
+            openWindow(id: "main")
+            // openWindow creates the window asynchronously; once it exists, activate
+            // the app and bring it to the front (accessory mode doesn't do this itself).
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.windows.first(where: { $0.canBecomeKey })?.makeKeyAndOrderFront(nil)
+            }
+        } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Show Window")) }, icon: { Image(systemName: "macwindow") })
         }
 
