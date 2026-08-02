@@ -94,3 +94,15 @@ xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
 ## 📄 License
 
 [GPL-3.0](LICENSE) — use it, change it, but keep derivatives open source.
+
+**Explicit restrictions:**
+
+- ✅ Personal use, learning, modification, and forking are completely free
+- ✅ Publishing your modified version under GPL-3.0 is completely free
+- ❌ Integrating any part of this project (including the `MacDLCore` engine) into
+  **closed-source commercial software** and distributing it is strictly prohibited
+- ❌ Selling this code or modified versions as a **closed-source product** is
+  strictly prohibited
+
+Violating the above will be treated as copyright infringement, and the author
+reserves the right to pursue legal action.
