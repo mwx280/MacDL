@@ -14,6 +14,7 @@ struct MacDLApp: App {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             DownloadNotifier.shared.requestAuthorization()
         }
+        _ = DockIconManager.shared
     }
 
     var body: some Scene {
@@ -112,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         os_log("[MacDL] didFinishLaunching")
+        DockIconManager.shared.update()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

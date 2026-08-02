@@ -2765,6 +2765,23 @@
         }
       }
     },
+    "Hide Dock Icon on Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭窗口后隐藏 Dock 图标"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Dock Icon on Close"
+          }
+        }
+      }
+    },
     "小舞 / xiaowu" : {
 
     }

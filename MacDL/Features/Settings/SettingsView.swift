@@ -67,6 +67,20 @@ private struct GeneralPane: View {
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                 }
+
+                divider
+
+                prefRow("rectangle.dashed", "Hide Dock Icon on Close") {
+                    Toggle("", isOn: Binding(
+                        get: { SettingsStore.shared.hideDockIconOnClose },
+                        set: { newValue in
+                            SettingsStore.shared.hideDockIconOnClose = newValue
+                            DockIconManager.shared.update()
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                }
             }
             .alert("Launch at Login", isPresented: $launchAtLoginFailed) {
                 Button("OK", role: .cancel) { }

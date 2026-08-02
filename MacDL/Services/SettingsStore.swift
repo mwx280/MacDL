@@ -46,4 +46,9 @@ final class SettingsStore {
         get { defaults.bool(forKey: "launchAtLogin") }
         set { defaults.set(newValue, forKey: "launchAtLogin") }
     }
+
+    var hideDockIconOnClose: Bool {
+        get { defaults.bool(forKey: "hideDockIconOnClose") }
+        set { defaults.set(newValue, forKey: "hideDockIconOnClose") }
+    }
 }
