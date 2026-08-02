@@ -83,4 +83,36 @@ import MacDLCore
         #expect(requests.count == 1)
         #expect(requests[0].identifier == d.id.uuidString + "-started")
     }
+
+    @Test func fastCompletionCancelsPendingStarted() {
+        var removed: [String] = []
+        let notifier = DownloadNotifier(post: { _ in }, removePending: { removed.append(contentsOf: $0) })
+        notifier.authorized = true
+        let d = Download(filename: "fast.bin", url: "https://e.com/fast.bin")
+        notifier.notifyStarted(d)
+        notifier.notifyCompleted(d)
+        // The still-pending "started" must be cancelled so "completed" isn't beaten by it.
+        #expect(removed == [d.id.uuidString + "-started"])
+    }
+
+    @Test func slowDownloadKeepsStarted() {
+        var removed: [String] = []
+        let notifier = DownloadNotifier(post: { _ in }, removePending: { removed.append(contentsOf: $0) })
+        notifier.authorized = true
+        notifier.startedDelay = 0
+        let d = Download(filename: "slow.bin", url: "https://e.com/slow.bin")
+        notifier.notifyStarted(d)
+        notifier.notifyCompleted(d)
+        #expect(removed.isEmpty)
+    }
+
+    @Test func redownloadPromptCarriesUrl() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        notifier.notifyRedownload("https://e.com/a.zip")
+        #expect(requests.count == 1)
+        #expect(requests[0].content.categoryIdentifier == "redownload")
+        #expect(requests[0].content.userInfo["url"] as? String == "https://e.com/a.zip")
+    }
 }

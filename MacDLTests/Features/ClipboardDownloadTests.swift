@@ -38,14 +38,35 @@ import MacDLCore
         #expect(engine.started.count == 2)
     }
 
-    @Test func handleLinksSkipsDuplicates() {
+    @Test func handleLinksWithDuplicateAsksRedownload() {
+        let engine = FakeEngine()
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
+        let existing = Download(filename: "dup.bin", url: "https://example.com/dup.bin", status: .active)
+        vm.downloads = [existing]
+        vm.handleDownloadLinks("https://example.com/dup.bin https://example.com/new.bin")
+        #expect(vm.downloads.contains { $0.url == "https://example.com/new.bin" })
+        // The duplicate prompts a re-download notification instead of being added.
+        #expect(requests.contains { $0.content.userInfo["url"] as? String == "https://example.com/dup.bin" })
+    }
+
+    @Test func allowDuplicateAddsExistingUrl() {
         let engine = FakeEngine()
         let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
         let existing = Download(filename: "dup.bin", url: "https://example.com/dup.bin", status: .active)
         vm.downloads = [existing]
-        vm.handleDownloadLinks("https://example.com/dup.bin https://example.com/new.bin")
-        #expect(vm.downloads.count == 2)
-        #expect(vm.downloads.map(\.url).contains("https://example.com/new.bin"))
+        vm.addDownload(url: "https://example.com/dup.bin", allowDuplicate: true)
+        #expect(vm.downloads.filter { $0.url == "https://example.com/dup.bin" }.count == 2)
+    }
+
+    @Test func redownloadNotificationTriggersAdd() {
+        let engine = FakeEngine()
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        NotificationCenter.default.post(name: .requestRedownload, object: "https://example.com/redl.bin")
+        DispatchQueue.main.sync { }
+        #expect(vm.downloads.contains { $0.url == "https://example.com/redl.bin" })
     }
 
     @Test func handleLinksWithoutLinksNotifies() {

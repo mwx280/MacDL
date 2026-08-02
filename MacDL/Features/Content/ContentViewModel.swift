@@ -22,6 +22,7 @@ final class ContentViewModel {
     private let notifier: DownloadNotifier
     private var startedNotified: Set<UUID> = []
     private var termObserver: NSObjectProtocol?
+    private var redownloadObserver: NSObjectProtocol?
     private var fileCheckTimer: Timer?
     private var engineTrackedDownloads: Set<UUID> = []
     private var needsProgressSave = false
@@ -52,6 +53,14 @@ final class ContentViewModel {
             priorityDownloadID = priority
             resumeDownload(id: priority)
         }
+        redownloadObserver = NotificationCenter.default.addObserver(
+            forName: .requestRedownload,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self, let url = note.object as? String else { return }
+            self.addDownload(url: url, allowDuplicate: true)
+        }
         termObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
@@ -78,6 +87,7 @@ final class ContentViewModel {
         fileCheckTimer?.invalidate()
         progress.unpublishAll()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
+        if let observer = redownloadObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
     private func cancelProgressDownload(_ id: UUID) {
@@ -303,16 +313,19 @@ final class ContentViewModel {
             return
         }
         for link in links {
-            guard !downloads.contains(where: { $0.url == link }) else { continue }
-            addDownload(url: link)
+            if downloads.contains(where: { $0.url == link }) {
+                notifier.notifyRedownload(link)
+            } else {
+                addDownload(url: link)
+            }
         }
     }
 
-    func addDownload(url: String, savePath: String? = nil, saveBookmark: Data? = nil, dlLimit: Int = 0, connections: Int? = nil) {
+    func addDownload(url: String, savePath: String? = nil, saveBookmark: Data? = nil, dlLimit: Int = 0, connections: Int? = nil, allowDuplicate: Bool = false) {
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let dir = savePath ?? AppConfig.defaultDownloadDir
 
-        if let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
+        if !allowDuplicate, let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
             let alert = NSAlert()
             switch existing.status {
             case .active, .waiting:
