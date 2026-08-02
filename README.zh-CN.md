@@ -98,6 +98,10 @@ xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
   -destination 'platform=macOS' -parallel-testing-enabled NO   # App 套件
 ```
 
+## 📜 更新日志
+
+完整的版本历史见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 📄 许可证
 
 [GPL-3.0](LICENSE)

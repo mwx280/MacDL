@@ -109,6 +109,10 @@ xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
   -destination 'platform=macOS' -parallel-testing-enabled NO   # app suite
 ```
 
+## 📜 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+
 ## 📄 License
 
 [GPL-3.0](LICENSE) — use it, change it, but keep derivatives open source.
