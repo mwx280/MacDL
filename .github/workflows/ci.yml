@@ -7,14 +7,18 @@ on:
 
 jobs:
   test:
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Select Xcode 26
         run: |
-          # Prefer a recent Xcode 26 if present (deployment target is macOS 26.5).
-          sudo xcode-select -s /Applications/Xcode_26*.app 2>/dev/null || true
+          # Pick the newest Xcode present; the app needs an Xcode 26 SDK
+          # (deployment target is macOS 26.5).
+          for d in /Applications/Xcode*.app; do [ -d "$d" ] && echo "$d"; done | sort -r | head -1
+          NEWEST=$(for d in /Applications/Xcode*.app; do [ -d "$d" ] && echo "$d"; done | sort -r | head -1)
+          if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
+          xcodebuild -version
 
       - name: Engine package tests
         working-directory: MacDLCore
