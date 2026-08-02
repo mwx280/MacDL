@@ -46,15 +46,21 @@ struct NewDownloadView: View {
 
                 if !nonEmptyLines.isEmpty {
                     if inputIsValid {
-                        if let name = summaryFilename {
+                        let names = summaryFilenames
+                        if let first = names.first {
                             HStack(spacing: 8) {
                                 Image(systemName: "doc.fill")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                Text(name)
+                                Text(first)
                                     .font(.caption)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
+                                if names.count > 1 {
+                                    Text(String(format: LanguageManager.shared.localized("+%lld more"), Int64(names.count - 1)))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 resumeBadge
                             }
@@ -199,10 +205,13 @@ struct NewDownloadView: View {
             .first(where: { !$0.isEmpty && ($0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://")) })
     }
 
-    private var summaryFilename: String? {
-        guard let first = firstURL, let url = URL(string: first) else { return nil }
-        let name = url.lastPathComponent
-        return name.isEmpty ? (url.host ?? first) : name
+    // 摘要条显示所有已解析的文件名（每个合法链接一个）
+    private var summaryFilenames: [String] {
+        nonEmptyLines.compactMap { line in
+            guard let url = URL(string: line) else { return nil }
+            let name = url.lastPathComponent
+            return name.isEmpty ? (url.host ?? line) : name
+        }
     }
 
     @ViewBuilder
