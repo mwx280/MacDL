@@ -10,6 +10,10 @@ struct MenuBarContent: View {
 
         Divider()
 
+        Button { MacDLApp.showDesignGallery() } label: {
+            Label(title: { Text(verbatim: "设计预览 (临时)") }, icon: { Image(systemName: "paintpalette") })
+        }
+
         Button {
             openWindow(id: "main")
             // openWindow creates the window asynchronously; once it exists, activate
