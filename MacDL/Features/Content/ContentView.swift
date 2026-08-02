@@ -71,9 +71,11 @@ struct ContentView: View {
         .sheet(isPresented: $showNewDownloadSheet) {
             NewDownloadView(
                 text: $newDownloadURLs,
-                onDownload: { urls, path, bookmark, dlLimit, connections in
+                onDownload: { urls, payload in
                     for url in urls.components(separatedBy: .newlines).map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
-                        model.addDownload(url: url, savePath: path, saveBookmark: bookmark, dlLimit: dlLimit, connections: connections)
+                        let limit = payload.limits[url] ?? 0
+                        let connections = (payload.resumeStatus[url] == false) ? 1 : payload.connections
+                        model.addDownload(url: url, savePath: payload.path, saveBookmark: payload.bookmark, dlLimit: limit, connections: connections)
                     }
                 }
             )

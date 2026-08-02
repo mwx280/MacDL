@@ -58,17 +58,6 @@ struct MacDLApp: App {
     }
 
     @MainActor
-    static func showQueueGallery() {
-        let vc = NSHostingController(rootView: NewDownloadQueueGallery())
-        let window = NSWindow(contentViewController: vc)
-        window.title = "New Download Queue Designs"
-        window.setContentSize(NSSize(width: 520, height: 860))
-        window.center()
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-    }
-
-    @MainActor
     static func hideWindow() {
         NSApp.windows.first?.orderOut(nil)
     }
