@@ -21,6 +21,7 @@ struct SettingsView: View {
 private struct GeneralPane: View {
     @Environment(LanguageManager.self) var lang
     @AppStorage("appearance") private var appearance: Appearance = .system
+    @AppStorage("hideDockIconOnClose") private var hideDockIconOnClose = false
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var launchAtLoginFailed = false
 
@@ -71,15 +72,12 @@ private struct GeneralPane: View {
                 divider
 
                 prefRow("rectangle.dashed", "Hide Dock Icon on Close") {
-                    Toggle("", isOn: Binding(
-                        get: { SettingsStore.shared.hideDockIconOnClose },
-                        set: { newValue in
-                            SettingsStore.shared.hideDockIconOnClose = newValue
+                    Toggle("", isOn: $hideDockIconOnClose)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .onChange(of: hideDockIconOnClose) { _, _ in
                             DockIconManager.shared.update()
                         }
-                    ))
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
                 }
             }
             .alert("Launch at Login", isPresented: $launchAtLoginFailed) {
