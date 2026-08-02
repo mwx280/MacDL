@@ -4,6 +4,17 @@
 
 **一个不打扰你的下载管理器。**
 
+---
+
+## 📦 下载 — 预览版
+
+当前版本为 **v0.1.0（预览版）** —— 早期发布，**可能不稳定**。
+可从 [Releases 页面](https://github.com/mwx280/MacDL/releases) 下载 DMG。
+
+> 首次打开：右键 → 打开（ad-hoc 签名，未公证）。
+
+
+
 粘贴链接，它就下载。退出应用，它还在下载。就这么简单。
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
@@ -12,6 +23,7 @@
 [![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v0.1.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
 
 **[English](README.md)** · 简体中文
 

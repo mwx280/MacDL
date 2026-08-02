@@ -4,6 +4,17 @@
 
 **The download manager that gets out of your way.**
 
+---
+
+## 📦 Download — Preview
+
+The current build is **v0.1.0 (Preview)** — an early release that **may be
+unstable**. Grab the DMG from the [Releases page](https://github.com/mwx280/MacDL/releases).
+
+> First launch: right-click → Open (ad-hoc signed, not notarized).
+
+
+
 Paste a link. It downloads. Quit the app — it still downloads. That's the whole pitch.
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
@@ -12,6 +23,7 @@ Paste a link. It downloads. Quit the app — it still downloads. That's the whol
 [![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v0.1.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
 
 **English** · [简体中文](README.zh-CN.md)
 
