@@ -124,7 +124,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         os_log("[MacDL] didFinishLaunching")
-        DockIconManager.shared.update()
+        // 单实例：杀掉已存在的其他 MacDL 进程，避免菜单栏出现多个图标。
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.xiaowu.MacDL"
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let duplicates = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            .filter { $0.processIdentifier != myPID }
+        for app in duplicates {
+            app.terminate()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

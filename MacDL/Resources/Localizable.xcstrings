@@ -24,6 +24,26 @@
         }
       }
     },
+    "%lld 个" : {
+
+    },
+    "+%lld more" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld more"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等 %lld 个"
+          }
+        }
+      }
+    },
     "█" : {
 
     },
@@ -261,6 +281,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在下载中"
+          }
+        }
+      }
+    },
+    "Already in Download List" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already in Download List"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在下载列表中"
           }
         }
       }
@@ -897,6 +934,23 @@
         }
       }
     },
+    "Download Completed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Completed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载完成"
+          }
+        }
+      }
+    },
     "Download failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -948,6 +1002,23 @@
         }
       }
     },
+    "Download from Clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download from Clipboard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从剪切板下载"
+          }
+        }
+      }
+    },
     "Download Limit" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -995,6 +1066,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载速度: %@"
+          }
+        }
+      }
+    },
+    "Download Started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Started"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始下载"
           }
         }
       }
@@ -1308,6 +1396,23 @@
     "github.com/mwx280" : {
 
     },
+    "Hide Dock Icon on Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Dock Icon on Close"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭窗口后隐藏 Dock 图标"
+          }
+        }
+      }
+    },
     "Hide Window" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1324,6 +1429,9 @@
           }
         }
       }
+    },
+    "https://example.com/ubuntu-24.04.iso" : {
+
     },
     "If you like this project, please give it a star ⭐" : {
       "extractionState" : "manual",
@@ -1406,6 +1514,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已中断"
+          }
+        }
+      }
+    },
+    "Invalid download link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid download link"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无效的下载链接"
           }
         }
       }
@@ -1633,6 +1758,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新建下载任务"
+          }
+        }
+      }
+    },
+    "New Download — 多任务队列布局" : {
+
+    },
+    "No Download Link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Download Link"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到下载链接"
           }
         }
       }
@@ -1878,6 +2023,40 @@
         }
       }
     },
+    "Priority download %@ failed. Other downloads have been resumed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority download %@ failed. Other downloads have been resumed."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先下载 %@ 失败，其余下载已恢复。"
+          }
+        }
+      }
+    },
+    "Priority Download Failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority Download Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先下载失败"
+          }
+        }
+      }
+    },
     "Proxy error" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1925,6 +2104,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "退出 MacDL"
+          }
+        }
+      }
+    },
+    "Redownload" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redownload"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新下载"
           }
         }
       }
@@ -2340,6 +2536,23 @@
         }
       }
     },
+    "The clipboard doesn't contain a valid download link." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The clipboard doesn't contain a valid download link."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪切板中没有有效的下载链接。"
+          }
+        }
+      }
+    },
     "The URL is already in the download queue" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2629,6 +2842,9 @@
         }
       }
     },
+    "不可续传" : {
+
+    },
     "中文" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2646,209 +2862,14 @@
         }
       }
     },
-    "Download Started" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开始下载"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download Started"
-          }
-        }
-      }
+    "共 3 个队列布局变体，选一个后告知方案名。" : {
+
     },
-    "Download Completed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下载完成"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download Completed"
-          }
-        }
-      }
+    "即将下载" : {
+
     },
-    "Download from Clipboard" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从剪切板下载"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download from Clipboard"
-          }
-        }
-      }
-    },
-    "No Download Link" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未找到下载链接"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Download Link"
-          }
-        }
-      }
-    },
-    "The clipboard doesn't contain a valid download link." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "剪切板中没有有效的下载链接。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The clipboard doesn't contain a valid download link."
-          }
-        }
-      }
-    },
-    "Already in Download List" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已在下载列表中"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Already in Download List"
-          }
-        }
-      }
-    },
-    "Redownload" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新下载"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Redownload"
-          }
-        }
-      }
-    },
-    "Hide Dock Icon on Close" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭窗口后隐藏 Dock 图标"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hide Dock Icon on Close"
-          }
-        }
-      }
-    },
-    "Priority Download Failed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "优先下载失败"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Priority Download Failed"
-          }
-        }
-      }
-    },
-    "Priority download %@ failed. Other downloads have been resumed." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "优先下载 %@ 失败，其余下载已恢复。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Priority download %@ failed. Other downloads have been resumed."
-          }
-        }
-      }
-    },
-    "Invalid download link" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无效的下载链接"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid download link"
-          }
-        }
-      }
-    },
-    "+%lld more" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "等 %lld 个"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+%lld more"
-          }
-        }
-      }
+    "可续传" : {
+
     },
     "小舞 / xiaowu" : {
 

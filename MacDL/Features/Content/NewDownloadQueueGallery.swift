@@ -14,7 +14,7 @@ struct NewDownloadQueueGallery: View {
 
                 item("方案 Q1 · 列表 + 移除", variant: QueueListRemove())
                 item("方案 Q2 · 编号列表", variant: QueueNumbered())
-                item("方案 Q3 · 卡片网格", variant: QueueGrid())
+                item("方案 Q3 · 横向任务卡", variant: QueueHorizontalCard())
             }
             .padding(32)
         }
@@ -44,6 +44,21 @@ private let sampleTasks: [(name: String, resumable: Bool)] = [
     ("archive.zip", true),
     ("paper.pdf", true),
 ]
+
+// 限速 chip
+private struct SpeedChip: View {
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "gauge").font(.system(size: 8))
+            Text("不限").font(.system(size: 9))
+            Image(systemName: "chevron.up.chevron.down").font(.system(size: 7))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(.quaternary.opacity(0.5))
+        .clipShape(Capsule())
+    }
+}
 
 // 续传徽标
 private struct ResumeBadge: View {
@@ -215,10 +230,8 @@ private struct QueueNumbered: View {
     }
 }
 
-// MARK: - Q3：卡片网格
-private struct QueueGrid: View {
-    let columns = [GridItem(.adaptive(minimum: 92), spacing: 8)]
-
+// MARK: - Q3：横向任务卡（续传徽标 + 限速）
+private struct QueueHorizontalCard: View {
     var body: some View {
         VStack(spacing: 14) {
             HStack(spacing: 8) {
@@ -235,18 +248,17 @@ private struct QueueGrid: View {
 
             QueueCard {
                 QueueHeader()
-                LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(Array(sampleTasks.enumerated()), id: \.offset) { _, task in
-                        VStack(spacing: 4) {
-                            Image(systemName: "doc.fill").font(.system(size: 20)).foregroundStyle(.tint)
-                            Text(task.name).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
-                            ResumeBadge(resumable: task.resumable)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(.quaternary.opacity(0.3))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                ForEach(0..<sampleTasks.count, id: \.self) { i in
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.fill").font(.system(size: 16)).foregroundStyle(.tint)
+                        Text(sampleTasks[i].name).font(.caption).lineLimit(1)
+                        Spacer()
+                        ResumeBadge(resumable: sampleTasks[i].resumable)
+                        SpeedChip()
                     }
+                    .padding(8)
+                    .background(.quaternary.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
 
