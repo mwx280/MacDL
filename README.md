@@ -2,9 +2,9 @@
 
 # ⬇️ MacDL
 
-**A sleek, sandboxed download manager that lives in your menu bar.**
+**The download manager that gets out of your way.**
 
-Native macOS · Multi-threaded · Resume · Clipboard · Priority · Notifications
+Paste a link. It downloads. Quit the app — it still downloads. That's the whole pitch.
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-000000.svg)]()
@@ -16,42 +16,68 @@ Native macOS · Multi-threaded · Resume · Clipboard · Priority · Notificatio
 
 ---
 
-## ✨ Why MacDL?
+## 🎯 The problem
 
-Most download managers are either bloated, cloud-bound, or drop a heavy window on
-your desktop. MacDL is the opposite — it's a **menu-bar app** that does one thing
-well: downloads files fast, quietly, and safely.
+Every big download is a small war. The browser gives up on resume mid-file. The
+"download manager" you installed insists on owning your entire screen. And that
+2-hour, 8 GB file? One Wi‑Fi blip and you're starting over.
 
-- 🔒 **Fully sandboxed** — no silent access to your whole disk
-- 🧩 **No external engine** — pure native `URLSession`, no aria2/wget sidecar
-- ⚡ **Multi-threaded** — splits files into chunks, up to 8 connections at once
-- ⏸️ **True resume** — `.macdl` staging + HTTP `Range`; survives app restarts
-- 📋 **Download from Clipboard** — copy a link, one click, done
-- 🎯 **Priority downloads** — right-click to focus one task; others pause and resume
-- 🔔 **Notifications** — start / complete / failure / priority retry-exhausted
-- 🚀 **Menu bar native** — launch at login, hide the Dock icon, run in the background
-- 🌏 **Bilingual** — English & 简体中文
+**It doesn't have to be like this.**
 
-## 🧠 How it works
+## 💡 What MacDL does instead
+
+> **One tiny menu-bar icon. Eight parallel connections. Resume that actually
+> resumes. Nothing else.**
+
+- **Copy a link → it's downloading.** No wizard, no form, no login. Hit
+  *Download from Clipboard* and go.
+- **Big files, maximum speed.** Files are split into chunks and pulled down
+  across up to **8 parallel connections** — most browsers can't touch that.
+- **Resume that survives anything.** Quit the app, reboot your Mac, come back
+  a week later: your download picks up *exactly* where it stopped. No re-downloading.
+- **Never interrupts you.** It's a menu-bar app. Hide its Dock icon, launch it at
+  login, let it run in the background — your screen stays yours.
+- **Actually sandboxed.** It only ever touches the folders you choose. No silent
+  reads of your whole disk.
+- **Knows when to speak up.** A quiet banner when a download starts or finishes,
+  and — importantly — it tells you when a **priority download gave up** after
+  retries, so you're never left wondering why the bar went quiet.
+
+## 🚀 Try it in 10 seconds
 
 ```
- You paste a URL
+1. Copy any direct link to your clipboard          ⌘C
+2. Click the ↓ in your menu bar → "Download from Clipboard"
+3. Watch it finish from the menu bar — or open the window and relax
+```
+
+That's it. This is a download manager, not a productivity suite.
+
+## 🧠 Under the hood
+
+```
+ paste a URL
       │
       ▼
- [Probe: Range: bytes=0-0] ────► 206?  ──►  chunked parallel download
-      │                              │
-      │                              └─►  200?  ──►  single-stream fallback
+ [Range probe] ──► 206?  ──►  chunked parallel download (up to 8)
+      │              │
+      │              └──► 200?  ──►  single-stream fallback
       ▼
-  Resume later?  ──►  sends bounded Range headers, re-fetches nothing
+ resume?  ──►  bounded Range headers, zero bytes re-fetched
       ▼
-  Done  ──►  renames .macdl staging file to the real filename
+ done  ──►  .macdl staging renamed to the real file
 ```
+
+- **Pure native** — `URLSession`, no aria2/wget sidecar, no cloud, no account.
+- **Token-bucket throttling** — byte-level speed limits, per task or global.
+- **Two codebases, one engine** — the engine is a standalone Swift Package
+  (`MacDLCore`) with zero AppKit, regression-tested in isolation.
 
 ## 🛠️ Build
 
 ```bash
 open MacDL.xcodeproj          # then ⌘R
-# or, headless:
+# or headless:
 xcodebuild -project MacDL.xcodeproj -scheme MacDL -destination 'platform=macOS'
 ```
 
@@ -60,27 +86,11 @@ xcodebuild -project MacDL.xcodeproj -scheme MacDL -destination 'platform=macOS'
 ## 🧪 Test
 
 ```bash
-# engine package tests
-cd MacDLCore && swift test
-
-# app tests (serial to avoid a flaky Observation crash in the parallel host)
+cd MacDLCore && swift test                    # engine suite
 xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
-  -destination 'platform=macOS' -parallel-testing-enabled NO
+  -destination 'platform=macOS' -parallel-testing-enabled NO   # app suite
 ```
-
-## 🏗️ Architecture
-
-```
-MacDLCore/   Swift Package — the engine
-             URLSession chunk engine · token-bucket throttle · resume logic
-             (no AppKit, regression-tested in isolation)
-
-MacDL/       App — SwiftUI menu-bar UI · persistence · notifications · sandbox
-```
-
-The engine is a standalone Swift Package with zero AppKit dependency — it can be
-reused elsewhere and is covered by its own fast `swift test` suite.
 
 ## 📄 License
 
-[GPL-3.0](LICENSE) — free to use and modify, but derivative works must stay open source.
+[GPL-3.0](LICENSE) — use it, change it, but keep derivatives open source.
