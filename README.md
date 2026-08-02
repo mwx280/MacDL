@@ -24,6 +24,7 @@ Paste a link. It downloads. Quit the app — it still downloads. That's the whol
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/badge/release-v0.1.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
+[![Size](https://img.shields.io/badge/app-1.8%20MB-lightgrey.svg)]()
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -44,6 +45,7 @@ Every big download is a small war. The browser gives up on resume mid-file. The
 > **One tiny menu-bar icon. Eight parallel connections. Resume that actually
 > resumes. Nothing else.**
 
+- **🪶 Featherweight** — the whole app is ~1.8 MB on disk (DMG under 1 MB). No heavy engine, no cloud, no bloat.
 - **Copy a link → it's downloading.** No wizard, no form, no login. Hit
   *Download from Clipboard* and go.
 - **Big files, maximum speed.** Files are split into chunks and pulled down

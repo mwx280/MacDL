@@ -24,6 +24,7 @@
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/badge/release-v0.1.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
+[![Size](https://img.shields.io/badge/app-1.8%20MB-lightgrey.svg)]()
 
 **[English](README.md)** · 简体中文
 
@@ -41,6 +42,7 @@
 
 > **一个菜单栏小图标。八路并行下载。真正能续传的续传。仅此而已。**
 
+- **🪶 轻量** — 整个 App 仅约 1.8 MB（DMG 不到 1 MB）。无重型引擎、无云、无臃肿。
 - **复制链接 → 开下。** 没有向导、没有表单、没有登录。点一下「从剪切板下载」就行。
 - **大文件，拉满速度。** 文件拆成分块，最多 **8 路并行**下载——多数浏览器做不到。
 - **续传扛得住一切。** 退出应用、重启 Mac、一周后再回来：下载**分毫不差**地从断点继续，绝不重新下载。
