@@ -62,7 +62,7 @@ struct MacDLApp: App {
         let vc = NSHostingController(rootView: NewDownloadDesignGallery())
         let window = NSWindow(contentViewController: vc)
         window.title = "New Download Designs"
-        window.setContentSize(NSSize(width: 1180, height: 620))
+        window.setContentSize(NSSize(width: 520, height: 860))
         window.center()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)

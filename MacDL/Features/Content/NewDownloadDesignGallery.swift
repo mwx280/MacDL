@@ -1,28 +1,33 @@
 import SwiftUI
 import AppKit
 
-// 新建下载界面的设计方案预览画廊（临时视图，选完方案后删除）
+// 新建下载界面设计方案画廊 v2：长页面纵向滚动，方案 A 及其衍生（临时视图）
 struct NewDownloadDesignGallery: View {
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 24) {
-                galleryCard("方案 A · 卡片式", variant: CardVariant())
-                galleryCard("方案 B · 极简单列", variant: MinimalVariant())
-                galleryCard("方案 C · 表单+实时预览", variant: SplitVariant())
-                galleryCard("方案 D · 设置风格分组", variant: GroupedVariant())
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 28) {
+                Text("New Download — Design Gallery (方案 A 系列)")
+                    .font(.title2.weight(.semibold))
+                Text("共 5 个变体，纵向浏览，选中一个后告知方案名。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                item("方案 A · 基础卡片", variant: CardA())
+                item("方案 A1 · 渐变头部", variant: CardA1())
+                item("方案 A2 · 分段控制", variant: CardA2())
+                item("方案 A3 · 嵌入摘要", variant: CardA3())
+                item("方案 A4 · 大圆角玻璃感", variant: CardA4())
             }
-            .padding(28)
+            .padding(32)
         }
-        .frame(width: 1180, height: 620)
+        .frame(width: 520, height: 860)
     }
 
-    private func galleryCard(_ title: String, variant: some View) -> some View {
-        VStack(spacing: 10) {
+    private func item(_ title: String, variant: some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
             variant
-                .frame(width: 400, height: 470)
-                .scaleEffect(0.88)
                 .frame(width: 400, height: 470)
                 .background(Color(nsColor: .windowBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -34,331 +39,40 @@ struct NewDownloadDesignGallery: View {
     }
 }
 
-// MARK: - 共用样例数据
+// MARK: - 共用样例
 private let sampleURL = "https://example.com/ubuntu-24.04.iso"
 private let samplePath = "/Users/xiaowu/Downloads"
-private let sampleName = "ubuntu-24.04.iso"
 
-// MARK: - 方案 A：卡片式（字段分组为圆角卡片）
-private struct CardVariant: View {
+// MARK: - 小组件
+
+// 卡片容器
+private struct CardBox<C: View>: View {
+    let radius: CGFloat
+    @ViewBuilder let content: C
     var body: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(.tint)
-                Text("New Download")
-                    .font(.headline)
-            }
-
-            fieldCard {
-                Label { Text("Download URLs").font(.caption) } icon: { Image(systemName: "link") }
-                    .foregroundStyle(.secondary)
-                Text(sampleURL)
-                    .font(.system(size: 12, design: .monospaced))
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(.quaternary.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-
-            fieldCard {
-                Label { Text("Save to").font(.caption) } icon: { Image(systemName: "folder") }
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 6) {
-                    Text(samplePath)
-                        .font(.system(size: 11, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                    Image(systemName: "folder")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            fieldCard {
-                HStack {
-                    Label { Text("Speed Limit").font(.caption) } icon: { Image(systemName: "gauge") }
-                    Spacer()
-                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
-                }
-                Divider()
-                HStack {
-                    Label { Text("Connections").font(.caption) } icon: { Image(systemName: "square.grid.3x2") }
-                    Spacer()
-                    HStack(spacing: 6) {
-                        ForEach([1, 2, 4, 8], id: \.self) { n in
-                            Chip(number: n, selected: n == 4)
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Spacer()
-                Text("Cancel").font(.body)
-                    .padding(.horizontal, 18).padding(.vertical, 5)
-                    .background(.quaternary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                Text("Download").font(.body.weight(.medium))
-                    .padding(.horizontal, 18).padding(.vertical, 5)
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
-        .padding(18)
-    }
-
-    private func fieldCard<C: View>(@ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            content()
-        }
-        .padding(12)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay { RoundedRectangle(cornerRadius: 8).stroke(.separator, lineWidth: 1) }
-    }
-}
-
-// MARK: - 方案 B：极简单列（紧凑，无卡片背景）
-private struct MinimalVariant: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "arrow.down.to.line")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.tint)
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Download URLs").font(.caption).foregroundStyle(.secondary)
-                Text(sampleURL)
-                    .font(.system(size: 12, design: .monospaced))
-                    .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
-                    .padding(8)
-                    .background(.quaternary.opacity(0.35))
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
-            }
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Save to").font(.caption).foregroundStyle(.secondary)
-                HStack(spacing: 6) {
-                    Text(samplePath)
-                        .font(.system(size: 11, design: .monospaced))
-                        .lineLimit(1).truncationMode(.middle)
-                        .padding(6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary.opacity(0.35))
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
-                    Image(systemName: "folder").foregroundStyle(.secondary)
-                }
-            }
-
-            Divider().padding(.vertical, 4)
-
-            HStack {
-                Text("Speed Limit").font(.body)
-                Spacer()
-                Text("Unlimited").font(.body).foregroundStyle(.secondary)
-            }
-            HStack {
-                Text("Connections").font(.body)
-                Spacer()
-                Text("4 connections").font(.body).foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            HStack(spacing: 10) {
-                Spacer()
-                Text("Cancel")
-                    .padding(.horizontal, 20).padding(.vertical, 6)
-                    .background(.quaternary.opacity(0.7))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                Text("Download").fontWeight(.medium)
-                    .padding(.horizontal, 20).padding(.vertical, 6)
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
-        .padding(20)
-    }
-}
-
-// MARK: - 方案 C：表单 + 实时预览（左右分栏）
-private struct SplitVariant: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.and.arrow.down").foregroundStyle(.tint)
-                    Text("New Download").font(.headline)
-                }
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("URL").font(.caption).foregroundStyle(.secondary)
-                    Text(sampleURL)
-                        .font(.system(size: 11, design: .monospaced))
-                        .lineLimit(2)
-                        .padding(7)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary.opacity(0.4))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Save to").font(.caption).foregroundStyle(.secondary)
-                    Text(samplePath)
-                        .font(.system(size: 10, design: .monospaced))
-                        .lineLimit(1).truncationMode(.middle)
-                        .padding(7)
-                        .background(.quaternary.opacity(0.4))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-
-                HStack {
-                    Text("Limit").font(.caption)
-                    Spacer()
-                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
-                }
-                HStack {
-                    Text("Connections").font(.caption)
-                    Spacer()
-                    Text("4").font(.caption).foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                HStack(spacing: 8) {
-                    Text("Cancel").font(.callout)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(.quaternary)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                    Text("Download").font(.callout.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // 实时预览卡片
-            VStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(.quaternary.opacity(0.5))
-                    .frame(height: 90)
-                    .overlay {
-                        VStack(spacing: 4) {
-                            Image(systemName: "doc.fill").font(.system(size: 26)).foregroundStyle(.secondary)
-                            Text(sampleName).font(.caption).lineLimit(1)
-                        }
-                    }
-
-                row("Name", sampleName)
-                row("Size", "4.1 GB")
-                row("Resume", "Supported")
-                row("Save to", "Downloads")
-
-                Spacer()
-            }
-            .padding(10)
-            .frame(width: 150)
-            .background(Color.accentColor.opacity(0.07))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay { RoundedRectangle(cornerRadius: 8).stroke(Color.accentColor.opacity(0.3), lineWidth: 1) }
-        }
-        .padding(16)
-    }
-
-    private func row(_ k: String, _ v: String) -> some View {
-        HStack {
-            Text(k).font(.caption2).foregroundStyle(.secondary)
-            Spacer()
-            Text(v).font(.caption2).lineLimit(1)
-        }
-    }
-}
-
-// MARK: - 方案 D：设置风格分组（bordered group + 行分隔）
-private struct GroupedVariant: View {
-    var body: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.tint)
-                Text("New Download").font(.headline)
-            }
-
-            VStack(spacing: 0) {
-                groupRow("Download URLs") {
-                    Text(sampleURL)
-                        .font(.system(size: 11, design: .monospaced))
-                        .lineLimit(1).truncationMode(.middle)
-                        .foregroundStyle(.secondary)
-                }
-                Divider().padding(.leading, 16)
-                groupRow("Save to") {
-                    Text(samplePath)
-                        .font(.system(size: 10, design: .monospaced))
-                        .lineLimit(1).truncationMode(.middle)
-                        .foregroundStyle(.secondary)
-                }
-                Divider().padding(.leading, 16)
-                groupRow("Speed Limit") {
-                    Text("Unlimited").foregroundStyle(.secondary)
-                }
-                Divider().padding(.leading, 16)
-                groupRow("Connections") {
-                    Text("4").foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
+        VStack(alignment: .leading, spacing: 8) { content }
+            .padding(12)
             .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay { RoundedRectangle(cornerRadius: 8).stroke(.separator, lineWidth: 1) }
-
-            Spacer()
-
-            HStack(spacing: 10) {
-                Spacer()
-                Text("Cancel")
-                    .padding(.horizontal, 20).padding(.vertical, 6)
-                    .background(.quaternary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                Text("Download").fontWeight(.medium)
-                    .padding(.horizontal, 20).padding(.vertical, 6)
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
-        .padding(20)
-    }
-
-    private func groupRow<C: View>(_ label: String, @ViewBuilder trailing: () -> C) -> some View {
-        HStack {
-            Text(label).font(.body)
-            Spacer()
-            trailing()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+            .clipShape(RoundedRectangle(cornerRadius: radius))
+            .overlay { RoundedRectangle(cornerRadius: radius).stroke(.separator, lineWidth: 1) }
     }
 }
 
+// 带图标的卡片标题
+private struct CardLabel: View {
+    let icon: String
+    let text: String
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(text).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
 
-// 方案 A 的连接数 chip
+// 连接数 chip（A / A1 / A4 用）
 private struct Chip: View {
     let number: Int
     let selected: Bool
@@ -373,6 +87,369 @@ private struct Chip: View {
                 RoundedRectangle(cornerRadius: 5)
                     .stroke(selected ? Color.accentColor : Color.gray.opacity(0.4), lineWidth: 1)
             }
+    }
+}
+
+// 连接数分段控制（A2 用）
+private struct Segmented: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach([1, 2, 4, 8], id: \.self) { n in
+                Text("\(n)")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .background(n == 4 ? Color.accentColor.opacity(0.15) : .clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+            }
+        }
+        .padding(2)
+        .background(.quaternary.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+}
+
+// 底部按钮
+private struct ActionButtons: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            Text("Cancel")
+                .padding(.horizontal, 18)
+                .padding(.vertical, 5)
+                .background(.quaternary)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            Text("Download").fontWeight(.medium)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 5)
+                .background(Color.accentColor)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+    }
+}
+
+// MARK: - 方案 A：基础卡片
+private struct CardA: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.tint)
+                Text("New Download").font(.headline)
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "link", text: "Download URLs")
+                Text(sampleURL)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "folder", text: "Save to")
+                HStack(spacing: 6) {
+                    Text(samplePath)
+                        .font(.system(size: 11, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                }
+            }
+
+            CardBox(radius: 8) {
+                HStack {
+                    CardLabel(icon: "gauge", text: "Speed Limit")
+                    Spacer()
+                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                HStack {
+                    CardLabel(icon: "square.grid.3x2", text: "Connections")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        ForEach([1, 2, 4, 8], id: \.self) { n in
+                            Chip(number: n, selected: n == 4)
+                        }
+                    }
+                }
+            }
+
+            ActionButtons()
+        }
+        .padding(18)
+    }
+}
+
+// MARK: - 方案 A1：渐变头部
+private struct CardA1: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(LinearGradient(colors: [.indigo, .blue], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 44, height: 44)
+                    .overlay {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("New Download").font(.headline)
+                    Text("Paste one or more links").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .background(Color.accentColor.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "link", text: "Download URLs")
+                Text(sampleURL)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "folder", text: "Save to")
+                HStack(spacing: 6) {
+                    Text(samplePath)
+                        .font(.system(size: 11, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                }
+            }
+
+            CardBox(radius: 8) {
+                HStack {
+                    CardLabel(icon: "gauge", text: "Speed Limit")
+                    Spacer()
+                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                HStack {
+                    CardLabel(icon: "square.grid.3x2", text: "Connections")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        ForEach([1, 2, 4, 8], id: \.self) { n in
+                            Chip(number: n, selected: n == 4)
+                        }
+                    }
+                }
+            }
+
+            ActionButtons()
+        }
+        .padding(18)
+    }
+}
+
+// MARK: - 方案 A2：分段控制
+private struct CardA2: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.tint)
+                Text("New Download").font(.headline)
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "link", text: "Download URLs")
+                Text(sampleURL)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "folder", text: "Save to")
+                HStack(spacing: 6) {
+                    Text(samplePath)
+                        .font(.system(size: 11, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                }
+            }
+
+            CardBox(radius: 8) {
+                VStack(spacing: 10) {
+                    HStack {
+                        CardLabel(icon: "gauge", text: "Speed Limit")
+                        Spacer()
+                        Text("Unlimited").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Divider()
+                    HStack {
+                        CardLabel(icon: "square.grid.3x2", text: "Connections")
+                        Spacer()
+                        Segmented()
+                            .frame(width: 130)
+                    }
+                }
+            }
+
+            ActionButtons()
+        }
+        .padding(18)
+    }
+}
+
+// MARK: - 方案 A3：嵌入摘要条
+private struct CardA3: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.tint)
+                Text("New Download").font(.headline)
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "link", text: "Download URLs")
+                Text(sampleURL)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                // 嵌入摘要
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                    Text("ubuntu-24.04.iso").font(.caption).lineLimit(1)
+                    Spacer()
+                    Text("4.1 GB").font(.caption).foregroundStyle(.secondary)
+                    Image(systemName: "arrow.clockwise").font(.caption2).foregroundStyle(.green)
+                    Text("Resumable").font(.caption2).foregroundStyle(.secondary)
+                }
+                .padding(8)
+                .background(.quaternary.opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            CardBox(radius: 8) {
+                CardLabel(icon: "folder", text: "Save to")
+                HStack(spacing: 6) {
+                    Text(samplePath)
+                        .font(.system(size: 11, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                }
+            }
+
+            CardBox(radius: 8) {
+                HStack {
+                    CardLabel(icon: "gauge", text: "Speed Limit")
+                    Spacer()
+                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                HStack {
+                    CardLabel(icon: "square.grid.3x2", text: "Connections")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        ForEach([1, 2, 4, 8], id: \.self) { n in
+                            Chip(number: n, selected: n == 4)
+                        }
+                    }
+                }
+            }
+
+            ActionButtons()
+        }
+        .padding(18)
+    }
+}
+
+// MARK: - 方案 A4：大圆角玻璃感
+private struct CardA4: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.to.line")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.tint)
+                Text("New Download").font(.headline)
+            }
+
+            CardBox(radius: 14) {
+                CardLabel(icon: "link", text: "Download URLs")
+                Text(sampleURL)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            CardBox(radius: 14) {
+                CardLabel(icon: "folder", text: "Save to")
+                HStack(spacing: 6) {
+                    Text(samplePath)
+                        .font(.system(size: 11, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
+                        .padding(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                }
+            }
+
+            CardBox(radius: 14) {
+                HStack {
+                    CardLabel(icon: "gauge", text: "Speed Limit")
+                    Spacer()
+                    Text("Unlimited").font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                HStack {
+                    CardLabel(icon: "square.grid.3x2", text: "Connections")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        ForEach([1, 2, 4, 8], id: \.self) { n in
+                            Chip(number: n, selected: n == 4)
+                        }
+                    }
+                }
+            }
+
+            ActionButtons()
+        }
+        .padding(18)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
