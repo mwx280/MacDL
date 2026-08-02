@@ -20,7 +20,10 @@ struct NewDownloadView: View {
     @State private var resumeStatus: [String: Bool] = [:]
     @State private var limits: [String: Int] = [:]
     @State private var probedURLs: Set<String> = []
+    @State private var queueContentHeight: CGFloat = 0
     @State private var refresh = UUID()
+
+    private let maxQueueHeight: CGFloat = 180
     @Environment(\.dismiss) var dismiss
 
     init(text: Binding<String>, onDownload: @escaping (String, NewDownloadPayload) -> Void) {
@@ -115,8 +118,16 @@ struct NewDownloadView: View {
                             }
                         }
                         .padding(.vertical, 2)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(key: TasksHeightKey.self, value: geo.size.height)
+                            }
+                        )
                     }
-                    .frame(maxHeight: 132)
+                    .frame(height: min(max(queueContentHeight, 30), maxQueueHeight))
+                    .onPreferenceChange(TasksHeightKey.self) { value in
+                        queueContentHeight = value
+                    }
                 }
             }
 
@@ -137,7 +148,7 @@ struct NewDownloadView: View {
             }
         }
         .padding(18)
-        .frame(width: 420, height: 520)
+        .frame(width: 420)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
@@ -310,5 +321,13 @@ struct NewDownloadView: View {
         downloadPath = url.path
         downloadBookmark = try? url.bookmarkData(
             options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+    }
+}
+
+// 用于测量任务队列内容高度，驱动窗口自适应
+private struct TasksHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

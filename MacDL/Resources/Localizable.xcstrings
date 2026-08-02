@@ -7,6 +7,23 @@
     "%lld" : {
 
     },
+    "%lld downloads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld downloads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个任务"
+          }
+        }
+      }
+    },
     "%lld Threads" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -23,9 +40,6 @@
           }
         }
       }
-    },
-    "%lld 个" : {
-
     },
     "+%lld more" : {
       "extractionState" : "manual",
@@ -519,6 +533,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法写入文件"
+          }
+        }
+      }
+    },
+    "Checking..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测中"
           }
         }
       }
@@ -1430,9 +1461,6 @@
         }
       }
     },
-    "https://example.com/ubuntu-24.04.iso" : {
-
-    },
     "If you like this project, please give it a star ⭐" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1762,9 +1790,6 @@
         }
       }
     },
-    "New Download — 多任务队列布局" : {
-
-    },
     "No Download Link" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2070,6 +2095,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "代理错误"
+          }
+        }
+      }
+    },
+    "Queue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即将下载"
           }
         }
       }
@@ -2842,12 +2884,6 @@
         }
       }
     },
-    "不可续传" : {
-
-    },
-    "不限" : {
-
-    },
     "中文" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2861,66 +2897,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "中文"
-          }
-        }
-      }
-    },
-    "共 3 个队列布局变体；Q3 每行显示按扩展名的类型图标（与任务列表一致）。" : {
-
-    },
-    "即将下载" : {
-
-    },
-    "可续传" : {
-
-    },
-    "Queue" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "即将下载"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Queue"
-          }
-        }
-      }
-    },
-    "%lld downloads" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 个任务"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld downloads"
-          }
-        }
-      }
-    },
-    "Checking..." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "检测中"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checking..."
           }
         }
       }
