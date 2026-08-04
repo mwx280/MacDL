@@ -222,6 +222,15 @@ final class DownloadService {
             return
         }
 
+        // A non-resumable (single-stream) download restarts from byte zero on
+        // resume, so clear its progress or the bar sticks at the pre-pause value
+        // while the engine rewrites the file.
+        if downloads[idx].supportsResume == false {
+            downloads[idx].downloadedSize = 0
+            downloads[idx].totalSize = 0
+            downloads[idx].chunks = []
+        }
+
         downloads[idx].status = .active
         store.save()
 

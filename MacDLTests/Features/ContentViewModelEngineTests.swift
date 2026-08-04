@@ -192,6 +192,30 @@ import MacDLCore
         #expect(vm.downloads.first { $0.id == d.id }?.maxConcurrentChunks == 4)
     }
 
+    @Test func resumeNonResumableResetsProgress() {
+        let engine = FakeEngine()
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let d = Download(filename: "nr.bin", url: "https://example.com/nr.bin", totalSize: 1000, downloadedSize: 500, status: .paused, supportsResume: false)
+        vm.downloads = [d]
+        vm.resumeDownload(id: d.id)
+        let resumed = vm.downloads.first { $0.id == d.id }
+        #expect(resumed?.status == .active)
+        #expect(resumed?.downloadedSize == 0)
+        #expect(resumed?.totalSize == 0)
+        #expect(resumed?.chunks.isEmpty == true)
+    }
+
+    @Test func resumeResumableKeepsProgress() {
+        let engine = FakeEngine()
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let d = Download(filename: "r.bin", url: "https://example.com/r.bin", totalSize: 1000, downloadedSize: 500, status: .paused, supportsResume: true)
+        vm.downloads = [d]
+        vm.resumeDownload(id: d.id)
+        let resumed = vm.downloads.first { $0.id == d.id }
+        #expect(resumed?.downloadedSize == 500)
+        #expect(resumed?.totalSize == 1000)
+    }
+
     @Test func resumeSendsStartedNotification() {
         let engine = FakeEngine()
         var requests: [UNNotificationRequest] = []
