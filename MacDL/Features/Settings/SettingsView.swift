@@ -51,7 +51,9 @@ private struct GeneralPane: View {
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 140)
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 140, alignment: .trailing)
                 }
                 .id(lang.selectedLanguage)
 
@@ -64,7 +66,9 @@ private struct GeneralPane: View {
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 140)
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 140, alignment: .trailing)
                 }
 
                 divider
