@@ -47,6 +47,26 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: "autoUpdate") }
     }
 
+    var notifyStart: Bool {
+        get { defaults.object(forKey: "notifyStart") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "notifyStart") }
+    }
+
+    var notifyCompleted: Bool {
+        get { defaults.object(forKey: "notifyCompleted") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "notifyCompleted") }
+    }
+
+    var notifyFailed: Bool {
+        get { defaults.object(forKey: "notifyFailed") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "notifyFailed") }
+    }
+
+    var notifyRedownload: Bool {
+        get { defaults.object(forKey: "notifyRedownload") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "notifyRedownload") }
+    }
+
     var launchAtLogin: Bool {
         get { defaults.bool(forKey: "launchAtLogin") }
         set { defaults.set(newValue, forKey: "launchAtLogin") }

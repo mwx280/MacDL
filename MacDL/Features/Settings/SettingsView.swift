@@ -1,11 +1,13 @@
 import SwiftUI
 import AppKit
+import UserNotifications
 
 struct SettingsView: View {
     private enum Pane: String {
         case general
         case download
         case update
+        case notifications
     }
 
     @State private var pane: Pane = .general
@@ -29,6 +31,12 @@ struct SettingsView: View {
                     Label(title: { LocalizedText(key: "Update") }, icon: { Image(systemName: "arrow.triangle.2.circlepath") })
                 }
                 .tag(Pane.update)
+
+            NotificationsPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Notifications") }, icon: { Image(systemName: "bell") })
+                }
+                .tag(Pane.notifications)
         }
         .frame(width: 420, height: height(for: pane))
     }
@@ -38,6 +46,7 @@ struct SettingsView: View {
         case .general: 190
         case .download: 260
         case .update: 120
+        case .notifications: 190
         }
     }
 }
@@ -344,6 +353,90 @@ private struct UpdatePane: View {
                 .controlSize(.small)
                 .help(LanguageManager.shared.localized("Retry"))
             }
+        }
+    }
+}
+
+private struct NotificationsPane: View {
+    @AppStorage("notifyStart") private var notifyStart = true
+    @AppStorage("notifyCompleted") private var notifyCompleted = true
+    @AppStorage("notifyFailed") private var notifyFailed = true
+    @AppStorage("notifyRedownload") private var notifyRedownload = true
+    @State private var notificationsEnabled = true
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if notificationsEnabled {
+                card {
+                    prefRow("play.circle", "Download Started") {
+                        Toggle("", isOn: $notifyStart)
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                    }
+
+                    divider
+
+                    prefRow("checkmark.circle.fill", "Download Completed") {
+                        Toggle("", isOn: $notifyCompleted)
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                    }
+
+                    divider
+
+                    prefRow("xmark.circle.fill", "Download failed") {
+                        Toggle("", isOn: $notifyFailed)
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                    }
+
+                    divider
+
+                    prefRow("arrow.clockwise.circle", "Redownload Prompt") {
+                        Toggle("", isOn: $notifyRedownload)
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                    }
+                }
+            } else {
+                card {
+                    VStack(spacing: 12) {
+                        Image(systemName: "bell.slash.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.secondary)
+                        LocalizedText(key: "Notifications are disabled")
+                            .font(.body)
+                        LocalizedText(key: "Enable notifications in System Settings to customize which alerts MacDL shows")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            openNotificationSettings()
+                        } label: {
+                            LocalizedText(key: "Enable Notifications")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                }
+            }
+        }
+        .padding(20)
+        .onAppear { refreshAuthorization() }
+    }
+
+    private func refreshAuthorization() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                notificationsEnabled = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+            }
+        }
+    }
+
+    private func openNotificationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications?MacDL") {
+            NSWorkspace.shared.open(url)
         }
     }
 }
