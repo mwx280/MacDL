@@ -74,7 +74,7 @@ struct ContentView: View {
                 onDownload: { urls, payload in
                     for url in urls.components(separatedBy: .newlines).map({ $0.trimmingCharacters(in: .whitespaces) }).filter({ !$0.isEmpty }) {
                         let limit = payload.limits[url] ?? 0
-                        let connections = (payload.resumeStatus[url] == false) ? 1 : payload.connections
+                        let connections = (payload.resumeStatus[url] == false) ? 1 : (payload.connectionsByURL[url] ?? payload.connections)
                         model.addDownload(url: url, savePath: payload.path, saveBookmark: payload.bookmark, dlLimit: limit, connections: connections)
                     }
                 }

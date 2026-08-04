@@ -2,11 +2,12 @@ import SwiftUI
 import AppKit
 import MacDLCore
 
-// Data submitted when creating a new download: save path + global connection count + per-task speed limit/resume state
+// Data submitted when creating a new download: save path + default connection count + per-task thread/speed/resume state
 struct NewDownloadPayload {
     let path: String
     let bookmark: Data?
     let connections: Int
+    let connectionsByURL: [String: Int]
     let limits: [String: Int]
     let resumeStatus: [String: Bool]
 }
@@ -19,8 +20,12 @@ struct NewDownloadView: View {
     @State private var downloadConnections: Int
     @State private var resumeStatus: [String: Bool] = [:]
     @State private var limits: [String: Int] = [:]
+    @State private var connectionsByURL: [String: Int] = [:]
     @State private var probedURLs: Set<String> = []
+    @State private var hoveredURL: String?
     @State private var refresh = UUID()
+    @State private var clipboardHasURL = false
+    @State private var isDropTarget = false
     @Environment(\.dismiss) var dismiss
 
     init(text: Binding<String>, onDownload: @escaping (String, NewDownloadPayload) -> Void) {
@@ -31,239 +36,304 @@ struct NewDownloadView: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 22, weight: .medium))
+        VStack(spacing: 10) {
+            VStack(spacing: 2) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 30))
                     .foregroundStyle(.tint)
                 Text(LanguageManager.shared.localized("New Download"))
-                    .font(.headline)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text(LanguageManager.shared.localized("Paste links and they download"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: .infinity)
 
-            // Card: URL input
-            fieldCard {
-                cardLabel("link", "Download URLs")
-                PlaceholderTextEditor(
-                    text: $text,
-                    placeholder: LanguageManager.shared.localized("One URL per line, multiple URLs supported")
-                )
-                .frame(height: 76)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(.separator, lineWidth: 1)
-                }
-
-                if !queueLines.isEmpty && !inputIsValid {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                        LocalizedText(key: "Invalid download link")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                        Spacer()
+            ZStack(alignment: .bottomTrailing) {
+                dropZone
+                if text.isEmpty && !clipboardHasURL {
+                    Button { pasteFromClipboard() } label: {
+                        Label(LanguageManager.shared.localized("Paste from clipboard"), systemImage: "doc.on.clipboard")
                     }
-                    .foregroundStyle(.red)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .padding(10)
                 }
             }
 
-            // Card: task queue (always visible, placeholder when empty)
-            fieldCard {
-                HStack(spacing: 8) {
-                    Image(systemName: "list.bullet")
+            if text.isEmpty && clipboardHasURL {
+                clipboardBanner
+            } else if hasInvalidLinks {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill").font(.caption2)
+                    Text(String(format: LanguageManager.shared.localized("Recognized %lld links, %lld invalid"), validCount, invalidCount))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                    LocalizedText(key: "Queue")
-                        .font(.headline)
-                    Text(String(format: LanguageManager.shared.localized("%lld downloads"), Int64(validTasks.count)))
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.15))
-                        .clipShape(Capsule())
-                        .foregroundStyle(.secondary)
+                        .fontWeight(.medium)
                     Spacer()
-                    HStack(spacing: 4) {
-                        ForEach([1, 2, 4, 8], id: \.self) { n in
-                            connectionChip(n)
-                        }
-                    }
                 }
-
-                Divider()
-
-                if validTasks.isEmpty {
-                    VStack(spacing: 6) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 22))
-                            .foregroundStyle(.tertiary)
-                        LocalizedText(key: "Paste download links to see them here")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 76)
-                } else {
-                    ScrollView(.vertical, showsIndicators: true) {
-                        VStack(spacing: 6) {
-                            ForEach(validTasks, id: \.url) { task in
-                                HStack(spacing: 8) {
-                                    Image(systemName: task.icon)
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(.tint)
-                                        .frame(width: 20)
-                                    Text(task.name)
-                                        .font(.caption)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                    Spacer()
-                                    resumeBadge(for: task.url)
-                                    speedChip(for: task.url)
-                                }
-                                .padding(8)
-                                .background(.quaternary.opacity(0.3))
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .frame(maxHeight: 150)
-                }
+                .foregroundStyle(.red)
             }
 
             HStack(spacing: 12) {
-                Button {
-                    browseFolder()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "folder")
-                        Text(downloadPath)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .font(.caption)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
-                .help(LanguageManager.shared.localized("Select download folder"))
-
+                Text(LanguageManager.shared.localized("Task Queue"))
+                    .font(.headline)
+                Text("\(validTasks.count)")
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.15))
+                    .clipShape(Capsule())
+                    .foregroundStyle(.secondary)
                 Spacer()
+                Text(LanguageManager.shared.localized("Each task configured independently"))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
 
+            if validTasks.isEmpty {
+                emptyState
+            } else {
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(spacing: 6) {
+                        ForEach(validTasks, id: \.url) { task in
+                            taskRow(task)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .frame(maxHeight: 210)
+            }
+
+            folderRow
+
+            HStack(spacing: 10) {
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
-                    .keyboardShortcut(.escape)
-                Button(LanguageManager.shared.localized("Download")) {
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+                Button {
                     onDownload(text, NewDownloadPayload(
                         path: downloadPath,
                         bookmark: downloadBookmark,
                         connections: downloadConnections,
+                        connectionsByURL: connectionsByURL,
                         limits: limits,
                         resumeStatus: resumeStatus))
                     dismiss()
+                } label: {
+                    Text(LanguageManager.shared.localized("Download"))
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
-                .disabled(!inputIsValid)
+                .tint(.accentColor)
+                .disabled(validTasks.isEmpty || hasInvalidLinks || downloadPath.isEmpty)
             }
         }
-        .padding(18)
-        .frame(width: 420, height: 540)
+        .padding(14)
+        .frame(width: 420)
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
         }
         .onChange(of: text) { _, _ in
             detectResumeSupport()
+            detectClipboard()
         }
         .onAppear {
             guard text.isEmpty else {
                 detectResumeSupport()
+                detectClipboard()
                 return
             }
             let pasteboard = NSPasteboard.general
             guard let str = pasteboard.string(forType: .string) else { return }
             let hasURL = str.components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
-                .contains { $0.lowercased().hasPrefix("http://") || $0.lowercased().hasPrefix("https://") }
+                .contains { isValid($0) }
             if hasURL { text = str }
             detectResumeSupport()
-        }
-    }
-
-    // MARK: - Data
-
-    private var queueLines: [String] {
-        text.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-    }
-
-    // Every non-empty line must be a valid http/https link (with a host)
-    private var inputIsValid: Bool {
-        let lines = queueLines
-        guard !lines.isEmpty else { return false }
-        return lines.allSatisfy { line in
-            guard let url = URL(string: line),
-                  let scheme = url.scheme?.lowercased(),
-                  (scheme == "http" || scheme == "https"),
-                  url.host != nil
-            else { return false }
-            return true
-        }
-    }
-
-    private var validTasks: [(url: String, name: String, icon: String)] {
-        queueLines.compactMap { line -> (url: String, name: String, icon: String)? in
-            guard let url = URL(string: line),
-                  let scheme = url.scheme?.lowercased(),
-                  (scheme == "http" || scheme == "https"),
-                  url.host != nil
-            else { return nil }
-            let name = url.lastPathComponent
-            let filename = name.isEmpty ? (url.host ?? line) : name
-            let icon = Download(filename: filename, url: line).fileTypeIcon
-            return (line, filename, icon)
-        }
-    }
-
-    // Probe resume support per URL
-    private func detectResumeSupport() {
-        for line in validTasks.map(\.url) where !probedURLs.contains(line) {
-            probedURLs.insert(line)
-            resumeStatus[line] = nil
-            guard let url = URL(string: line) else { continue }
-            ResumeProbeService.detectResumeSupport(url: url) { result in
-                self.resumeStatus[line] = result
-            }
+            detectClipboard()
         }
     }
 
     // MARK: - Components
 
+    private var dropZone: some View {
+        PlaceholderTextEditor(
+            text: $text,
+            placeholder: LanguageManager.shared.localized("Paste download links here, one per line")
+        )
+        .frame(height: 64)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.accentColor.opacity(isDropTarget ? 1 : 0.55), style: StrokeStyle(lineWidth: isDropTarget ? 1.5 : 1, dash: [6, 4]))
+        }
+        .dropDestination(for: String.self) { items, _ in
+            appendURLs(items)
+            return true
+        } isTargeted: { isDropTarget = $0 }
+    }
+
+    private var clipboardBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles").font(.caption2).foregroundStyle(.tint)
+            Text(LanguageManager.shared.localized("Detected clipboard links")).font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Button { pasteFromClipboard() } label: {
+                Label(LanguageManager.shared.localized("Fill"), systemImage: "doc.on.clipboard").font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .tint(.accentColor)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.accentColor.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "tray")
+                .font(.system(size: 16))
+                .foregroundStyle(.tertiary)
+            Text(LanguageManager.shared.localized("Paste download links to see them here"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var folderRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "folder")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+            Text(downloadPath)
+                .font(.caption)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(downloadPath)
+            Spacer(minLength: 8)
+            Button(LanguageManager.shared.localized("Change")) { browseFolder() }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(.quaternary.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func taskRow(_ task: (url: String, name: String, host: String, icon: String)) -> some View {
+        let isHovered = hoveredURL == task.url
+        return HStack(spacing: 10) {
+            Image(systemName: task.icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.tint)
+                .frame(width: 26, height: 26)
+                .background(Color.accentColor.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(task.name)
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if ContentViewModel.shared.downloads.contains(where: { $0.url == task.url }) {
+                        Text(LanguageManager.shared.localized("Already in Download List"))
+                            .font(.system(size: 9))
+                            .foregroundStyle(.purple)
+                            .lineLimit(1)
+                    }
+                    if duplicatedNames.contains(task.name) {
+                        Text(LanguageManager.shared.localized("Will be renamed automatically"))
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                            .lineLimit(1)
+                    }
+                }
+                Text(task.host)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 4) {
+                resumeLabel(for: task.url)
+                HStack(spacing: 5) {
+                    threadPicker(for: task.url)
+                    speedPicker(for: task.url)
+                }
+            }
+            if isHovered {
+                Button { removeTask(task.url) } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(LanguageManager.shared.localized("Remove this task"))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.quaternary.opacity(0.35))
+        .background(Color.primary.opacity(isHovered ? 0.06 : 0))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onHover { isHovered in hoveredURL = isHovered ? task.url : nil }
+    }
+
     @ViewBuilder
-    private func resumeBadge(for url: String) -> some View {
+    private func resumeLabel(for url: String) -> some View {
         switch resumeStatus[url] {
         case true:
-            badge("arrow.clockwise", "Resumable", .green)
+            Label(LanguageManager.shared.localized("Resumable"), systemImage: "arrow.clockwise")
+                .font(.caption)
+                .foregroundStyle(.green)
         case false:
-            badge("exclamationmark.triangle", "Not Resumable", .orange)
+            Label(LanguageManager.shared.localized("Not Resumable · Single Thread"), systemImage: "lock")
+                .font(.caption)
+                .foregroundStyle(.orange)
         default:
-            badge(nil, "Checking...", .gray)
-        }
-    }
-
-    private func badge(_ icon: String?, _ key: String, _ color: Color) -> some View {
-        HStack(spacing: 3) {
-            if let icon {
-                Image(systemName: icon).font(.system(size: 9))
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text(LanguageManager.shared.localized("Checking..."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            LocalizedText(key: key).font(.system(size: 10))
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(color.opacity(0.15))
-        .clipShape(Capsule())
-        .foregroundStyle(color)
     }
 
-    private func speedChip(for url: String) -> some View {
+    private func threadPicker(for url: String) -> some View {
+        let locked = resumeStatus[url] == false
+        return Picker(selection: Binding(
+            get: { connectionsByURL[url] ?? downloadConnections },
+            set: { connectionsByURL[url] = $0 }
+        )) {
+            ForEach([1, 2, 4, 8], id: \.self) { n in
+                Text(String(format: LanguageManager.shared.localized("%lld Threads"), n)).tag(n)
+            }
+        } label: { }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .controlSize(.small)
+        .frame(width: 62)
+        .disabled(locked)
+        .opacity(locked ? 0.55 : 1)
+        .help(locked
+            ? LanguageManager.shared.localized("Non-resumable tasks use a single thread")
+            : LanguageManager.shared.localized("Parallel threads"))
+    }
+
+    private func speedPicker(for url: String) -> some View {
         Picker(selection: Binding(
             get: { limits[url] ?? SettingsStore.shared.maxDownloadSpeed },
             set: { limits[url] = $0 }
@@ -274,48 +344,115 @@ struct NewDownloadView: View {
         } label: { }
         .labelsHidden()
         .pickerStyle(.menu)
-        .frame(width: 96)
         .controlSize(.small)
+        .frame(width: 74)
     }
 
-    private func connectionChip(_ n: Int) -> some View {
-        Button {
-            downloadConnections = n
-        } label: {
-            Text("\(n)")
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(downloadConnections == n ? Color.accentColor.opacity(0.18) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(downloadConnections == n ? Color.accentColor : Color.gray.opacity(0.4), lineWidth: 1)
-                }
+    // MARK: - Data
+
+    private var queueLines: [String] {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func isValid(_ line: String) -> Bool {
+        guard let url = URL(string: line),
+              let scheme = url.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              url.host != nil
+        else { return false }
+        return true
+    }
+
+    private var hasInvalidLinks: Bool {
+        invalidCount > 0
+    }
+
+    private var invalidCount: Int {
+        queueLines.filter { !isValid($0) }.count
+    }
+
+    private var validCount: Int {
+        queueLines.filter { isValid($0) }.count
+    }
+
+    private var validTasks: [(url: String, name: String, host: String, icon: String)] {
+        queueLines.compactMap { line in
+            guard isValid(line), let url = URL(string: line) else { return nil }
+            let name = url.lastPathComponent
+            let filename = name.isEmpty ? (url.host ?? line) : name
+            let icon = Download(filename: filename, url: line).fileTypeIcon
+            return (line, filename, url.host ?? "", icon)
         }
-        .buttonStyle(.plain)
     }
 
-    private func fieldCard<C: View>(@ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 8) { content() }
-            .padding(12)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(.separator, lineWidth: 1)
+    private var duplicatedNames: Set<String> {
+        var seen = Set<String>()
+        var dupes = Set<String>()
+        for task in validTasks {
+            if seen.contains(task.name) { dupes.insert(task.name) }
+            seen.insert(task.name)
+        }
+        return dupes
+    }
+
+    // Probe resume support per URL
+    private func detectResumeSupport() {
+        for task in validTasks where !probedURLs.contains(task.url) {
+            probedURLs.insert(task.url)
+            resumeStatus[task.url] = nil
+            guard let url = URL(string: task.url) else { continue }
+            ResumeProbeService.detectResumeSupport(url: url) { result in
+                self.resumeStatus[task.url] = result
             }
+        }
     }
 
-    private func cardLabel(_ icon: String, _ label: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            LocalizedText(key: label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    // MARK: - Actions
+
+    private func pasteFromClipboard() {
+        let pb = NSPasteboard.general
+        text = pb.string(forType: .string) ?? text
+        detectClipboard()
+    }
+
+    private func detectClipboard() {
+        guard text.isEmpty else {
+            clipboardHasURL = false
+            return
         }
+        let pb = NSPasteboard.general
+        guard let str = pb.string(forType: .string) else {
+            clipboardHasURL = false
+            return
+        }
+        let hasURL = str.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .contains { isValid($0) }
+        clipboardHasURL = hasURL
+    }
+
+    private func appendURLs(_ raw: [String]) {
+        let lines = raw
+            .flatMap { $0.components(separatedBy: .newlines) }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return }
+        var merged = text
+        if !merged.isEmpty { merged += "\n" }
+        merged += lines.joined(separator: "\n")
+        text = merged
+        detectClipboard()
+    }
+
+    private func removeTask(_ url: String) {
+        var lines = queueLines
+        if let idx = lines.firstIndex(of: url) { lines.remove(at: idx) }
+        text = lines.joined(separator: "\n")
+        connectionsByURL[url] = nil
+        limits[url] = nil
+        detectClipboard()
     }
 
     private func browseFolder() {

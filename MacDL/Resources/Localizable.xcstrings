@@ -554,6 +554,23 @@
         }
       }
     },
+    "Change" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改"
+          }
+        }
+      }
+    },
     "Checking..." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -842,6 +859,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除"
+          }
+        }
+      }
+    },
+    "Detected clipboard links" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detected clipboard links"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到剪贴板链接"
           }
         }
       }
@@ -1254,6 +1288,23 @@
         }
       }
     },
+    "Each task configured independently" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each task configured independently"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个任务独立设置"
+          }
+        }
+      }
+    },
     "English" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1352,6 +1403,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "文件未找到"
+          }
+        }
+      }
+    },
+    "Fill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填入"
           }
         }
       }
@@ -1474,6 +1542,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隐藏窗口"
+          }
+        }
+      }
+    },
+    "HTTP %ld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTP %ld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTP %ld"
           }
         }
       }
@@ -1644,6 +1729,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无效的种子文件"
+          }
+        }
+      }
+    },
+    "Invalid URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无效的链接"
           }
         }
       }
@@ -1841,6 +1943,23 @@
         }
       }
     },
+    "Non-resumable tasks use a single thread" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non-resumable tasks use a single thread"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不可续传的任务固定为单线程"
+          }
+        }
+      }
+    },
     "Not Found" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1871,6 +1990,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不可续传"
+          }
+        }
+      }
+    },
+    "Not Resumable · Single Thread" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Resumable · Single Thread"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不可续传 · 单线程"
           }
         }
       }
@@ -1926,6 +2062,91 @@
         }
       }
     },
+    "Parallel threads" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parallel threads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "并行线程数"
+          }
+        }
+      }
+    },
+    "Paste download links here, one per line" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste download links here, one per line"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此粘贴下载链接，每行一个"
+          }
+        }
+      }
+    },
+    "Paste download links to see them here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste download links to see them here"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴下载链接后将在此处列出任务"
+          }
+        }
+      }
+    },
+    "Paste from clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste from clipboard"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从剪贴板粘贴"
+          }
+        }
+      }
+    },
+    "Paste links and they download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste links and they download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴链接，即开即下"
+          }
+        }
+      }
+    },
     "Pause" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1973,23 +2194,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂停不可续传的任务？"
-          }
-        }
-      }
-    },
-    "Preparing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preparing"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "准备中"
           }
         }
       }
@@ -2058,6 +2262,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "设置..."
+          }
+        }
+      }
+    },
+    "Preparing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备中"
           }
         }
       }
@@ -2198,6 +2419,23 @@
         }
       }
     },
+    "Recognized %lld links, %lld invalid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recognized %lld links, %lld invalid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已识别 %lld 个链接，%lld 个无效"
+          }
+        }
+      }
+    },
     "Redownload" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2211,6 +2449,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新下载"
+          }
+        }
+      }
+    },
+    "Remove this task" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove this task"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除该任务"
           }
         }
       }
@@ -2609,6 +2864,23 @@
     "SwiftUI · URLSession" : {
 
     },
+    "Task Queue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task Queue"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任务队列"
+          }
+        }
+      }
+    },
     "Tech Stack" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2881,6 +3153,23 @@
         }
       }
     },
+    "Version %@ (build %@)" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ (build %@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %@ (构建 %@)"
+          }
+        }
+      }
+    },
     "Video" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2894,6 +3183,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "视频"
+          }
+        }
+      }
+    },
+    "Waiting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待中"
           }
         }
       }
@@ -2915,19 +3221,19 @@
         }
       }
     },
-    "Waiting" : {
+    "Will be renamed automatically" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Waiting"
+            "value" : "Will be renamed automatically"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "等待中"
+            "value" : "将自动重命名"
           }
         }
       }
@@ -2966,76 +3272,8 @@
         }
       }
     },
-    "Paste download links to see them here" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "粘贴下载链接后将在此处列出任务"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paste download links to see them here"
-          }
-        }
-      }
-    },
     "小舞 / xiaowu" : {
 
-    },
-    "HTTP %ld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "HTTP %ld"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "HTTP %ld"
-          }
-        }
-      }
-    },
-    "Invalid URL" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid URL"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无效的链接"
-          }
-        }
-      }
-    },
-    "Version %@ (build %@)" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Version %@ (build %@)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "版本 %@ (构建 %@)"
-          }
-        }
-      }
     }
   },
   "version" : "1.0"
