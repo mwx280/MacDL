@@ -87,7 +87,7 @@ struct AboutView: View {
             .padding(.vertical, 4)
 
             VStack(spacing: 4) {
-                Text("MIT License")
+                Text("GPL-3.0 License")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
                 Text("Copyright © 2026 xiaowu")
