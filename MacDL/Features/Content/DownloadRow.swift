@@ -29,10 +29,10 @@ struct DownloadRow: View {
                         .truncationMode(.middle)
                     Spacer()
                     HStack(spacing: 8) {
-                        statusGroup
                         if let canResume = download.supportsResume, download.status != .completed {
                             resumeGroup(canResume)
                         }
+                        statusGroup
                     }
                 }
 
@@ -44,6 +44,13 @@ struct DownloadRow: View {
                         Image(systemName: "gauge.with.dots.needle.50percent")
                             .font(.system(size: 9))
                         Text(download.progress, format: .percent.precision(.fractionLength(1)))
+                    }
+                    if download.status == .error, let msg = download.errorMessage {
+                        Text(msg)
+                            .font(.caption2)
+                            .foregroundStyle(download.status.displayColor)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                     if download.status == .active || download.status == .waiting {
                         HStack(spacing: 3) {
@@ -157,15 +164,8 @@ struct DownloadRow: View {
         HStack(spacing: 3) {
             Image(systemName: download.status.displayIcon)
                 .font(.caption2)
-            if download.status == .error, let msg = download.errorMessage {
-                Text(msg)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            } else {
-                Text(LanguageManager.shared.localized(download.status.labelKey))
-                    .font(.caption2)
-            }
+            Text(LanguageManager.shared.localized(download.status.labelKey))
+                .font(.caption2)
         }
         .foregroundStyle(download.status.displayColor)
     }
