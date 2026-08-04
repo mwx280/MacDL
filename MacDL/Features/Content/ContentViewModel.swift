@@ -423,17 +423,16 @@ final class ContentViewModel {
     /// destination file is already on disk (the dialog warns it will be overwritten).
     var redownloadConfirmation: (Download, Bool) -> Bool = { download, fileExists in
         let alert = NSAlert()
-        alert.messageText = LanguageManager.shared.localized("Redownload")
-        if fileExists {
-            alert.alertStyle = .warning
-            alert.informativeText = String(
-                format: LanguageManager.shared.localized("%@ already exists and will be overwritten. Download it again?"),
-                download.filename)
-        } else {
-            alert.informativeText = String(
-                format: LanguageManager.shared.localized("Download %@ again?"),
-                download.filename)
-        }
+        alert.alertStyle = .warning
+        // The default message/informative text is left-aligned; put a centered
+        // SwiftUI layout (icon + title + body) into the accessory view instead.
+        alert.messageText = ""
+        alert.informativeText = ""
+        alert.icon = nil
+        let host = NSHostingView(rootView: RedownloadAlertContent(filename: download.filename, fileExists: fileExists))
+        let fitting = host.fittingSize
+        host.frame = NSRect(x: 0, y: 0, width: 296, height: max(fitting.height, 130))
+        alert.accessoryView = host
         alert.addButton(withTitle: LanguageManager.shared.localized("Redownload"))
         alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
         return alert.runModal() == .alertFirstButtonReturn
