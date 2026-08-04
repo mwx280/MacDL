@@ -212,24 +212,9 @@ struct NewDownloadView: View {
             probedURLs.insert(line)
             resumeStatus[line] = nil
             guard let url = URL(string: line) else { continue }
-            var req = URLRequest(url: url)
-            req.setValue("bytes=0-0", forHTTPHeaderField: "Range")
-            req.timeoutInterval = 5
-            URLSession.shared.dataTask(with: req) { _, response, error in
-                let result: Bool?
-                if error == nil, let http = response as? HTTPURLResponse {
-                    switch http.statusCode {
-                    case 206: result = true
-                    case 200..<300: result = false
-                    case 429: result = nil // rate-limited: transient, not 'not resumable'
-                    case 500..<600: result = nil // server error: transient
-                    default: result = false // other 4xx: truly not resumable
-                    }
-                } else {
-                    result = nil
-                }
-                DispatchQueue.main.async { self.resumeStatus[line] = result }
-            }.resume()
+            ResumeProbeService.detectResumeSupport(url: url) { result in
+                self.resumeStatus[line] = result
+            }
         }
     }
 

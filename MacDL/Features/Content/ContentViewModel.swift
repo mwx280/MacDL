@@ -29,8 +29,7 @@ final class ContentViewModel {
     private var termObserver: NSObjectProtocol?
     private var redownloadObserver: NSObjectProtocol?
     private var fileCheckTimer: Timer?
-    private var priorityDownloadID: UUID?
-    private var pausedForPriority: Set<UUID> = []
+    private var priority: PriorityDownloadCoordinator!
 
     init(
         engine: DownloadEngineProtocol = DownloadEngine.shared,
@@ -46,6 +45,10 @@ final class ContentViewModel {
         self.store = store
         let coordinator = DownloadEngineCoordinator(engine: engine, store: store, notifier: notifier, settings: settings)
         self.coordinator = coordinator
+        let priority = PriorityDownloadCoordinator(store: store, engine: coordinator) { [weak self] id in
+            self?.resumeDownload(id: id)
+        }
+        self.priority = priority
         Self.current = self
         coordinator.progress.setCancelHandler { [weak self] id in self?.cancelProgressDownload(id) }
         coordinator.onTaskCompletion = { [weak self] id, result in
@@ -55,7 +58,7 @@ final class ContentViewModel {
         for i in store.downloads.indices where store.downloads[i].status == .active {
             store.downloads[i].status = .paused
         }
-        pausedForPriority = Set(store.downloads.filter { $0.pausedForPriority == true }.map(\.id))
+        priority.restoreFromStore()
 
         redownloadObserver = NotificationCenter.default.addObserver(
             forName: .requestRedownload,
@@ -186,7 +189,7 @@ final class ContentViewModel {
             store.downloads[idx].status = .error
             store.downloads[idx].errorMessage = coordinator.localizedMessage(for: error)
             coordinator.progress.unpublish(for: id)
-            if id == priorityDownloadID {
+            if id == priority.priorityDownloadID {
                 // The priority task gave up after retries; tell the user the
                 // auto-paused downloads are being resumed.
                 notifier.notify(
@@ -200,8 +203,8 @@ final class ContentViewModel {
         }
         coordinator.endAccess(for: id)
         store.save()
-        if id == priorityDownloadID {
-            endPriorityMode()
+        if id == priority.priorityDownloadID {
+            priority.end()
         } else {
             startNextWaitingDownload()
         }
@@ -259,36 +262,19 @@ final class ContentViewModel {
         let dir = savePath ?? AppConfig.defaultDownloadDir
 
         if !allowDuplicate, let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
-            let alert = NSAlert()
             switch existing.status {
             case .active, .waiting:
-                alert.messageText = LanguageManager.shared.localized("Duplicate URL")
-                alert.informativeText = LanguageManager.shared.localized("The URL is already in the download queue")
-                alert.addButton(withTitle: LanguageManager.shared.localized("OK"))
-                alert.runModal()
+                DialogPresenter.duplicateActive()
                 return
             case .paused:
-                alert.messageText = LanguageManager.shared.localized("Paused Download")
-                alert.informativeText = LanguageManager.shared.localized("A paused download for this file already exists. Resume it?")
-                alert.addButton(withTitle: LanguageManager.shared.localized("Resume"))
-                alert.addButton(withTitle: LanguageManager.shared.localized("New Download"))
-                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-                let resp = alert.runModal()
-                if resp == .alertFirstButtonReturn { resumeDownload(id: existing.id) }
-                if resp != .alertSecondButtonReturn { return }
+                let resp = DialogPresenter.duplicatePaused()
+                if resp == .resume { resumeDownload(id: existing.id) }
+                if resp != .newDownload { return }
             case .completed:
-                alert.messageText = LanguageManager.shared.localized("Completed Download")
-                alert.informativeText = LanguageManager.shared.localized("This file has already been downloaded. Download again?")
-                alert.addButton(withTitle: LanguageManager.shared.localized("Download Again"))
-                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-                if alert.runModal() != .alertFirstButtonReturn { return }
+                if !DialogPresenter.duplicateCompleted() { return }
             case .error, .stopped:
-                alert.messageText = LanguageManager.shared.localized("Failed Download")
                 let reason = existing.errorMessage ?? LanguageManager.shared.localized("Unknown error")
-                alert.informativeText = String(format: LanguageManager.shared.localized("Previous download failed: %@. Retry?"), reason)
-                alert.addButton(withTitle: LanguageManager.shared.localized("Retry"))
-                alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-                if alert.runModal() != .alertFirstButtonReturn { return }
+                if !DialogPresenter.duplicateFailed(reason: reason) { return }
             }
         }
 
@@ -362,12 +348,7 @@ final class ContentViewModel {
     func pauseDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }), downloads[idx].status == .active else { return }
         if downloads[idx].supportsResume == false {
-            let alert = NSAlert()
-            alert.messageText = LanguageManager.shared.localized("Pause non-resumable download?")
-            alert.informativeText = LanguageManager.shared.localized("This download does not support resuming. Pausing it means it must restart from the beginning. Pause anyway?")
-            alert.addButton(withTitle: LanguageManager.shared.localized("Pause"))
-            alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            guard DialogPresenter.confirmPauseNonResumable() else { return }
         }
         coordinator.pause(id)
         if coordinator.isTracked(id) {
@@ -416,10 +397,9 @@ final class ContentViewModel {
     func deleteDownload(id: UUID) {
         coordinator.progress.unpublish(for: id)
         coordinator.endAccess(for: id)
-        if id == priorityDownloadID {
-            endPriorityMode(excluding: id)
+        if id == priority.priorityDownloadID {
+            priority.end(excluding: id)
         }
-        pausedForPriority.remove(id)
         guard let d = downloads.first(where: { $0.id == id }) else { return }
         if d.status == .active {
             coordinator.cancel(id)
@@ -437,20 +417,7 @@ final class ContentViewModel {
     /// can decide without presenting an NSAlert. `fileExists` tells whether the
     /// destination file is already on disk (the dialog warns it will be overwritten).
     var redownloadConfirmation: (Download, Bool) -> Bool = { download, fileExists in
-        let alert = NSAlert()
-        alert.messageText = LanguageManager.shared.localized("Redownload")
-        if fileExists {
-            alert.informativeText = String(
-                format: LanguageManager.shared.localized("%@ already exists and will be overwritten. Download it again?"),
-                download.filename)
-        } else {
-            alert.informativeText = String(
-                format: LanguageManager.shared.localized("Download %@ again?"),
-                download.filename)
-        }
-        alert.addButton(withTitle: LanguageManager.shared.localized("Redownload"))
-        alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-        return alert.runModal() == .alertFirstButtonReturn
+        DialogPresenter.confirmRedownload(filename: download.filename, fileExists: fileExists)
     }
 
     /// Re-downloads a finished download. Confirms first; if the destination file
@@ -567,87 +534,26 @@ final class ContentViewModel {
     // MARK: - Priority download
 
     func setPriorityDownload(id: UUID) {
-        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
-        guard [.active, .paused, .waiting].contains(downloads[idx].status) else { return }
-        // Ensure the target is active
-        if downloads[idx].status == .paused || downloads[idx].status == .waiting {
-            resumeDownload(id: id)
-        }
-
-        // Replace: pause the old priority task and add it to the resume set
-        if let old = priorityDownloadID, old != id {
-            if let oi = downloads.firstIndex(where: { $0.id == old }) {
-                downloads[oi].isPriorityDownload = false
-                if downloads[oi].status == .active {
-                    coordinator.pause(old)
-                    downloads[oi].status = .paused
-                }
-            }
-            pausedForPriority.insert(old)
-        }
-
-        // Pause other active tasks (only those auto-paused for this priority)
-        for i in downloads.indices where downloads[i].id != id && downloads[i].status == .active {
-            coordinator.pause(downloads[i].id)
-            downloads[i].status = .paused
-            downloads[i].pausedForPriority = true
-            pausedForPriority.insert(downloads[i].id)
-        }
-
-        priorityDownloadID = id
-        if let ii = downloads.firstIndex(where: { $0.id == id }) {
-            downloads[ii].isPriorityDownload = true
-        }
-        store.save()
+        priority.setPriority(id: id)
     }
 
     func cancelPriorityDownload(id: UUID) {
-        guard id == priorityDownloadID else { return }
-        endPriorityMode()
-    }
-
-    private func endPriorityMode(excluding skip: UUID? = nil) {
-        priorityDownloadID = nil
-        let toResume = pausedForPriority
-        pausedForPriority.removeAll()
-        // Resume everything we auto-paused for the priority task, unless it was
-        // the one being deleted.
-        for i in downloads.indices {
-            downloads[i].isPriorityDownload = false
-            if toResume.contains(downloads[i].id),
-               downloads[i].id != skip,
-               downloads[i].pausedForPriority == true {
-                downloads[i].pausedForPriority = false
-                resumeDownload(id: downloads[i].id)
-            }
-        }
-        store.save()
+        priority.cancelPriority(id: id)
     }
 
     func confirmDelete() {
-        let alert = NSAlert()
-        alert.messageText = String(format: LanguageManager.shared.localized("Are you sure you want to delete %lld download(s)?"), selectedDownloads.count)
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: LanguageManager.shared.localized("Delete"))
-        alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-
-        let cb = NSButton(checkboxWithTitle: LanguageManager.shared.localized("Also remove downloaded files"), target: nil, action: nil)
-        cb.state = .on
-        alert.accessoryView = cb
-
-        let resp = alert.runModal()
-        if resp == .alertFirstButtonReturn {
-            clearSelected(deleteFiles: cb.state == .on)
+        let result = DialogPresenter.confirmBulkDelete(count: selectedDownloads.count)
+        if result.confirmed {
+            clearSelected(deleteFiles: result.deleteFiles)
         }
     }
 
     private func clearSelected(deleteFiles: Bool = false) {
         let toDelete = downloads.filter { selectedDownloads.contains($0.id) }
 
-        if let pid = priorityDownloadID, toDelete.contains(where: { $0.id == pid }) {
-            endPriorityMode(excluding: pid)
+        if let pid = priority.priorityDownloadID, toDelete.contains(where: { $0.id == pid }) {
+            priority.end(excluding: pid)
         }
-        for id in toDelete.map(\.id) { pausedForPriority.remove(id) }
 
         for d in toDelete {
             coordinator.progress.unpublish(for: d.id)
