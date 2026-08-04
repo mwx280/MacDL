@@ -5,6 +5,7 @@ struct SettingsView: View {
     private enum Pane: String {
         case general
         case download
+        case update
     }
 
     @State private var pane: Pane = .general
@@ -22,6 +23,12 @@ struct SettingsView: View {
                     Label(title: { LocalizedText(key: "Download") }, icon: { Image(systemName: "arrow.down.circle") })
                 }
                 .tag(Pane.download)
+
+            UpdatePane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Update") }, icon: { Image(systemName: "arrow.triangle.2.circlepath") })
+                }
+                .tag(Pane.update)
         }
         .frame(width: 420, height: height(for: pane))
     }
@@ -30,6 +37,7 @@ struct SettingsView: View {
         switch pane {
         case .general: 190
         case .download: 260
+        case .update: 120
         }
     }
 }
@@ -226,6 +234,167 @@ private struct DownloadPane: View {
         // next launch (sandbox grants access only for the current session).
         SettingsStore.shared.downloadPathBookmark = try? url.bookmarkData(
             options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+    }
+}
+
+private struct UpdatePane: View {
+    private enum UpdateStatus {
+        case idle
+        case checking
+        case upToDate
+        case available(UpdateService.Release)
+        case downloading(UpdateService.Release, Double)
+        case downloaded(UpdateService.Release, URL)
+        case failed(String)
+    }
+
+    @State private var state: UpdateStatus = .idle
+    @State private var downloadedDMG: URL?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            card {
+                prefRow("info.circle", "Current Version") {
+                    Text(UpdateService.currentVersion)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+
+                divider
+
+                prefRow("arrow.triangle.2.circlepath", "Detect Updates") {
+                    updateControl
+                }
+            }
+        }
+        .padding(20)
+    }
+
+    @ViewBuilder
+    private var updateControl: some View {
+        switch state {
+        case .idle:
+            Button {
+                Task { await checkForUpdates() }
+            } label: {
+                Label(LanguageManager.shared.localized("Detect Updates"), systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+        case .checking:
+            HStack(spacing: 5) {
+                ProgressView().controlSize(.small)
+                LocalizedText(key: "Checking for updates...")
+                    .font(.caption)
+            }
+
+        case .upToDate:
+            Label {
+                LocalizedText(key: "You're up to date")
+                    .font(.caption)
+            } icon: {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+
+        case .available(let release):
+            Button {
+                Task { await download(release) }
+            } label: {
+                Label(LanguageManager.shared.localized("Download Update"), systemImage: "arrow.down.circle")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+        case .downloading(_, let progress):
+            VStack(alignment: .trailing, spacing: 2) {
+                ProgressView(value: progress)
+                    .frame(width: 140)
+                Text(progress, format: .percent.precision(.fractionLength(0)))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+        case .downloaded(_, let url):
+            Button {
+                Task { await install(url) }
+            } label: {
+                Label(LanguageManager.shared.localized("Install and Restart"), systemImage: "arrow.up.circle")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+
+        case .failed(let message):
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .help(message)
+                if let dmg = downloadedDMG {
+                    Button {
+                        NSWorkspace.shared.open(dmg)
+                    } label: {
+                        Image(systemName: "folder")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help(LanguageManager.shared.localized("Open in Finder"))
+                }
+                Button {
+                    Task { await checkForUpdates() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(LanguageManager.shared.localized("Retry"))
+            }
+        }
+    }
+
+    private func checkForUpdates() async {
+        state = .checking
+        do {
+            guard let release = try await UpdateService.latestRelease() else {
+                state = .upToDate
+                return
+            }
+            if UpdateService.isNewer(release, than: UpdateService.currentVersion),
+               UpdateService.package(for: release) != nil {
+                state = .available(release)
+            } else {
+                state = .upToDate
+            }
+        } catch {
+            state = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
+        }
+    }
+
+    private func download(_ release: UpdateService.Release) async {
+        guard let asset = UpdateService.package(for: release) else {
+            state = .failed(LanguageManager.shared.localized("Update failed"))
+            return
+        }
+        state = .downloading(release, 0)
+        do {
+            let url = try await UpdateService.download(asset) { progress in
+                DispatchQueue.main.async {
+                    self.state = .downloading(release, progress)
+                }
+            }
+            downloadedDMG = url
+            state = .downloaded(release, url)
+        } catch {
+            state = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
+        }
+    }
+
+    private func install(_ url: URL) async {
+        do {
+            try await UpdateService.install(dmgURL: url)
+        } catch {
+            state = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
+        }
     }
 }
 
