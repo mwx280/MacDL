@@ -177,6 +177,9 @@ public final class ChunkDownloadTask: NSObject {
         let speed = elapsed > 0 ? Int64(Double(bytesWritten) / elapsed) : bytesWritten
         let resultStr = (try? result.get()) != nil ? "success" : "failure"
         EngineLog.chunk.notice("Chunk #\(self.chunkIndex) done size=\(self.bytesWritten) speed=\(self.speed)/s time=\(elapsed)s result=\(resultStr, privacy: .public)")
+        // Flush the exact final byte count even if the last write's progress
+        // was throttled, so paused/resumed state is never stale.
+        onProgress?(bytesWritten + resumeOffset)
         fileHandle?.closeFile()
         fileHandle = nil
         DispatchQueue.main.async { [weak self] in
@@ -287,8 +290,11 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     speed = Int64(Double(bytesWritten - speedCheckBytes) / elapsed)
                     speedCheckTime = now
                     speedCheckBytes = bytesWritten
+                    // Report progress at the same cadence as speed so fast
+                    // downloads don't flood the main thread with a callback
+                    // per 64 KB write.
+                    onProgress?(bytesWritten + resumeOffset)
                 }
-                onProgress?(bytesWritten + resumeOffset)
             } else {
                 if done {
                     finish(with: .success(()))

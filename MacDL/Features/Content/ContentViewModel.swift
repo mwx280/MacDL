@@ -80,7 +80,7 @@ final class ContentViewModel {
                 self.persistence.saveImmediately(self.downloads)
             }
         }
-        fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.checkDownloadFiles()
             self.coordinator.persistProgressIfNeeded()
@@ -135,22 +135,37 @@ final class ContentViewModel {
     // MARK: - File Integrity
 
     private func checkDownloadFiles() {
-        for i in downloads.indices {
-            let d = downloads[i]
-            guard d.status == .active || d.status == .paused else { continue }
-            if d.totalSize == 0, d.downloadedSize == 0 { continue }
-            let url = stagingURL(for: d)
-            if !FileManager.default.fileExists(atPath: url.path) {
-                if d.status == .active {
-                    coordinator.cancel(d.id)
-                    coordinator.untrack(d.id)
-                }
-                downloads[i].status = .error
-                downloads[i].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
-                coordinator.progress.unpublish(for: d.id)
-                store.save()
+        // Snapshot paths on the main thread, then probe the filesystem off-main
+        // so fileExists I/O never blocks the UI.
+        let toCheck = downloads.compactMap { d -> (id: UUID, status: DownloadStatus, path: String)? in
+            guard d.status == .active || d.status == .paused else { return nil }
+            if d.totalSize == 0, d.downloadedSize == 0 { return nil }
+            return (d.id, d.status, stagingURL(for: d).path)
+        }
+        guard !toCheck.isEmpty else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let missing = toCheck.filter { !FileManager.default.fileExists(atPath: $0.path) }
+            guard !missing.isEmpty else { return }
+            DispatchQueue.main.async {
+                self?.handleMissingFiles(missing)
             }
         }
+    }
+
+    private func handleMissingFiles(_ missing: [(id: UUID, status: DownloadStatus, path: String)]) {
+        for item in missing {
+            guard let idx = store.index(of: item.id) else { continue }
+            // Re-check the live status; it may have completed since the snapshot.
+            guard downloads[idx].status == .active || downloads[idx].status == .paused else { continue }
+            if downloads[idx].status == .active {
+                coordinator.cancel(item.id)
+                coordinator.untrack(item.id)
+            }
+            downloads[idx].status = .error
+            downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
+            coordinator.progress.unpublish(for: item.id)
+        }
+        store.save()
     }
 
     // MARK: - Engine completion

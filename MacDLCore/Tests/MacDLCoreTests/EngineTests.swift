@@ -200,4 +200,24 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(finalAllCompleted)
         #expect(verifyPattern(in: dest, size: 1024 * 1024))
     }
+
+    @Test func onProgressIsThrottled() {
+        // One 256 KB chunk = 4 x 64 KB writes. Progress must be coalesced far
+        // below one callback per write (previously 4; now ~1 plus the final flush).
+        FakeURLProtocol.virtualFileSize = 262144
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-prog.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let lock = NSLock()
+        var count = 0
+        manager.onProgress = { _, _, _ in lock.lock(); count += 1; lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem))
+        #expect(ok)
+        lock.lock(); let delivered = count; lock.unlock()
+        #expect(delivered < 4)
+        #expect(verifyPattern(in: dest, size: 262144))
+    }
 }

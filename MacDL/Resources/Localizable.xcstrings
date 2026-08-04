@@ -1339,23 +1339,6 @@
         }
       }
     },
-    "File exists" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "File exists"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文件已存在"
-          }
-        }
-      }
-    },
     "File not found" : {
       "extractionState" : "manual",
       "localizations" : {
