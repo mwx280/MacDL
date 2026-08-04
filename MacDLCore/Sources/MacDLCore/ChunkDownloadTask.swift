@@ -89,6 +89,11 @@ public final class ChunkDownloadTask: NSObject {
             return
         }
         fileHandle = fh
+        // A whole-file (single-stream) task always starts at 0 and owns the file;
+        // truncate so a retry never leaves stale bytes from a failed attempt behind.
+        if requestsWholeFile {
+            try? fh.truncate(atOffset: 0)
+        }
         try? fh.seek(toOffset: UInt64(startOffset + resumeFrom))
 
         let task = Self.sharedSession.dataTask(with: req)

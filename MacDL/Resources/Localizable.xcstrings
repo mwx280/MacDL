@@ -2884,6 +2884,23 @@
         }
       }
     },
+    "Waiting for server..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for server..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待服务器响应"
+          }
+        }
+      }
+    },
     "Waiting" : {
       "extractionState" : "manual",
       "localizations" : {

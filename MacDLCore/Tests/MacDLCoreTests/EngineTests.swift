@@ -277,4 +277,46 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(t.last == false)
         #expect(t.contains(true) && t.contains(false))
     }
+
+    @Test func singleStreamRetriesOnce() {
+        // Probe gets 200 (no Range support) -> single-stream. The first
+        // whole-file GET fails with a transport error; the engine must retry
+        // once and then complete successfully.
+        FakeURLProtocol.statusOverrideAfterStart = 0
+        FakeURLProtocol.failWholeFileTimes = 1
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-singlesretry.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 20))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+    }
+
+    @Test func cancelStopsScheduledSingleStreamRetry() {
+        // A single-stream failure schedules a retry 2 s later. Cancelling during
+        // that window must prevent the retry from ever dispatching a new request.
+        FakeURLProtocol.statusOverrideAfterStart = 0
+        FakeURLProtocol.failWholeFileTimes = 1
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-singlescancel.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        manager.start()
+        // Wait for the first whole-file GET (which fails synchronously) to land.
+        var deadline = Date().addingTimeInterval(5)
+        while FakeURLProtocol.requests.filter({ $0.value(forHTTPHeaderField: "Range") == nil }).isEmpty,
+              Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        Thread.sleep(forTimeInterval: 0.1) // let the failure + retry scheduling settle
+        let before = FakeURLProtocol.requests.count
+        manager.cancel()
+        Thread.sleep(forTimeInterval: 2.5) // well past the 2 s retry delay
+        let after = FakeURLProtocol.requests.count
+        #expect(after == before)
+        #expect(!manager.hasActiveTasks)
+    }
 }

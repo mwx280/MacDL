@@ -22,6 +22,8 @@ public final class ChunkManager {
     private var singleStreamTask: ChunkDownloadTask?
     private var singleStreamTotal: Int64 = 0
     private var singleStreamBytes: Int64 = 0
+    private var singleStreamRetries = 0
+    private var singleStreamRetryItem: DispatchWorkItem?
 
     private let maxRetries = EngineConstants.maxChunkRetries
     private let bucket = TokenBucket(rate: 0)
@@ -58,6 +60,7 @@ public final class ChunkManager {
         EngineLog.manager.notice("start probe chunkSize=\(chunkSize) maxConcurrent=\(maxConcurrent)")
         startLogTimer()
         syncQueue.async {
+            self.singleStreamRetries = 0
             self.onPhaseChanged?(true)
             self.startProbe()
         }
@@ -67,6 +70,7 @@ public final class ChunkManager {
         EngineLog.manager.notice("resume chunks=\(existing.count) pending=\(existing.filter { $0.status != .completed }.count) completed=\(existing.filter { $0.status == .completed }.count) total=\(totalSize)")
         startLogTimer()
         syncQueue.async {
+            self.singleStreamRetries = 0
             self.onPhaseChanged?(false)
             self.totalSize = totalSize
             self.chunks = existing
@@ -249,6 +253,8 @@ public final class ChunkManager {
             // nothing can start new chunk tasks while paused.
             for (_, item) in self.retryWorkItems { item.cancel() }
             self.retryWorkItems.removeAll()
+            self.singleStreamRetryItem?.cancel()
+            self.singleStreamRetryItem = nil
             self.pendingIndices.removeAll()
             for (_, task) in self.activeTasks { task.pause() }
             self.activeTasks.removeAll()
@@ -263,6 +269,9 @@ public final class ChunkManager {
         syncQueue.async { [weak self] in
             guard let self else { return }
             self.isPaused = false
+            self.singleStreamRetries = 0
+            self.singleStreamRetryItem?.cancel()
+            self.singleStreamRetryItem = nil
             self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
             if self.singleStreamMode {
                 self.enterSingleStream()
@@ -288,6 +297,8 @@ public final class ChunkManager {
             self.bucket.stop()
             for (_, item) in self.retryWorkItems { item.cancel() }
             self.retryWorkItems.removeAll()
+            self.singleStreamRetryItem?.cancel()
+            self.singleStreamRetryItem = nil
             for (_, task) in self.activeTasks { task.cancel() }
             self.activeTasks.removeAll()
             self.singleStreamTask?.cancel()
@@ -367,8 +378,23 @@ public final class ChunkManager {
                     self.onProgress?(self.singleStreamTotal, self.singleStreamTotal, self.downloadSpeed)
                     self.onCompletion?(.success(()))
                 case .failure(let error):
-                    self.lastError = error
-                    self.onCompletion?(.failure(error))
+                    // Give a slow/flaky server one quick retry before failing.
+                    // Never retry a user cancel, and skip when paused.
+                    let isCancelled = (error as? DownloadError) == .cancelled
+                    if !isCancelled, !self.isPaused, self.singleStreamRetries < EngineConstants.maxSingleStreamRetries {
+                        self.singleStreamRetries += 1
+                        EngineLog.manager.warning("single-stream failed (\(error.localizedDescription)), retry \(self.singleStreamRetries)/\(EngineConstants.maxSingleStreamRetries)")
+                        self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
+                        // Keep the retry cancellable so pause()/cancel() can stop it —
+                        // otherwise a stale retry would restart the download after the
+                        // user asked to stop.
+                        let item = DispatchWorkItem { [weak self] in self?.enterSingleStream() }
+                        self.singleStreamRetryItem = item
+                        self.syncQueue.asyncAfter(deadline: .now() + EngineConstants.singleStreamRetryDelay, execute: item)
+                    } else {
+                        self.lastError = error
+                        self.onCompletion?(.failure(error))
+                    }
                 }
             }
         }

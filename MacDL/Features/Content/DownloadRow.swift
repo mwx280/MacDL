@@ -41,10 +41,18 @@ struct DownloadRow: View {
                     .tint(download.status == .active ? .blue : .secondary)
 
                 HStack(spacing: 8) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "gauge.with.dots.needle.50percent")
-                            .font(.system(size: 9))
-                        Text(download.progress, format: .percent.precision(.fractionLength(1)))
+                    if isWaitingForServer {
+                        HStack(spacing: 3) {
+                            Image(systemName: "hourglass")
+                                .font(.system(size: 9))
+                            Text(LanguageManager.shared.localized("Waiting for server..."))
+                        }
+                    } else {
+                        HStack(spacing: 3) {
+                            Image(systemName: "gauge.with.dots.needle.50percent")
+                                .font(.system(size: 9))
+                            Text(download.progress, format: .percent.precision(.fractionLength(1)))
+                        }
                     }
                     if download.status == .error, let msg = download.errorMessage {
                         Text(msg)
@@ -53,7 +61,7 @@ struct DownloadRow: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
-                    if download.status == .active || download.status == .waiting {
+                    if (download.status == .active || download.status == .waiting), !isWaitingForServer {
                         HStack(spacing: 3) {
                             Image(systemName: "arrow.down")
                                 .font(.system(size: 9))
@@ -158,6 +166,13 @@ struct DownloadRow: View {
                 }
                 .offset(x: 4, y: 4)
         }
+    }
+
+    /// True while a task is probing or connected but hasn't received any bytes yet —
+    /// a 0% figure at this point would look like it's stuck.
+    private var isWaitingForServer: Bool {
+        guard download.status != .error else { return false }
+        return download.downloadedSize == 0 && (download.status == .active || isProbing)
     }
 
     @ViewBuilder

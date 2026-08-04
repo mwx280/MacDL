@@ -18,8 +18,10 @@ public enum EngineConstants {
     public static let speedSampleInterval: TimeInterval = 0.3
 
     // Networking
-    public static let requestTimeout: TimeInterval = 30
+    public static let requestTimeout: TimeInterval = 15
     public static let resourceTimeout: TimeInterval = 86_400
+    public static let maxSingleStreamRetries = 1
+    public static let singleStreamRetryDelay: TimeInterval = 2.0
 
     // Progress / logging cadence
     public static let speedReportInterval: TimeInterval = 1.0

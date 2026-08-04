@@ -7,6 +7,9 @@ final class FakeURLProtocol: URLProtocol {
     // If set, Range requests whose start offset >= this value get this status
     // code (simulates the server rate-limiting or ignoring Range after the probe).
     nonisolated(unsafe) static var statusOverrideAfterStart: Int?
+    // Fail the first N whole-file (no Range) requests with a transport error,
+    // to exercise single-stream retry.
+    nonisolated(unsafe) static var failWholeFileTimes = 0
     private static let lock = NSLock()
     nonisolated(unsafe) static var requests: [URLRequest] = []
 
@@ -21,6 +24,13 @@ final class FakeURLProtocol: URLProtocol {
         guard let url = request.url else { return }
         let total = Self.serverTotalOverride ?? Self.virtualFileSize
         let rangeHeader = request.value(forHTTPHeaderField: "Range")
+
+        // Simulate a transient connection failure for whole-file (single-stream) requests.
+        if rangeHeader == nil, Self.failWholeFileTimes > 0 {
+            Self.failWholeFileTimes -= 1
+            client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+            return
+        }
 
         var status = 200
         var headers: [String: String] = ["Content-Length": "\(total)"]
@@ -72,6 +82,7 @@ final class FakeURLProtocol: URLProtocol {
         virtualFileSize = 1024 * 1024
         serverTotalOverride = nil
         statusOverrideAfterStart = nil
+        failWholeFileTimes = 0
         lock.lock()
         requests.removeAll()
         lock.unlock()

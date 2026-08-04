@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import MacDLCore
 
-// 新建下载时提交的数据：保存路径 + 全局连接数 + 每任务限速/续传状态
+// Data submitted when creating a new download: save path + global connection count + per-task speed limit/resume state
 struct NewDownloadPayload {
     let path: String
     let bookmark: Data?
@@ -40,7 +40,7 @@ struct NewDownloadView: View {
                     .font(.headline)
             }
 
-            // 卡片：URL 输入
+            // Card: URL input
             fieldCard {
                 cardLabel("link", "Download URLs")
                 PlaceholderTextEditor(
@@ -67,7 +67,7 @@ struct NewDownloadView: View {
                 }
             }
 
-            // 卡片：任务队列（始终显示，无任务时占位）
+            // Card: task queue (always visible, placeholder when empty)
             fieldCard {
                 HStack(spacing: 8) {
                     Image(systemName: "list.bullet")
@@ -170,7 +170,7 @@ struct NewDownloadView: View {
         }
     }
 
-    // MARK: - 数据
+    // MARK: - Data
 
     private var queueLines: [String] {
         text.components(separatedBy: .newlines)
@@ -178,7 +178,7 @@ struct NewDownloadView: View {
             .filter { !$0.isEmpty }
     }
 
-    // 每个非空行必须是合法 http/https 链接（含主机）
+    // Every non-empty line must be a valid http/https link (with a host)
     private var inputIsValid: Bool {
         let lines = queueLines
         guard !lines.isEmpty else { return false }
@@ -206,7 +206,7 @@ struct NewDownloadView: View {
         }
     }
 
-    // 逐 URL 探测续传能力
+    // Probe resume support per URL
     private func detectResumeSupport() {
         for line in validTasks.map(\.url) where !probedURLs.contains(line) {
             probedURLs.insert(line)
@@ -218,7 +218,7 @@ struct NewDownloadView: View {
         }
     }
 
-    // MARK: - 组件
+    // MARK: - Components
 
     @ViewBuilder
     private func resumeBadge(for url: String) -> some View {

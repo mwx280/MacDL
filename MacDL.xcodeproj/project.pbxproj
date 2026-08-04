@@ -80,6 +80,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				E5C0A1000000000000000002 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				"90ACD8A8-6C56-40F7-9146-D5EC6E1DF9B4" /* MacDLTests */,
@@ -454,6 +455,24 @@
 			productName = MacDLCore;
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		E5C0A1000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 58D1C36B301A5754003A4EEB;
+			remoteInfo = MacDL;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		E5C0A1000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 58D1C36B301A5754003A4EEB /* MacDL */;
+			targetProxy = E5C0A1000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 	};
 	rootObject = 58D1C364301A5754003A4EEB /* Project object */;
 }
