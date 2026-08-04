@@ -2,19 +2,35 @@ import SwiftUI
 import AppKit
 
 struct SettingsView: View {
+    private enum Pane: String {
+        case general
+        case download
+    }
+
+    @State private var pane: Pane = .general
+
     var body: some View {
-        TabView {
+        TabView(selection: $pane) {
             GeneralPane()
                 .tabItem {
                     Label(title: { LocalizedText(key: "General") }, icon: { Image(systemName: "gear") })
                 }
+                .tag(Pane.general)
 
             DownloadPane()
                 .tabItem {
                     Label(title: { LocalizedText(key: "Download") }, icon: { Image(systemName: "arrow.down.circle") })
                 }
+                .tag(Pane.download)
         }
-        .frame(width: 420, height: 260)
+        .frame(width: 420, height: height(for: pane))
+    }
+
+    private func height(for pane: Pane) -> CGFloat {
+        switch pane {
+        case .general: 190
+        case .download: 260
+        }
     }
 }
 

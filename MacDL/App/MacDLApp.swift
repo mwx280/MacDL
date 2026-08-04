@@ -53,6 +53,7 @@ struct MacDLApp: App {
             SettingsView()
                 .environment(LanguageManager.shared)
         }
+        .windowResizability(.contentSize)
 
         MenuBarExtra {
             MenuBarContent()
