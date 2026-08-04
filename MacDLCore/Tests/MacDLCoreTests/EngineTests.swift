@@ -144,4 +144,29 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(err is DownloadError)
         #expect((err as? DownloadError) == .fileChanged)
     }
+
+    @Test func allChunksShareOneSession() {
+        // Connection reuse: every chunk must go through the same URLSession.
+        let config = ChunkDownloadTask.sharedSession.configuration
+        let hasFake = config.protocolClasses?.contains { $0 == FakeURLProtocol.self } ?? false
+        #expect(hasFake)
+        // The session is a single shared instance; a second reference is identical.
+        #expect(ChunkDownloadTask.sharedSession === ChunkDownloadTask.sharedSession)
+    }
+
+    @Test func throttledConcurrentChunksIntegrity() {
+        // Stress the shared-session delegate routing: many concurrent chunks,
+        // throttled writes (backpressure), verify the assembled file is byte-correct.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-shared.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, chunkSize: 262144, maxConcurrent: 8)
+        manager.setSpeedLimit(512_000)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+    }
 }

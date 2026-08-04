@@ -1,9 +1,64 @@
 import Foundation
 import os
 
+// Routes URLSession delegate callbacks to the owning ChunkDownloadTask.
+// All chunk tasks share ONE URLSession so HTTP/2 can multiplex streams on a
+// single connection (and HTTP/1.1 reuses keep-alive connections) instead of
+// opening a fresh TCP+TLS connection per chunk.
+final class ChunkSessionDelegate: NSObject, URLSessionDataDelegate {
+    private var tasks: [Int: ChunkDownloadTask] = [:]
+    private let lock = NSLock()
+
+    func register(_ task: ChunkDownloadTask, dataTask: URLSessionDataTask) {
+        lock.lock()
+        tasks[dataTask.taskIdentifier] = task
+        lock.unlock()
+    }
+
+    func unregister(_ dataTask: URLSessionTask) {
+        lock.lock()
+        tasks.removeValue(forKey: dataTask.taskIdentifier)
+        lock.unlock()
+    }
+
+    private func task(for dataTask: URLSessionTask) -> ChunkDownloadTask? {
+        lock.lock()
+        defer { lock.unlock() }
+        return tasks[dataTask.taskIdentifier]
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard let task = self.task(for: dataTask) else {
+            completionHandler(.cancel)
+            return
+        }
+        task.urlSession(session, dataTask: dataTask, didReceive: response, completionHandler: completionHandler)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard let task = self.task(for: dataTask) else { return }
+        task.urlSession(session, dataTask: dataTask, didReceive: data)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let chunkTask = self.task(for: task) else { return }
+        chunkTask.urlSession(session, task: task, didCompleteWithError: error)
+        unregister(task)
+    }
+}
+
 public final class ChunkDownloadTask: NSObject {
     public nonisolated(unsafe) static var maxConnectionsProvider: (() -> Int)?
     public nonisolated(unsafe) static var sessionConfigurationOverride: URLSessionConfiguration?
+
+    nonisolated(unsafe) static let sharedDelegate = ChunkSessionDelegate()
+    nonisolated(unsafe) static let sharedSession: URLSession = {
+        let config = sessionConfigurationOverride ?? URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = max(1, maxConnectionsProvider?() ?? 8)
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 86400
+        return URLSession(configuration: config, delegate: sharedDelegate, delegateQueue: nil)
+    }()
 
     let chunkIndex: Int
     let url: URL
@@ -13,7 +68,6 @@ public final class ChunkDownloadTask: NSObject {
     let chunkSize: Int64
     private let chunkStartTime: Date
 
-    private var session: URLSession?
     private var dataTask: URLSessionDataTask?
     private var fileHandle: FileHandle?
     private(set) var bytesWritten: Int64 = 0
@@ -67,12 +121,6 @@ public final class ChunkDownloadTask: NSObject {
             finish(with: .success(()))
             return
         }
-        let config = Self.sessionConfigurationOverride ?? URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = max(1, Self.maxConnectionsProvider?() ?? 8)
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 86400
-        session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
-
         var req = URLRequest(url: url)
         if !requestsWholeFile {
             // Always send a bounded Range so resuming near the chunk end never omits it (which made the server return the whole 200 file)
@@ -84,16 +132,16 @@ public final class ChunkDownloadTask: NSObject {
             FileManager.default.createFile(atPath: fileURL.path, contents: nil)
         }
         guard let fh = FileHandle(forWritingAtPath: fileURL.path) else {
-            session?.invalidateAndCancel()
-            session = nil
             finish(with: .failure(DownloadError.fileDeleted))
             return
         }
         fileHandle = fh
         try? fh.seek(toOffset: UInt64(startOffset + resumeFrom))
 
-        dataTask = session?.dataTask(with: req)
-        dataTask?.resume()
+        let task = Self.sharedSession.dataTask(with: req)
+        Self.sharedDelegate.register(self, dataTask: task)
+        dataTask = task
+        task.resume()
     }
 
     func pause() {
@@ -116,8 +164,6 @@ public final class ChunkDownloadTask: NSObject {
             self.fileHandle?.synchronizeFile()
             self.fileHandle?.closeFile()
             self.fileHandle = nil
-            self.session?.invalidateAndCancel()
-            self.session = nil
         }
     }
 
@@ -278,7 +324,5 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
             dataLock.unlock()
             scheduleWrite()
         }
-        session.invalidateAndCancel()
-        self.session = nil
     }
 }
