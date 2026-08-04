@@ -37,7 +37,7 @@ struct SettingsView: View {
         switch pane {
         case .general: 190
         case .download: 260
-        case .update: 100
+        case .update: 120
         }
     }
 }
@@ -238,18 +238,8 @@ private struct DownloadPane: View {
 }
 
 private struct UpdatePane: View {
-    private enum UpdateStatus {
-        case idle
-        case checking
-        case upToDate
-        case available(UpdateService.Release)
-        case downloading(UpdateService.Release, Double)
-        case downloaded(UpdateService.Release, URL)
-        case failed(String)
-    }
-
-    @State private var state: UpdateStatus = .idle
-    @State private var downloadedDMG: URL?
+    @State private var model = UpdateModel.shared
+    @AppStorage("autoUpdate") private var autoUpdate = true
 
     var body: some View {
         VStack(spacing: 16) {
@@ -262,6 +252,14 @@ private struct UpdatePane: View {
                         updateControl
                     }
                 }
+
+                divider
+
+                prefRow("arrow.triangle.2.circlepath", "Auto check and download updates") {
+                    Toggle("", isOn: $autoUpdate)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                }
             }
         }
         .padding(20)
@@ -269,10 +267,10 @@ private struct UpdatePane: View {
 
     @ViewBuilder
     private var updateControl: some View {
-        switch state {
+        switch model.status {
         case .idle:
             Button {
-                Task { await checkForUpdates() }
+                Task { await model.checkForUpdates() }
             } label: {
                 Text(LanguageManager.shared.localized("Detect Updates"))
             }
@@ -297,7 +295,7 @@ private struct UpdatePane: View {
 
         case .available(let release):
             Button {
-                Task { await download(release) }
+                Task { await model.download(release) }
             } label: {
                 Label(LanguageManager.shared.localized("Download Update"), systemImage: "arrow.down.circle")
             }
@@ -315,7 +313,7 @@ private struct UpdatePane: View {
 
         case .downloaded(_, let url):
             Button {
-                Task { await install(url) }
+                Task { await model.install(url) }
             } label: {
                 Label(LanguageManager.shared.localized("Install and Restart"), systemImage: "arrow.up.circle")
             }
@@ -327,7 +325,7 @@ private struct UpdatePane: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .help(message)
-                if let dmg = downloadedDMG {
+                if let dmg = model.downloadedDMG {
                     Button {
                         NSWorkspace.shared.open(dmg)
                     } label: {
@@ -338,7 +336,7 @@ private struct UpdatePane: View {
                     .help(LanguageManager.shared.localized("Open in Finder"))
                 }
                 Button {
-                    Task { await checkForUpdates() }
+                    Task { await model.checkForUpdates() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -346,51 +344,6 @@ private struct UpdatePane: View {
                 .controlSize(.small)
                 .help(LanguageManager.shared.localized("Retry"))
             }
-        }
-    }
-
-    private func checkForUpdates() async {
-        state = .checking
-        do {
-            guard let release = try await UpdateService.latestRelease() else {
-                state = .upToDate
-                return
-            }
-            if UpdateService.isNewer(release, than: UpdateService.currentVersion),
-               UpdateService.package(for: release) != nil {
-                state = .available(release)
-            } else {
-                state = .upToDate
-            }
-        } catch {
-            state = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
-        }
-    }
-
-    private func download(_ release: UpdateService.Release) async {
-        guard let asset = UpdateService.package(for: release) else {
-            state = .failed(LanguageManager.shared.localized("Update failed"))
-            return
-        }
-        state = .downloading(release, 0)
-        do {
-            let url = try await UpdateService.download(asset) { progress in
-                DispatchQueue.main.async {
-                    self.state = .downloading(release, progress)
-                }
-            }
-            downloadedDMG = url
-            state = .downloaded(release, url)
-        } catch {
-            state = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
-        }
-    }
-
-    private func install(_ url: URL) async {
-        do {
-            try await UpdateService.install(dmgURL: url)
-        } catch {
-            state = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
         }
     }
 }

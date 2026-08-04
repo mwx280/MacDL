@@ -23,6 +23,7 @@ struct MacDLApp: App {
         if !ProcessInfo.isRunningTests {
             DownloadNotifier.shared.requestAuthorization()
             ContentViewModel.shared.startAppServices()
+            UpdateModel.shared.autoCheckAndDownloadIfNeeded()
         }
         _ = DockIconManager.shared
     }

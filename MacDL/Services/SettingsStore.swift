@@ -42,6 +42,11 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: "maxDownloadSpeed") }
     }
 
+    var autoUpdate: Bool {
+        get { defaults.object(forKey: "autoUpdate") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "autoUpdate") }
+    }
+
     var launchAtLogin: Bool {
         get { defaults.bool(forKey: "launchAtLogin") }
         set { defaults.set(newValue, forKey: "launchAtLogin") }
