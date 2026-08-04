@@ -19,8 +19,8 @@ struct NewDownloadView: View {
     @State private var downloadPath: String
     @State private var downloadBookmark: Data?
     @State private var hoveredURL: String?
-    @State private var refresh = UUID()
     @State private var isDropTarget = false
+    @Environment(LanguageManager.self) private var lang
     @Environment(\.dismiss) var dismiss
 
     init(text: Binding<String>, onDownload: @escaping (String, NewDownloadPayload) -> Void) {
@@ -39,10 +39,10 @@ struct NewDownloadView: View {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 30))
                     .foregroundStyle(.tint)
-                Text(LanguageManager.shared.localized("New Download"))
+                Text(lang.localized("New Download"))
                     .font(.title3)
                     .fontWeight(.semibold)
-                Text(LanguageManager.shared.localized("Paste links and they download"))
+                Text(lang.localized("Paste links and they download"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -52,7 +52,7 @@ struct NewDownloadView: View {
                 dropZone
                 if model.text.isEmpty && !model.clipboardHasURL {
                     Button { model.pasteFromClipboard() } label: {
-                        Label(LanguageManager.shared.localized("Paste from clipboard"), systemImage: "doc.on.clipboard")
+                        Label(lang.localized("Paste from clipboard"), systemImage: "doc.on.clipboard")
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -65,7 +65,7 @@ struct NewDownloadView: View {
             } else if model.hasInvalidLinks {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.caption2)
-                    Text(String(format: LanguageManager.shared.localized("Recognized %lld links, %lld invalid"), model.validCount, model.invalidCount))
+                    Text(String(format: lang.localized("Recognized %lld links, %lld invalid"), model.validCount, model.invalidCount))
                         .font(.caption)
                         .fontWeight(.medium)
                     Spacer()
@@ -74,7 +74,7 @@ struct NewDownloadView: View {
             }
 
             HStack(spacing: 12) {
-                Text(LanguageManager.shared.localized("Task Queue"))
+                Text(lang.localized("Task Queue"))
                     .font(.headline)
                 Text("\(model.validTasks.count)")
                     .font(.caption2)
@@ -85,7 +85,7 @@ struct NewDownloadView: View {
                     .clipShape(Capsule())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(LanguageManager.shared.localized("Each task configured independently"))
+                Text(lang.localized("Each task configured independently"))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -107,7 +107,7 @@ struct NewDownloadView: View {
             folderRow
 
             HStack(spacing: 10) {
-                Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
+                Button(lang.localized("Cancel")) { dismiss() }
                     .buttonStyle(.bordered)
                     .keyboardShortcut(.cancelAction)
                 Button {
@@ -120,7 +120,7 @@ struct NewDownloadView: View {
                         resumeStatus: model.resumeStatus))
                     dismiss()
                 } label: {
-                    Text(LanguageManager.shared.localized("Download"))
+                    Text(lang.localized("Download"))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -132,10 +132,6 @@ struct NewDownloadView: View {
         }
         .padding(14)
         .frame(width: 420)
-        .id(refresh)
-        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
-            refresh = UUID()
-        }
         .onChange(of: model.text) { _, newText in
             text = newText
             model.detectResumeSupport()
@@ -160,7 +156,7 @@ struct NewDownloadView: View {
     private var dropZone: some View {
         PlaceholderTextEditor(
             text: $model.text,
-            placeholder: LanguageManager.shared.localized("Paste download links here, one per line")
+            placeholder: lang.localized("Paste download links here, one per line")
         )
         .frame(height: 64)
         .background(Color(nsColor: .textBackgroundColor))
@@ -178,10 +174,10 @@ struct NewDownloadView: View {
     private var clipboardBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles").font(.caption2).foregroundStyle(.tint)
-            Text(LanguageManager.shared.localized("Detected clipboard links")).font(.caption).foregroundStyle(.secondary)
+            Text(lang.localized("Detected clipboard links")).font(.caption).foregroundStyle(.secondary)
             Spacer()
             Button { model.pasteFromClipboard() } label: {
-                Label(LanguageManager.shared.localized("Fill"), systemImage: "doc.on.clipboard").font(.caption)
+                Label(lang.localized("Fill"), systemImage: "doc.on.clipboard").font(.caption)
             }
             .buttonStyle(.bordered)
             .controlSize(.mini)
@@ -198,7 +194,7 @@ struct NewDownloadView: View {
             Image(systemName: "tray")
                 .font(.system(size: 16))
                 .foregroundStyle(.tertiary)
-            Text(LanguageManager.shared.localized("Paste download links to see them here"))
+            Text(lang.localized("Paste download links to see them here"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -217,7 +213,7 @@ struct NewDownloadView: View {
                 .truncationMode(.middle)
                 .help(downloadPath)
             Spacer(minLength: 8)
-            Button(LanguageManager.shared.localized("Change")) { browseFolder() }
+            Button(lang.localized("Change")) { browseFolder() }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
         }
@@ -244,13 +240,13 @@ struct NewDownloadView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     if ContentViewModel.shared.downloads.contains(where: { $0.url == task.url }) {
-                        Text(LanguageManager.shared.localized("Already in Download List"))
+                        Text(lang.localized("Already in Download List"))
                             .font(.system(size: 9))
                             .foregroundStyle(.purple)
                             .lineLimit(1)
                     }
                     if model.duplicatedNames.contains(task.name) {
-                        Text(LanguageManager.shared.localized("Will be renamed automatically"))
+                        Text(lang.localized("Will be renamed automatically"))
                             .font(.system(size: 9))
                             .foregroundStyle(.orange)
                             .lineLimit(1)
@@ -276,7 +272,7 @@ struct NewDownloadView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help(LanguageManager.shared.localized("Remove this task"))
+                .help(lang.localized("Remove this task"))
             }
         }
         .padding(.horizontal, 12)
@@ -291,17 +287,17 @@ struct NewDownloadView: View {
     private func resumeLabel(for url: String) -> some View {
         switch model.resumeStatus[url] {
         case true:
-            Label(LanguageManager.shared.localized("Resumable"), systemImage: "arrow.clockwise")
+            Label(lang.localized("Resumable"), systemImage: "arrow.clockwise")
                 .font(.caption)
                 .foregroundStyle(.green)
         case false:
-            Label(LanguageManager.shared.localized("Not Resumable · Single Thread"), systemImage: "lock")
+            Label(lang.localized("Not Resumable · Single Thread"), systemImage: "lock")
                 .font(.caption)
                 .foregroundStyle(.orange)
         default:
             HStack(spacing: 4) {
                 ProgressView().controlSize(.mini)
-                Text(LanguageManager.shared.localized("Checking..."))
+                Text(lang.localized("Checking..."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -315,7 +311,7 @@ struct NewDownloadView: View {
             set: { model.connectionsByURL[url] = $0 }
         )) {
             ForEach([1, 2, 4, 8], id: \.self) { n in
-                Text(String(format: LanguageManager.shared.localized("%lld Threads"), n)).tag(n)
+                Text(String(format: lang.localized("%lld Threads"), n)).tag(n)
             }
         } label: { }
         .labelsHidden()
@@ -325,8 +321,8 @@ struct NewDownloadView: View {
         .disabled(locked)
         .opacity(locked ? 0.55 : 1)
         .help(locked
-            ? LanguageManager.shared.localized("Non-resumable tasks use a single thread")
-            : LanguageManager.shared.localized("Parallel threads"))
+            ? lang.localized("Non-resumable tasks use a single thread")
+            : lang.localized("Parallel threads"))
     }
 
     private func speedPicker(for url: String) -> some View {
@@ -349,7 +345,7 @@ struct NewDownloadView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.message = LanguageManager.shared.localized("Select download folder")
+        panel.message = lang.localized("Select download folder")
         panel.directoryURL = URL(fileURLWithPath: downloadPath)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         downloadPath = url.path

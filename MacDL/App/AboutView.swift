@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AboutView: View {
-    @State private var refresh = UUID()
+    @Environment(LanguageManager.self) private var lang
     @State private var iconTapCount = 0
 
     @State private var flashIndex = -1
@@ -29,10 +29,6 @@ struct AboutView: View {
             if phase > 0 { terminalScene }
         }
         .frame(width: 380, height: 460)
-        .id(refresh)
-        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
-            refresh = UUID()
-        }
     }
 
     private var contentView: some View {
@@ -50,14 +46,14 @@ struct AboutView: View {
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(flashIndex >= 0 ? flashColors[flashIndex] : .primary)
 
-            Text(String(format: LanguageManager.shared.localized("Version %@ (build %@)"), version, build))
+            Text(String(format: lang.localized("Version %@ (build %@)"), version, build))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
             Divider()
 
             VStack(spacing: 8) {
-                sectionHeader(LanguageManager.shared.localized("Tech Stack"))
+                sectionHeader(lang.localized("Tech Stack"))
                 Text("SwiftUI · URLSession")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -66,7 +62,7 @@ struct AboutView: View {
             Divider()
 
             VStack(spacing: 8) {
-                sectionHeader(LanguageManager.shared.localized("Developer"))
+                sectionHeader(lang.localized("Developer"))
                 Label(title: { Text("小舞 / xiaowu") }, icon: { Image(systemName: "person") })
                     .font(.system(size: 12))
             }
@@ -80,7 +76,7 @@ struct AboutView: View {
 
             VStack(spacing: 6) {
                 Label {
-                    Text(verbatim: LanguageManager.shared.localized("If you like this project, please give it a star ⭐"))
+                    Text(verbatim: lang.localized("If you like this project, please give it a star ⭐"))
                         .font(.system(size: 11))
                 } icon: {
                     Image(systemName: "star.fill")
@@ -141,7 +137,7 @@ struct AboutView: View {
 
                 if isComplete {
                     Spacer().frame(height: 8)
-                    Text("🖱  " + LanguageManager.shared.localized("Click anywhere to exit"))
+                    Text("🖱  " + lang.localized("Click anywhere to exit"))
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.green.opacity(showCursor ? 0.8 : 0.3))
                 }
@@ -220,13 +216,13 @@ struct AboutView: View {
             withAnimation(.easeIn(duration: 0.3)) { bgOpacity = 1 }
 
             try? await Task.sleep(for: .milliseconds(300))
-            typeLine("> \(LanguageManager.shared.localized("Initializing download sequence..."))")
+            typeLine("> \(lang.localized("Initializing download sequence..."))")
             try? await Task.sleep(for: .milliseconds(400))
-            typeLine("> \(LanguageManager.shared.localized("Connecting to server..."))")
+            typeLine("> \(lang.localized("Connecting to server..."))")
             try? await Task.sleep(for: .milliseconds(400))
-            typeLine("> " + String(format: LanguageManager.shared.localized("Download speed: %@"), barSpeed))
+            typeLine("> " + String(format: lang.localized("Download speed: %@"), barSpeed))
             try? await Task.sleep(for: .milliseconds(300))
-            typeLine("> \(LanguageManager.shared.localized("Downloading classified data..."))")
+            typeLine("> \(lang.localized("Downloading classified data..."))")
 
             try? await Task.sleep(for: .milliseconds(200))
 
@@ -241,9 +237,9 @@ struct AboutView: View {
 
             typeLine("> ████████████████ 100%")
             try? await Task.sleep(for: .milliseconds(500))
-            typeLine("> \(LanguageManager.shared.localized("Access granted."))")
+            typeLine("> \(lang.localized("Access granted."))")
             try? await Task.sleep(for: .milliseconds(600))
-            typeLine("> \(LanguageManager.shared.localized("You found the easter egg!"))")
+            typeLine("> \(lang.localized("You found the easter egg!"))")
             try? await Task.sleep(for: .milliseconds(400))
             isComplete = true
         }

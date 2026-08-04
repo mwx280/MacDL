@@ -123,7 +123,7 @@ struct MacDLApp: App {
 
     @MainActor
     static func showAbout() {
-        let vc = NSHostingController(rootView: AboutView())
+        let vc = NSHostingController(rootView: AboutView().environment(LanguageManager.shared))
         let window = NSWindow(contentViewController: vc)
         window.title = LanguageManager.shared.localized("About")
         window.styleMask = [.titled, .closable, .miniaturizable]
