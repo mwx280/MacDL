@@ -274,7 +274,7 @@ private struct UpdatePane: View {
             Button {
                 Task { await checkForUpdates() }
             } label: {
-                Label(LanguageManager.shared.localized("Detect Updates"), systemImage: "arrow.clockwise")
+                Text(LanguageManager.shared.localized("Detect Updates"))
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
