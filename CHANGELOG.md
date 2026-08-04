@@ -7,13 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.2.0] - 2026-08-05
+
+Second preview release.
+
 ### Added
 
 - App icon: macOS-style rounded-rect tile with a blue gradient and download
   arrow, shipped as a full multi-size `AppIcon.icns` set.
+- New Download sheet redesign:
+  - Paste-focused drop zone with clipboard detection and drag-and-drop URLs
+  - Per-task thread count and speed limit (non-resumable tasks locked to a
+    single thread)
+  - Hover-to-remove tasks, invalid-link feedback, already-queued and
+    will-be-renamed hints
+- Update checking from GitHub Releases (preview channel):
+  - Settings pane with current version, detect-updates button, download progress
+    and install-and-restart
+  - "Auto check and download updates" toggle (default on) checks at launch
+- Notification settings pane:
+  - Per-type toggles for start / completed / failed / redownload alerts
+  - When notification permission is missing, the pane deep-links to System
+    Settings instead of showing the toggles
+- Launch in Background setting (default on): the app starts with only the menu
+  bar icon and no main window
+- Launch at Login is enabled automatically on first launch
+
+### Changed
+
+- Download chunk state is persisted compactly: merged completed byte ranges plus
+  partial resume points instead of the full chunk array (big files shrink from
+  hundreds of thousands of entries to a few ranges)
+- Download lifecycle (add / pause / resume / retry / redownload / delete /
+  priority / completion) extracted into `DownloadService`; `ContentViewModel`
+  keeps only view state
+- New-download parsing, validation and resume probing extracted into
+  `NewDownloadModel` (unit-tested)
+- App-side shared state consolidated behind `@MainActor`, removing scattered
+  locks (`DownloadNotifier`, `DownloadEngineCoordinator`, `SandboxAccess`,
+  `ProgressPublisher`)
+- Engine chunk writer is event-driven (`NSCondition`) instead of polling, and
+  the backpressure path no longer busy-sleeps
+- Settings panes split into per-file views
+- Localized strings update reactively (dropped the `.id(refresh)` view rebuild)
 
 ### Fixed
 
+- Downloads served without a `Content-Length` (e.g. GitHub archive redirects) no
+  longer sit at a fake 100%: the bar shows indeterminate progress while the size
+  is unknown and the real total is backfilled on completion
+- Indeterminate progress animation now stops once a download errors
+- Resuming a non-resumable (single-stream) download resets its progress, matching
+  the engine's restart-from-zero behavior
+- `FileHandle.synchronizeFile` no longer crashes the app when the staging file
+  is removed mid-cleanup
 - Flaky parallel-test-host crashes: `DownloadNotifier`, `DownloadEngineCoordinator`
   and `SandboxAccess` serialize their shared mutable state, and
   `ContentViewModel` no longer registers global observers / a file-check timer
@@ -27,8 +76,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   torrent files.
 - `%lld` format-string/argument type mismatches fixed in `DownloadRow` and
   `DialogPresenter`.
-- Test-detection is centralized in `ProcessInfo.isRunningTests` instead of
-  duplicated `XCTestConfigurationFilePath` env checks.
 - New-download sheet: the previously dead `browseFolder()` folder picker is now
   wired to a button, so per-batch custom folders (with security-scoped
   bookmarks) actually work.
@@ -39,12 +86,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added missing catalog entries: `HTTP %ld`, `Invalid URL`, `Version %@ (build %@)`,
   and filled in the empty `OK` key (zh: 确定), so they no longer fall back to the
   English key in Chinese.
-- Localized two hardcoded settings strings: the "Launch at Login" alert title and
-  its "OK" button.
+- Localized the "Launch at Login" alert title and its "OK" button.
 - Error messages now persist a catalog key (`Download.errorKey`) instead of only a
   pre-localized string, so failed-download text re-localizes when the app language
   changes. Legacy persisted English messages are migrated to keys on load and the
   download row / notifications / duplicate dialog render through it.
+- Added catalog entries for update checking, notification settings, the new
+  download sheet and launch-in-background.
+
+### Testing
+
+- App tests grew from 86 to 150; engine tests from 21 to 30 (total 180).
+- New suites: `NewDownloadModel` (parsing / probing), `DuplicatePolicy`
+  (duplicate-add decisions), `UpdateModel` (version compare + state machine),
+  chunk compact-persistence round trips, notification toggle gates, bulk delete
+  and file-integrity handling.
 
 ## [0.1.0] - 2026-08-02
 

@@ -38,7 +38,7 @@ import Foundation
     }
 
     @Test func checkUpToDateWhenSameVersion() async {
-        let release = makeRelease(tag: "v0.1.0")
+        let release = makeRelease(tag: "v" + UpdateService.currentVersion)
         let model = UpdateModel(latestRelease: { release })
         await model.checkForUpdates()
         guard case .upToDate = model.status else {
