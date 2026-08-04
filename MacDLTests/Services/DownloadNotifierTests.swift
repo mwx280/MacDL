@@ -115,4 +115,57 @@ import MacDLCore
         #expect(requests[0].content.categoryIdentifier == "redownload")
         #expect(requests[0].content.userInfo["url"] as? String == "https://e.com/a.zip")
     }
+
+    @Test func startedGateOffSkipsPosting() {
+        var requests: [UNNotificationRequest] = []
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
+        settings.notifyStart = false
+        let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
+        notifier.authorized = true
+        notifier.notifyStarted(Download(filename: "g.bin", url: "https://e.com/g.bin"))
+        #expect(requests.isEmpty)
+    }
+
+    @Test func completedGateOffSkipsPosting() {
+        var requests: [UNNotificationRequest] = []
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
+        settings.notifyCompleted = false
+        let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
+        notifier.authorized = true
+        let d = Download(filename: "g.bin", url: "https://e.com/g.bin", status: .completed)
+        notifier.notifyCompleted(d)
+        #expect(requests.isEmpty)
+    }
+
+    @Test func failedGateOffSkipsPosting() {
+        var requests: [UNNotificationRequest] = []
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
+        settings.notifyFailed = false
+        let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
+        notifier.authorized = true
+        let d = Download(filename: "g.bin", url: "https://e.com/g.bin", status: .error)
+        notifier.notifyFailed(d)
+        #expect(requests.isEmpty)
+    }
+
+    @Test func redownloadGateOffSkipsPosting() {
+        var requests: [UNNotificationRequest] = []
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
+        settings.notifyRedownload = false
+        let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
+        notifier.authorized = true
+        notifier.notifyRedownload("https://e.com/a.bin")
+        #expect(requests.isEmpty)
+    }
+
+    @Test func gateOnStillPosts() {
+        var requests: [UNNotificationRequest] = []
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
+        settings.notifyStart = true
+        let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
+        notifier.authorized = true
+        notifier.notifyStarted(Download(filename: "a.bin", url: "https://e.com/a.bin"))
+        #expect(requests.count == 1)
+    }
+
 }

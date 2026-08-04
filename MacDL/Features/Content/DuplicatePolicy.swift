@@ -8,25 +8,31 @@ enum DuplicateDecision {
 }
 
 // Decides how a duplicate-add should proceed based on the existing download's
-// status, showing the matching confirmation dialog. Isolated so the branching
-// can be reasoned about (and later tested) without the add flow.
+// status. The dialog prompts are injectable so the branching is unit-testable
+// without presenting NSAlerts.
 enum DuplicatePolicy {
-    static func decide(for existing: Download) -> DuplicateDecision {
+    static func decide(
+        for existing: Download,
+        showDuplicateActive: () -> Void = { _ = DialogPresenter.duplicateActive() },
+        showDuplicatePaused: () -> DownloadDialogResult = { DialogPresenter.duplicatePaused() },
+        showDuplicateCompleted: () -> Bool = { DialogPresenter.duplicateCompleted() },
+        showDuplicateFailed: (String) -> Bool = { DialogPresenter.duplicateFailed(reason: $0) }
+    ) -> DuplicateDecision {
         switch existing.status {
         case .active, .waiting:
-            _ = DialogPresenter.duplicateActive()
+            showDuplicateActive()
             return .skip
         case .paused:
-            switch DialogPresenter.duplicatePaused() {
+            switch showDuplicatePaused() {
             case .resume: return .resume
             case .newDownload: return .proceed
             default: return .skip
             }
         case .completed:
-            return DialogPresenter.duplicateCompleted() ? .proceed : .skip
+            return showDuplicateCompleted() ? .proceed : .skip
         case .error, .stopped:
             let reason = DownloadErrorText.text(for: existing) ?? LanguageManager.shared.localized("Unknown error")
-            return DialogPresenter.duplicateFailed(reason: reason) ? .proceed : .skip
+            return showDuplicateFailed(reason) ? .proceed : .skip
         }
     }
 }

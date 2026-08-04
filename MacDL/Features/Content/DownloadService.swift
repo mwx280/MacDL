@@ -486,10 +486,10 @@ final class DownloadService {
             return (d.id, d.status, DownloadPath.staging(for: d).path)
         }
         guard !toCheck.isEmpty else { return }
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        Task.detached { [weak self] in
             let missing = toCheck.filter { !FileManager.default.fileExists(atPath: $0.path) }
             guard !missing.isEmpty else { return }
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self?.handleMissingFiles(missing)
             }
         }

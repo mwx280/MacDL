@@ -55,4 +55,39 @@ import Foundation
         store.hideDockIconOnClose = original
     }
 
+    @Test func autoUpdateDefaultsOn() {
+        let original = store.autoUpdate
+        store.autoUpdate = false
+        #expect(store.autoUpdate == false)
+        store.autoUpdate = true
+        #expect(store.autoUpdate == true)
+        store.autoUpdate = original
+    }
+
+    @Test func notifyTogglesDefaultOnAndPersist() {
+        let pairs: [(String, () -> Bool, (Bool) -> Void)] = [
+            ("notifyStart", { store.notifyStart }, { store.notifyStart = $0 }),
+            ("notifyCompleted", { store.notifyCompleted }, { store.notifyCompleted = $0 }),
+            ("notifyFailed", { store.notifyFailed }, { store.notifyFailed = $0 }),
+            ("notifyRedownload", { store.notifyRedownload }, { store.notifyRedownload = $0 }),
+        ]
+        for (_, get, set) in pairs {
+            let original = get()
+            set(false)
+            #expect(get() == false)
+            set(true)
+            #expect(get() == true)
+            set(original)
+        }
+    }
+
+    @Test func autoUpdateDefaultsTrueForFreshDefaults() {
+        let fresh = SettingsStore(defaults: UserDefaults(suiteName: "test-auto-\(UUID().uuidString)")!)
+        #expect(fresh.autoUpdate == true)
+        #expect(fresh.notifyStart == true)
+        #expect(fresh.notifyCompleted == true)
+        #expect(fresh.notifyFailed == true)
+        #expect(fresh.notifyRedownload == true)
+    }
+
 }

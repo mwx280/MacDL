@@ -7,6 +7,20 @@ import Observation
 final class UpdateModel {
     static let shared = UpdateModel()
 
+    private let latestRelease: () async throws -> UpdateService.Release?
+    private let downloadAsset: (UpdateService.Asset, @escaping (Double) -> Void) async throws -> URL
+    private let installer: (URL) async throws -> Void
+
+    init(latestRelease: @escaping () async throws -> UpdateService.Release? = { try await UpdateService.latestRelease() },
+         downloadAsset: @escaping (UpdateService.Asset, @escaping (Double) -> Void) async throws -> URL = { asset, progress in
+             try await UpdateService.download(asset, progress: progress)
+         },
+         installer: @escaping (URL) async throws -> Void = { try await UpdateService.install(dmgURL: $0) }) {
+        self.latestRelease = latestRelease
+        self.downloadAsset = downloadAsset
+        self.installer = installer
+    }
+
     enum Status {
         case idle
         case checking
@@ -23,7 +37,7 @@ final class UpdateModel {
     func checkForUpdates() async {
         status = .checking
         do {
-            guard let release = try await UpdateService.latestRelease() else {
+            guard let release = try await latestRelease() else {
                 status = .upToDate
                 return
             }
@@ -45,7 +59,7 @@ final class UpdateModel {
         }
         status = .downloading(release, 0)
         do {
-            let url = try await UpdateService.download(asset) { progress in
+            let url = try await downloadAsset(asset) { progress in
                 DispatchQueue.main.async {
                     self.status = .downloading(release, progress)
                 }
@@ -59,7 +73,7 @@ final class UpdateModel {
 
     func install(_ url: URL) async {
         do {
-            try await UpdateService.install(dmgURL: url)
+            try await installer(url)
         } catch {
             status = .failed(LanguageManager.shared.localized("Update failed") + ": " + error.localizedDescription)
         }

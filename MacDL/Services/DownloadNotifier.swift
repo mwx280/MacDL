@@ -19,6 +19,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     var post: (UNNotificationRequest) -> Void
     var removePending: ([String]) -> Void
     private var pending: [UNNotificationRequest] = []
+    private let settings: SettingsStore
 
     var startedDelay: TimeInterval = 0.5
     private var startedAt: [UUID: Date] = [:]
@@ -29,6 +30,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     override private init() {
         post = { UNUserNotificationCenter.current().add($0) }
         removePending = { UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: $0) }
+        settings = SettingsStore.shared
         super.init()
         UNUserNotificationCenter.current().delegate = self
         EngineLog.app.debug("DownloadNotifier delegate set")
@@ -50,9 +52,11 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     init(post: @escaping (UNNotificationRequest) -> Void,
-         removePending: @escaping ([String]) -> Void = { _ in }) {
+         removePending: @escaping ([String]) -> Void = { _ in },
+         settings: SettingsStore = .shared) {
         self.post = post
         self.removePending = removePending
+        self.settings = settings
         super.init()
     }
 
@@ -76,7 +80,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyStarted(_ download: Download) {
-        guard SettingsStore.shared.notifyStart else { return }
+        guard settings.notifyStart else { return }
         EngineLog.app.debug("DownloadNotifier notifyStarted \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         startedAt[download.id] = Date()
         // Small delay so the banner lands after the new-download sheet has fully
@@ -96,7 +100,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyCompleted(_ download: Download) {
-        guard SettingsStore.shared.notifyCompleted else { return }
+        guard settings.notifyCompleted else { return }
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
         EngineLog.app.debug("DownloadNotifier notifyCompleted \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         suppressPendingStarted(for: download.id)
@@ -108,7 +112,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyFailed(_ download: Download) {
-        guard SettingsStore.shared.notifyFailed else { return }
+        guard settings.notifyFailed else { return }
         let reason = DownloadErrorText.text(for: download) ?? LanguageManager.shared.localized("Unknown error")
         EngineLog.app.debug("DownloadNotifier notifyFailed \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         suppressPendingStarted(for: download.id)
@@ -120,7 +124,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyRedownload(_ url: String) {
-        guard SettingsStore.shared.notifyRedownload else { return }
+        guard settings.notifyRedownload else { return }
         EngineLog.app.debug("DownloadNotifier notifyRedownload \(url)")
         let content = UNMutableNotificationContent()
         content.title = LanguageManager.shared.localized("Already in Download List")

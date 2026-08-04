@@ -280,4 +280,71 @@ import MacDLCore
         // Let the queued main-actor completion task run before asserting.
         for _ in 0..<8 { await Task.yield() }
     }
+
+    @Test func completionMovesStagingToFinal() async throws {
+        let engine = FakeEngine()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-rename-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let bookmark = try? URL(fileURLWithPath: tempDir.path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let d = Download(filename: "done.bin", url: "https://example.com/done.bin", totalSize: 100, downloadedSize: 100, status: .paused, savePath: tempDir.path, saveBookmark: bookmark, supportsResume: true)
+        try Data("hello".utf8).write(to: tempDir.appendingPathComponent("done.bin.macdl"))
+        vm.downloads = [d]
+        vm.resumeDownload(id: d.id)
+        engine.fireCompletion(id: d.id, result: .success(()))
+        await drainMain()
+        #expect(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("done.bin").path))
+        #expect(!FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("done.bin.macdl").path))
+        #expect(vm.downloads.first(where: { $0.id == d.id })?.status == .completed)
+    }
+
+    @Test func missingStagingFileMarksError() async throws {
+        let engine = FakeEngine()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-missing-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let d = Download(filename: "gone.bin", url: "https://example.com/gone.bin", totalSize: 1000, downloadedSize: 500, status: .active, savePath: tempDir.path)
+        vm.downloads = [d]
+        vm.service.checkFilesAndPersistIfNeeded()
+        // Let the detached file probe run and hop back to the main actor.
+        try? await Task.sleep(for: .milliseconds(100))
+        for _ in 0..<10 { await Task.yield() }
+        let updated = vm.downloads.first { $0.id == d.id }
+        #expect(updated?.status == .error)
+        #expect(updated?.errorKey == "Download file has been deleted")
+    }
+
+    @Test func clearSelectedDeletesFiles() throws {
+        let engine = FakeEngine()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-bulk-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let a = Download(filename: "a.bin", url: "https://example.com/a.bin", status: .completed, savePath: tempDir.path)
+        let b = Download(filename: "b.bin", url: "https://example.com/b.bin", status: .completed, savePath: tempDir.path)
+        try Data("a".utf8).write(to: tempDir.appendingPathComponent("a.bin"))
+        try Data("b".utf8).write(to: tempDir.appendingPathComponent("b.bin"))
+        vm.downloads = [a, b]
+        vm.service.clearSelected(ids: [a.id, b.id], deleteFiles: true)
+        #expect(vm.downloads.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("a.bin").path))
+        #expect(!FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("b.bin").path))
+    }
+
+    @Test func clearSelectedWithoutFilesKeepsFiles() throws {
+        let engine = FakeEngine()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-bulk2-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let a = Download(filename: "a.bin", url: "https://example.com/a.bin", status: .completed, savePath: tempDir.path)
+        try Data("a".utf8).write(to: tempDir.appendingPathComponent("a.bin"))
+        vm.downloads = [a]
+        vm.service.clearSelected(ids: [a.id], deleteFiles: false)
+        #expect(vm.downloads.isEmpty)
+        #expect(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("a.bin").path))
+    }
+
 }
