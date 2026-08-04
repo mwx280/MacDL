@@ -100,6 +100,7 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             DownloadListView(downloads: f, selection: $model.selectedDownloads,
+                probingDownloads: model.probingDownloads,
                 onPause: { model.pauseDownload(id: $0) },
                 onResume: { model.resumeDownload(id: $0) },
                 onRetry: { model.retryDownload(id: $0) },

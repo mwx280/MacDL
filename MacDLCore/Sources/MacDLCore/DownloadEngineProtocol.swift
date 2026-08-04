@@ -13,4 +13,5 @@ public protocol DownloadEngineProtocol {
     func setCompletionHandler(for id: UUID, handler: @escaping (Result<Void, Error>) -> Void)
     func setChunksChangeHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void)
     func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void)
+    func setPhaseHandler(for id: UUID, handler: @escaping (Bool) -> Void)
 }

@@ -255,4 +255,26 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? Int) ?? -1
         #expect(size == 262144)
     }
+
+    @Test func phaseStartsProbingThenDownloading() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-phase.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let lock = NSLock()
+        var transitions: [Bool] = []
+        manager.onPhaseChanged = { p in lock.lock(); transitions.append(p); lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem))
+        #expect(ok)
+        lock.lock()
+        let t = transitions
+        lock.unlock()
+        // probing(true) first, then downloading(false) once size is known.
+        #expect(t.first == true)
+        #expect(t.last == false)
+        #expect(t.contains(true) && t.contains(false))
+    }
 }

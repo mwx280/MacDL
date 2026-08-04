@@ -14,6 +14,8 @@ final class DownloadEngineCoordinator {
 
     /// Called on the main thread when an engine task finishes (success or failure).
     var onTaskCompletion: ((UUID, Result<Void, Error>) -> Void)?
+    /// Called on the main thread when a task enters/leaves the probe phase.
+    var onPhaseChange: ((UUID, Bool) -> Void)?
 
     private let engine: DownloadEngineProtocol
     private let store: DownloadStore
@@ -159,6 +161,12 @@ final class DownloadEngineCoordinator {
         engine.setResumeSupportHandler(for: id) { [weak self] supports in
             DispatchQueue.main.async {
                 self?.handleResumeSupport(id: id, supports: supports)
+            }
+        }
+
+        engine.setPhaseHandler(for: id) { [weak self] isProbing in
+            DispatchQueue.main.async {
+                self?.onPhaseChange?(id, isProbing)
             }
         }
 

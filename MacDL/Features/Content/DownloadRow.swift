@@ -4,6 +4,7 @@ import MacDLCore
 struct DownloadRow: View {
     let download: Download
     var isMultiSelection: Bool = false
+    var isProbing: Bool = false
     var canPrioritize: Bool = false
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
@@ -36,8 +37,13 @@ struct DownloadRow: View {
                     }
                 }
 
-                ProgressView(value: download.progress)
-                    .tint(download.status == .active ? .blue : .secondary)
+                if isProbing || (download.totalSize == 0 && download.status == .active) {
+                    ProgressView()
+                        .tint(.blue)
+                } else {
+                    ProgressView(value: download.progress)
+                        .tint(download.status == .active ? .blue : .secondary)
+                }
 
                 HStack(spacing: 8) {
                     HStack(spacing: 3) {
@@ -162,12 +168,14 @@ struct DownloadRow: View {
     @ViewBuilder
     private var statusGroup: some View {
         HStack(spacing: 3) {
-            Image(systemName: download.status.displayIcon)
+            Image(systemName: isProbing ? "hourglass" : download.status.displayIcon)
                 .font(.caption2)
-            Text(LanguageManager.shared.localized(download.status.labelKey))
+            Text(isProbing
+                 ? LanguageManager.shared.localized("Preparing")
+                 : LanguageManager.shared.localized(download.status.labelKey))
                 .font(.caption2)
         }
-        .foregroundStyle(download.status.displayColor)
+        .foregroundStyle(isProbing ? Color.gray : download.status.displayColor)
     }
 
     private func resumeGroup(_ canResume: Bool) -> some View {

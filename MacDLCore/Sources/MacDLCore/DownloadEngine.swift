@@ -76,4 +76,8 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     public func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
         syncQueue.sync { managers[id]?.onResumeSupport = handler }
     }
+
+    public func setPhaseHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
+        syncQueue.sync { managers[id]?.onPhaseChanged = handler }
+    }
 }

@@ -39,6 +39,10 @@ public final class ChunkManager {
     public var onChunksChanged: (([Chunk]) -> Void)?
     public var onCompletion: ((Result<Void, Error>) -> Void)?
     public var onResumeSupport: ((Bool) -> Void)?
+    /// true = range-probe/detection phase (no chunks scheduled yet);
+    /// false = actual downloading. Set before the probe and when chunks are
+    /// built or single-stream begins.
+    public var onPhaseChanged: ((Bool) -> Void)?
 
     public init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
         self.id = id
@@ -51,15 +55,19 @@ public final class ChunkManager {
     // MARK: - Public control
 
     public func start() {
-        EngineLog.manager.notice("start probe chunkSize=\(self.chunkSize) maxConcurrent=\(self.maxConcurrent)")
+        EngineLog.manager.notice("start probe chunkSize=\(chunkSize) maxConcurrent=\(maxConcurrent)")
         startLogTimer()
-        syncQueue.async { self.startProbe() }
+        syncQueue.async {
+            self.onPhaseChanged?(true)
+            self.startProbe()
+        }
     }
 
     public func start(withChunks existing: [Chunk], totalSize: Int64) {
         EngineLog.manager.notice("resume chunks=\(existing.count) pending=\(existing.filter { $0.status != .completed }.count) completed=\(existing.filter { $0.status == .completed }.count) total=\(totalSize)")
         startLogTimer()
         syncQueue.async {
+            self.onPhaseChanged?(false)
             self.totalSize = totalSize
             self.chunks = existing
             for i in self.chunks.indices where self.chunks[i].status != .completed {
@@ -94,6 +102,7 @@ public final class ChunkManager {
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
                 self.notifyChunksChanged(force: true)
+                self.onPhaseChanged?(false)
                 self.dispatchNext()
             }
         }
@@ -302,6 +311,7 @@ public final class ChunkManager {
     private func enterSingleStream() {
         guard singleStreamTask == nil else { return }
         singleStreamMode = true
+        onPhaseChanged?(false)
         EngineLog.manager.notice("server does not support Range, switch to single-stream from scratch")
         for (_, task) in activeTasks { task.cancel() }
         activeTasks.removeAll()

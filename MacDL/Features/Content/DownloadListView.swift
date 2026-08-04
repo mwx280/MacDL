@@ -4,6 +4,7 @@ import MacDLCore
 struct DownloadListView: View {
     let downloads: [Download]
     @Binding var selection: Set<UUID>
+    var probingDownloads: Set<UUID> = []
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
@@ -43,6 +44,7 @@ struct DownloadListView: View {
     private func row(_ d: Download, canPrioritize: Bool) -> some View {
         DownloadRow(download: d,
             isMultiSelection: selection.count > 1,
+            isProbing: probingDownloads.contains(d.id),
             canPrioritize: canPrioritize,
             onPause: onPause, onResume: onResume, onRetry: onRetry,
             onRedownload: onRedownload,

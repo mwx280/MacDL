@@ -17,6 +17,7 @@ final class FakeEngine: DownloadEngineProtocol {
     private var completionHandlers: [UUID: (Result<Void, Error>) -> Void] = [:]
     private var chunksChangeHandlers: [UUID: ([Chunk]) -> Void] = [:]
     private var resumeSupportHandlers: [UUID: (Bool) -> Void] = [:]
+    private var phaseHandlers: [UUID: (Bool) -> Void] = [:]
 
     func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) {
         started.append(id)
@@ -50,6 +51,10 @@ final class FakeEngine: DownloadEngineProtocol {
         resumeSupportHandlers[id] = handler
     }
 
+    func setPhaseHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
+        phaseHandlers[id] = handler
+    }
+
     func fireProgress(id: UUID, downloaded: Int64, total: Int64, speed: Int64 = 0) {
         progressHandlers[id]?(downloaded, total, speed)
     }
@@ -60,5 +65,9 @@ final class FakeEngine: DownloadEngineProtocol {
 
     func fireResumeSupport(id: UUID, supported: Bool) {
         resumeSupportHandlers[id]?(supported)
+    }
+
+    func firePhase(id: UUID, isProbing: Bool) {
+        phaseHandlers[id]?(isProbing)
     }
 }

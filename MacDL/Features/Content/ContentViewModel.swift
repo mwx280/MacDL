@@ -19,6 +19,8 @@ final class ContentViewModel {
     }
     var selectedDownloads = Set<UUID>()
     var fileTypeFilter: FileTypeFilter = .all
+    /// Downloads currently in the range-probe/detection phase (transient, not persisted).
+    var probingDownloads = Set<UUID>()
 
     private let store: DownloadStore
     private let engine: DownloadEngineProtocol
@@ -53,6 +55,10 @@ final class ContentViewModel {
         coordinator.progress.setCancelHandler { [weak self] id in self?.cancelProgressDownload(id) }
         coordinator.onTaskCompletion = { [weak self] id, result in
             self?.handleEngineCompletion(id: id, result: result)
+        }
+        coordinator.onPhaseChange = { [weak self] id, isProbing in
+            guard let self else { return }
+            if isProbing { self.probingDownloads.insert(id) } else { self.probingDownloads.remove(id) }
         }
 
         for i in store.downloads.indices where store.downloads[i].status == .active {
@@ -174,6 +180,7 @@ final class ContentViewModel {
     // MARK: - Engine completion
 
     private func handleEngineCompletion(id: UUID, result: Result<Void, Error>) {
+        probingDownloads.remove(id)
         guard let idx = store.index(of: id) else { return }
         switch result {
         case .success:
