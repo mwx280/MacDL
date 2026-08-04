@@ -136,7 +136,9 @@ private struct DownloadPane: View {
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 72)
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 72, alignment: .trailing)
                     .onChange(of: maxConnections) { _, v in
                         SettingsStore.shared.maxConnections = v
                     }
@@ -151,7 +153,9 @@ private struct DownloadPane: View {
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 72)
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 72, alignment: .trailing)
                     .onChange(of: maxConcurrent) { _, v in
                         SettingsStore.shared.maxConcurrentDownloads = v
                     }
@@ -167,7 +171,9 @@ private struct DownloadPane: View {
                         }
                     } label: { }
                     .labelsHidden()
-                    .frame(width: 100)
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 100, alignment: .trailing)
                     .onChange(of: maxDownloadSpeed) { _, v in
                         SettingsStore.shared.maxDownloadSpeed = v
                     }
