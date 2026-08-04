@@ -37,13 +37,8 @@ struct DownloadRow: View {
                     }
                 }
 
-                if isProbing || (download.totalSize == 0 && download.status == .active) {
-                    ProgressView()
-                        .tint(.blue)
-                } else {
-                    ProgressView(value: download.progress)
-                        .tint(download.status == .active ? .blue : .secondary)
-                }
+                ProgressView(value: download.progress)
+                    .tint(download.status == .active ? .blue : .secondary)
 
                 HStack(spacing: 8) {
                     HStack(spacing: 3) {
