@@ -280,10 +280,12 @@ final class ContentViewModel {
             downloads[idx].downloadedSize = built.reduce(0) { $0 + $1.downloadedSize }
             downloads[idx].totalSize = built.last?.endOffset ?? 0
         }
+        // Use the just-updated entry; never fall back to a different download (idx ?? 0).
+        let cfg = idx.map { downloads[$0] }
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
-                     chunkSize: downloads[idx ?? 0].chunkSize,
-                     maxConcurrent: downloads[idx ?? 0].maxConcurrentChunks,
-                     chunks: downloads[idx ?? 0].chunks)
+                     chunkSize: cfg?.chunkSize ?? 262144,
+                     maxConcurrent: cfg?.maxConcurrentChunks ?? settings.maxConnections,
+                     chunks: cfg?.chunks ?? [])
 
         engine.setProgressHandler(for: id, handler: progressHandler(for: id))
 
@@ -335,6 +337,13 @@ final class ContentViewModel {
     }
 
     func addDownload(url: String, savePath: String? = nil, saveBookmark: Data? = nil, dlLimit: Int = 0, connections: Int? = nil, allowDuplicate: Bool = false) {
+        // Under the XCTest host the app's real ContentViewModel also observes the
+        // global paste/redownload notifications. Never let it touch the real engine
+        // or disk during tests, or it would spawn real downloads into ~/Downloads.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+           (engine as AnyObject) === DownloadEngine.shared {
+            return
+        }
         let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
         let dir = savePath ?? AppConfig.defaultDownloadDir
 
@@ -508,7 +517,7 @@ final class ContentViewModel {
         SandboxAccess.shared.endAccess(for: id)
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
         downloads.removeAll { $0.id == id }
         persistence.save(downloads)
     }
@@ -524,7 +533,7 @@ final class ContentViewModel {
         SandboxAccess.shared.endAccess(for: id)
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
-                try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
 
         // Start clean: drop old chunks so a deleted or partial file isn't resumed
         // from stale offsets.

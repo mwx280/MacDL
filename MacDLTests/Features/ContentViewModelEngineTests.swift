@@ -34,6 +34,18 @@ import MacDLCore
         #expect(d != nil && engine.started.contains(d!.id))
     }
 
+    @Test func realEngineAddDownloadIsNoopUnderTestHost() {
+        // Regression: under the XCTest host the app's real ContentViewModel also
+        // observes global paste/redownload notifications. addDownload must be a
+        // no-op for the real engine during tests, or it would spawn real
+        // downloads (e.g. redl.bin.macdl) into ~/Downloads.
+        let vm = ContentViewModel()
+        let before = vm.downloads.count
+        vm.addDownload(url: "https://example.com/noop.bin")
+        #expect(vm.downloads.count == before)
+        #expect(!vm.downloads.contains { $0.url == "https://example.com/noop.bin" })
+    }
+
     @Test func addDownloadWaitsOverConcurrencyLimit() {
         let engine = FakeEngine()
         let vm = makeVM(engine: engine, maxConcurrentDownloads: 2)

@@ -23,7 +23,7 @@ public struct Download: Identifiable, Codable {
     public var downloadLimit: Int?
     public var errorMessage: String?
     public var chunkSize: Int64 = 262144
-    public var maxConcurrentChunks: Int = 1
+    public var maxConcurrentChunks: Int = 8
     public var chunks: [Chunk] = []
     public var supportsResume: Bool?
     public var isPriorityDownload: Bool?
