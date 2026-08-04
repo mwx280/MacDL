@@ -37,7 +37,7 @@ struct SettingsView: View {
         switch pane {
         case .general: 190
         case .download: 260
-        case .update: 120
+        case .update: 100
         }
     }
 }
@@ -255,15 +255,12 @@ private struct UpdatePane: View {
         VStack(spacing: 16) {
             card {
                 prefRow("info.circle", "Current Version") {
-                    Text(UpdateService.currentVersion)
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-
-                divider
-
-                prefRow("arrow.triangle.2.circlepath", "Detect Updates") {
-                    updateControl
+                    HStack(spacing: 10) {
+                        Text(UpdateService.currentVersion)
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        updateControl
+                    }
                 }
             }
         }
