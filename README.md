@@ -1,139 +1,133 @@
 <div align="center">
 
-# ⬇️ MacDL
+<img src="icon.png" width="128" alt="MacDL">
 
-**The download manager that gets out of your way.**
+# MacDL
 
----
-
-## 📦 Download — Preview
-
-The current build is **v0.1.0 (Preview)** — an early release that **may be
-unstable**. Grab the DMG from the [Releases page](https://github.com/mwx280/MacDL/releases).
-
-> First launch: right-click → Open (ad-hoc signed, not notarized).
-
-
-
-Paste a link. It downloads. Quit the app — it still downloads. That's the whole pitch.
-
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-000000.svg)]()
-[![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
-[![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
-[![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
-[![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v0.1.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
-[![Size](https://img.shields.io/badge/app-1.8%20MB-lightgrey.svg)]()
-
-**English** · [简体中文](README.zh-CN.md)
+A native macOS download manager that you can use entirely from the menu bar.
 
 </div>
 
----
+## Download
 
-## 🎯 The problem
+Current build: **v0.2.0 (Preview)** — an early release, expect rough edges.
+[Get the DMG from Releases.](https://github.com/mwx280/MacDL/releases)
 
-Every big download is a small war. The browser gives up on resume mid-file. The
-"download manager" you installed insists on owning your entire screen. And that
-2-hour, 8 GB file? One Wi‑Fi blip and you're starting over.
+> First launch: right-click → Open (ad-hoc signed, not notarized).
+> Requires macOS 26 or later.
 
-**It doesn't have to be like this.**
+## What it is
 
-## 💡 What MacDL does instead
+MacDL is a native SwiftUI desktop app. It has a normal window with a sidebar
+and download list, and it also lives in the menu bar — you can run it with no
+window at all and do everything from the status bar icon: paste a link, watch
+progress, pause or resume, or open the window only when you need it.
 
-> **One tiny menu-bar icon. Eight parallel connections. Resume that actually
-> resumes. Nothing else.**
+It's small (~1.8 MB), sandboxed, and has no account, cloud, or engine behind it.
 
-- **🪶 Featherweight** — the whole app is ~1.8 MB on disk (DMG under 1 MB). No heavy engine, no cloud, no bloat.
-- **Copy a link → it's downloading.** No wizard, no form, no login. Hit
-  *Download from Clipboard* and go.
-- **Big files, maximum speed.** Files are split into chunks and pulled down
-  across up to **8 parallel connections** — most browsers can't touch that.
-- **Resume that survives anything.** Quit the app, reboot your Mac, come back
-  a week later: your download picks up *exactly* where it stopped. No re-downloading.
-- **Never interrupts you.** It's a menu-bar app. Hide its Dock icon, launch it at
-  login, let it run in the background — your screen stays yours.
-- **Actually sandboxed.** It only ever touches the folders you choose. No silent
-  reads of your whole disk.
-- **Knows when to speak up.** A quiet banner when a download starts or finishes,
-  and — importantly — it tells you when a **priority download gave up** after
-  retries, so you're never left wondering why the bar went quiet.
+## The download engine
 
-## 🚀 Try it in 10 seconds
+The engine (`MacDLCore`) is the part that actually downloads. It's built
+directly on `URLSession` — no aria2, wget, or other sidecar process.
+
+- **Multi-threaded chunks.** A file is split into fixed-size chunks and each
+  chunk downloads over its own connection, up to 8 in parallel.
+- **Range probe first.** Before chunking, the engine asks the server for a
+  `Range` request. If it gets a `206`, the file size is known and chunks run in
+  parallel. If the server ignores `Range` (returns `200`), it falls back to a
+  single connection for the whole file.
+- **Resume that actually resumes.** Bytes are written to a `.macdl` staging
+  file as they arrive. Quit the app, reboot, come back a week later — each
+  chunk continues from its exact offset using bounded `Range` headers. Nothing
+  is re-fetched.
+- **Retry with backoff.** A failed chunk retries with exponential backoff
+  (1s, 2s, 4s…), and rate-limit / server-error storms (429/5xx) are handled
+  without hammering the server.
+- **Per-task speed limits.** A byte-level token bucket throttles each download
+  independently (or globally), not just per connection.
+- **Unknown-size downloads.** If a server sends no `Content-Length`, progress
+  shows as indeterminate instead of a fake percentage, and the real size is
+  filled in when the download completes.
+
+## Features
+
+- **New Download sheet** — paste several URLs at once. Each one gets its own
+  thread count and speed limit, and resume support is probed automatically
+  (non-resumable tasks are locked to a single thread). Drag links in, or let it
+  pick them up from the clipboard.
+- **Download from Clipboard** — copy a link and use the menu bar item.
+- **Priority downloads** — mark one task as priority; the others pause until
+  it finishes, then resume on their own.
+- **Notifications you control** — pick which alerts you want (started,
+  completed, failed, duplicate link), or turn them all off.
+- **Update checking** — checks GitHub Releases for a new version, can download
+  it automatically, and installs with one click (relaunch included).
+- **Background-friendly** — start with only the menu bar icon, enable launch at
+  login, hide the Dock icon when the window closes.
+- **Bilingual** — English and Simplified Chinese.
+
+## Quick start
 
 ```
-1. Copy any direct link to your clipboard          ⌘C
-2. Click the ↓ in your menu bar → "Download from Clipboard"
-3. Watch it finish from the menu bar — or open the window and relax
+1. Copy a direct link                          ⌘C
+2. Click the ↓ in the menu bar → "Download from Clipboard"
+3. Watch it finish from the menu bar — or open the window
 ```
 
-That's it. This is a download manager, not a productivity suite.
+## Architecture
 
-## 📸 Screenshot
+- `MacDL` — the app: SwiftUI views, services (settings, persistence,
+  notifications, updates) and the download lifecycle.
+- `MacDLCore` — the engine, a standalone Swift Package with zero AppKit. The
+  app talks to it through a protocol with dependency injection, so the engine
+  is regression-tested in isolation. It carries its own
+  [GPL-3.0 license](MacDLCore/LICENSE).
 
-![MacDL](screenshot.png)
-
-## 🧠 Under the hood
-
-```
- paste a URL
-      │
-      ▼
- [Range probe] ──► 206?  ──►  chunked parallel download (up to 8)
-      │              │
-      │              └──► 200?  ──►  single-stream fallback
-      ▼
- resume?  ──►  bounded Range headers, zero bytes re-fetched
-      ▼
- done  ──►  .macdl staging renamed to the real file
-```
-
-- **Pure native** — `URLSession`, no aria2/wget sidecar, no cloud, no account.
-- **Token-bucket throttling** — byte-level speed limits, per task or global.
-- **Two codebases, one engine** — the engine is a standalone Swift Package
-  (`MacDLCore`) with zero AppKit, regression-tested in isolation. It carries
-  its own GPL-3.0 [LICENSE](MacDLCore/LICENSE), so it stays protected when reused.
-
-## 🛠️ Build
+## Build
 
 ```bash
-open MacDL.xcodeproj          # then ⌘R
-# or headless:
+open MacDL.xcodeproj        # then ⌘R
+# or from the command line:
 xcodebuild -project MacDL.xcodeproj -scheme MacDL -destination 'platform=macOS'
 ```
 
-> **Requirements:** macOS 26+ · Xcode 26+
-
-## 🧪 Test
+## Test
 
 ```bash
-cd MacDLCore && swift test                    # engine suite
+cd MacDLCore && swift test                    # engine tests
 xcodebuild build-for-testing -project MacDL.xcodeproj \
   -scheme MacDL -destination 'platform=macOS' \
   && xcodebuild test-without-building -project MacDL.xcodeproj \
-  -scheme MacDL -destination 'platform=macOS'   # app suite
+  -scheme MacDL -destination 'platform=macOS'   # app tests
 ```
 
-> Run the app suite via `build-for-testing` + `test-without-building`: a plain
-> `xcodebuild test` resolves 0 tests on a clean checkout.
+App tests need two steps: build first, then run. A bare `xcodebuild test`
+finds 0 tests on a fresh checkout — an Xcode quirk, not a problem with this
+project.
 
-## 📜 Changelog
+## Known limitations
 
-See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+- Ad-hoc signed and not notarized, so macOS warns on first launch.
+- Notifications only show while the app is running (local notifications).
+- The in-app updater mounts the DMG; if the sandbox blocks that, it falls back
+  to opening the DMG in Finder.
 
-## 📄 License
+## Changelog
 
-[GPL-3.0](LICENSE) — use it, change it, but keep derivatives open source.
+See [CHANGELOG.md](CHANGELOG.md).
 
-**Explicit restrictions:**
+## License
 
-- ✅ Personal use, learning, modification, and forking are completely free
-- ✅ Publishing your modified version under GPL-3.0 is completely free
-- ❌ Integrating any part of this project (including the `MacDLCore` engine) into
-  **closed-source commercial software** and distributing it is strictly prohibited
-- ❌ Selling this code or modified versions as a **closed-source product** is
-  strictly prohibited
+[GPL-3.0](LICENSE). Use it, change it, fork it — any distributed derivative
+must stay open source.
 
-Violating the above will be treated as copyright infringement, and the author
-reserves the right to pursue legal action.
+Restrictions:
+
+- ✅ Personal use, learning, modification, forking.
+- ✅ Releasing a modified version under GPL-3.0.
+- ❌ Integrating any part (including `MacDLCore`) into closed-source commercial
+  software and distributing it.
+- ❌ Selling this code or a modified version as a closed-source product.
+
+Violations are treated as copyright infringement; the author reserves the right
+to pursue legal action.
