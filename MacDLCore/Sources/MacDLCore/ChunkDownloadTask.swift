@@ -43,7 +43,9 @@ public final class ChunkDownloadTask: NSObject {
     // transfer, so we only append to this buffer there and let a writer queue drain
     // it at the throttle rate (see drainLoop).
     private var pendingData = Data()
-    private let dataLock = NSLock()
+    // Guards pendingData and lets the writer sleep (instead of polling) until
+    // data arrives or the response ends; the backpressure path waits on it too.
+    private let dataCondition = NSCondition()
     private let finishLock = NSLock()
     private var writeScheduled = false
     private var responseComplete = false
@@ -108,14 +110,20 @@ public final class ChunkDownloadTask: NSObject {
     }
 
     func pause() {
+        dataCondition.lock()
         isPaused = true
+        dataCondition.broadcast()
+        dataCondition.unlock()
         bucket?.stop()
         dataTask?.cancel()
         cleanup()
     }
 
     func cancel() {
+        dataCondition.lock()
         isCancelled = true
+        dataCondition.broadcast()
+        dataCondition.unlock()
         bucket?.stop()
         dataTask?.cancel()
         cleanup()
@@ -124,8 +132,13 @@ public final class ChunkDownloadTask: NSObject {
     private func cleanup() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.fileHandle?.synchronizeFile()
-            self.fileHandle?.closeFile()
+            if let fh = self.fileHandle {
+                // The file may have been removed (user deleted it, test teardown)
+                // between the handle being opened and this cleanup; synchronizeFile
+                // would raise an NSException and crash the app.
+                try? fh.synchronize()
+                try? fh.close()
+            }
             self.fileHandle = nil
         }
     }
@@ -137,6 +150,9 @@ public final class ChunkDownloadTask: NSObject {
         defer { finishLock.unlock() }
         guard !isCompleted else { return }
         isCompleted = true
+        dataCondition.lock()
+        dataCondition.broadcast()
+        dataCondition.unlock()
         let elapsed = Date().timeIntervalSince(chunkStartTime)
         let speed = elapsed > 0 ? Int64(Double(bytesWritten) / elapsed) : bytesWritten
         let resultStr = (try? result.get()) != nil ? "success" : "failure"
@@ -144,7 +160,7 @@ public final class ChunkDownloadTask: NSObject {
         // Flush the exact final byte count even if the last write's progress
         // was throttled, so paused/resumed state is never stale.
         onProgress?(bytesWritten + resumeOffset)
-        fileHandle?.closeFile()
+        try? fileHandle?.close()
         fileHandle = nil
         DispatchQueue.main.async { [weak self] in
             self?.onCompletion?(result)
@@ -202,41 +218,47 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
 
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard !isCancelled, !isPaused else { return }
-        dataLock.lock()
+        dataCondition.lock()
         pendingData.append(data)
         let overCap = pendingData.count > bufferCap
-        dataLock.unlock()
+        dataCondition.signal()
+        dataCondition.unlock()
         scheduleWrite()
         guard overCap else { return }
-        // Buffer over its cap: block briefly as backpressure to keep memory bounded on large files
-        while true {
-            if isCancelled || isPaused { return }
-            dataLock.lock()
-            let big = pendingData.count > bufferCap
-            dataLock.unlock()
-            if !big { break }
-            Thread.sleep(forTimeInterval: EngineConstants.drainPollInterval)
+        // Buffer over its cap: wait (not poll) until the writer drains below it,
+        // keeping memory bounded without a sleep loop.
+        dataCondition.lock()
+        while !isCancelled && !isPaused && pendingData.count > bufferCap {
+            dataCondition.wait()
         }
+        dataCondition.unlock()
     }
 
     private func scheduleWrite() {
-        dataLock.lock()
-        guard !writeScheduled else { dataLock.unlock(); return }
+        dataCondition.lock()
+        guard !writeScheduled else { dataCondition.unlock(); return }
         writeScheduled = true
-        dataLock.unlock()
+        dataCondition.unlock()
         writerQueue.async { [weak self] in
             guard let self else { return }
             self.drainLoop()
-            self.dataLock.lock()
+            self.dataCondition.lock()
             self.writeScheduled = false
-            self.dataLock.unlock()
+            self.dataCondition.unlock()
         }
     }
 
     private func drainLoop() {
         while true {
-            if isCancelled || isPaused || isCompleted { return }
-            dataLock.lock()
+            dataCondition.lock()
+            // Sleep until data arrives or the response ends — no polling.
+            while pendingData.isEmpty && !isCancelled && !isPaused && !isCompleted && !responseComplete {
+                dataCondition.wait()
+            }
+            if isCancelled || isPaused || isCompleted {
+                dataCondition.unlock()
+                return
+            }
             let chunk: Data?
             if pendingData.isEmpty {
                 chunk = nil
@@ -246,7 +268,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                 pendingData.removeFirst(n)
             }
             let done = responseComplete
-            dataLock.unlock()
+            dataCondition.unlock()
 
             if let c = chunk {
                 if bucket?.take(Double(c.count)) == false { return }
@@ -269,12 +291,15 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     // per 64 KB write.
                     onProgress?(bytesWritten + resumeOffset)
                 }
+                // Wake any backpressure waiter now that the buffer has room.
+                dataCondition.lock()
+                dataCondition.broadcast()
+                dataCondition.unlock()
             } else {
                 if done {
                     finish(with: .success(()))
-                    return
                 }
-                Thread.sleep(forTimeInterval: EngineConstants.drainPollInterval)
+                return
             }
         }
     }
@@ -284,22 +309,25 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
             if error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
                 // A pause cancels the task on purpose - treat it as a clean stop, not an error.
                 if isPaused {
-                    dataLock.lock()
+                    dataCondition.lock()
                     responseComplete = true
-                    dataLock.unlock()
+                    dataCondition.broadcast()
+                    dataCondition.unlock()
                     return
                 }
                 finish(with: .failure(DownloadError.cancelled))
             } else {
                 finish(with: .failure(error))
             }
-            dataLock.lock()
+            dataCondition.lock()
             responseComplete = true
-            dataLock.unlock()
+            dataCondition.broadcast()
+            dataCondition.unlock()
         } else {
-            dataLock.lock()
+            dataCondition.lock()
             responseComplete = true
-            dataLock.unlock()
+            dataCondition.broadcast()
+            dataCondition.unlock()
             scheduleWrite()
         }
     }
