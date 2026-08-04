@@ -8,7 +8,14 @@ struct MacDLApp: App {
 
     init() {
         NSWindow.allowsAutomaticWindowTabbing = false
+        // File log in the sandbox container's Logs dir; truncated each launch.
+        let logsDir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Logs", isDirectory: true)
+        if let logsDir {
+            FileLogWriter.setLogFile(logsDir.appendingPathComponent("MacDL.log"))
+        }
         ChunkDownloadTask.maxConnectionsProvider = { SettingsStore.shared.maxConnections }
+        EngineLog.app.notice("didFinishLaunching (log file: \(FileLogWriter.logFileURL?.path ?? "nil"))")
         // Ask up front so the first download's "started" banner isn't dropped
         // while the permission prompt is still pending. No-op if already decided.
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {

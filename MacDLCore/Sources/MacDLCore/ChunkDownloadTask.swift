@@ -130,7 +130,7 @@ public final class ChunkDownloadTask: NSObject {
         let elapsed = Date().timeIntervalSince(chunkStartTime)
         let speed = elapsed > 0 ? Int64(Double(bytesWritten) / elapsed) : bytesWritten
         let resultStr = (try? result.get()) != nil ? "success" : "failure"
-        EngineLog.chunk.notice("Chunk #\(self.chunkIndex) done size=\(self.bytesWritten) speed=\(self.speed)/s time=\(elapsed)s result=\(resultStr, privacy: .public)")
+        EngineLog.chunk.notice("Chunk #\(self.chunkIndex) done size=\(self.bytesWritten) speed=\(self.speed)/s time=\(elapsed)s result=\(resultStr)")
         // Flush the exact final byte count even if the last write's progress
         // was throttled, so paused/resumed state is never stale.
         onProgress?(bytesWritten + resumeOffset)
@@ -160,7 +160,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     if totalStr != "*", let total = Int64(totalStr), total > 0 {
                         onTotalSizeKnown?(total)
                     } else {
-                        EngineLog.chunk.warning("Chunk #\(self.chunkIndex) Content-Range size unparsable: \(range, privacy: .public)")
+                        EngineLog.chunk.warning("Chunk #\(self.chunkIndex) Content-Range size unparsable: \(range)")
                     }
                 }
             case 200..<300:
