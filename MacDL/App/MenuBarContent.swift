@@ -8,7 +8,7 @@ struct MenuBarContent: View {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Download from Clipboard")) }, icon: { Image(systemName: "arrow.down.doc") })
         }
 
-
+        Divider()
 
         Button {
             openWindow(id: "main")
