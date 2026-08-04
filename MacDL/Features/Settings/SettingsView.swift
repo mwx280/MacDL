@@ -42,7 +42,7 @@ struct SettingsView: View {
 
     private func height(for pane: Pane) -> CGFloat {
         switch pane {
-        case .general: 190
+        case .general: 225
         case .download: 260
         case .update: 120
         case .notifications: 190

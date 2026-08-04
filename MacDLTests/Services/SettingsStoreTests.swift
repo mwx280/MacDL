@@ -88,6 +88,16 @@ import Foundation
         #expect(fresh.notifyCompleted == true)
         #expect(fresh.notifyFailed == true)
         #expect(fresh.notifyRedownload == true)
+        #expect(fresh.launchInBackground == true)
+    }
+
+    @Test func launchInBackgroundDefaultsOnAndPersists() {
+        let original = store.launchInBackground
+        store.launchInBackground = false
+        #expect(store.launchInBackground == false)
+        store.launchInBackground = true
+        #expect(store.launchInBackground == true)
+        store.launchInBackground = original
     }
 
 }

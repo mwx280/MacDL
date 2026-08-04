@@ -5,6 +5,7 @@ struct GeneralPane: View {
     @Environment(LanguageManager.self) var lang
     @AppStorage("appearance") private var appearance: Appearance = .system
     @AppStorage("hideDockIconOnClose") private var hideDockIconOnClose = false
+    @AppStorage("launchInBackground") private var launchInBackground = true
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var launchAtLoginFailed = false
 
@@ -65,6 +66,15 @@ struct GeneralPane: View {
                         .onChange(of: hideDockIconOnClose) { _, _ in
                             DockIconManager.shared.update()
                         }
+                }
+
+                divider
+
+                prefRow("eye.slash", "Launch in Background") {
+                    Toggle("", isOn: $launchInBackground)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .help(LanguageManager.shared.localized("Launch in Background description"))
                 }
             }
             .alert(LanguageManager.shared.localized("Launch at Login"), isPresented: $launchAtLoginFailed) {

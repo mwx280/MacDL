@@ -3394,6 +3394,40 @@
         }
       }
     },
+    "Launch in Background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch in Background"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后台启动"
+          }
+        }
+      }
+    },
+    "Launch in Background description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start without showing the main window; only the menu bar icon is displayed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动时不显示主窗口，仅在菜单栏显示图标"
+          }
+        }
+      }
+    },
     "Check for Updates" : {
       "extractionState" : "manual",
       "localizations" : {

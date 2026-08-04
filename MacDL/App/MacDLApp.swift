@@ -36,6 +36,7 @@ struct MacDLApp: App {
             ContentView()
                 .environment(LanguageManager.shared)
         }
+        .defaultLaunchBehavior(SettingsStore.shared.launchInBackground ? .suppressed : .presented)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button { MacDLApp.showAbout() } label: {
