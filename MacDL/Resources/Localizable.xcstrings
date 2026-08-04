@@ -4,6 +4,23 @@
     "" : {
 
     },
+    "%@ already exists and will be overwritten. Download it again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ already exists and will be overwritten. Download it again?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已存在，重新下载将覆盖原文件。是否继续？"
+          }
+        }
+      }
+    },
     "%lld" : {
 
     },
@@ -944,6 +961,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载"
+          }
+        }
+      }
+    },
+    "Download %@ again?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download %@ again?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是否重新下载 %@？"
           }
         }
       }
