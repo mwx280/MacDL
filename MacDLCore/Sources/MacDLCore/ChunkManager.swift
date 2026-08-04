@@ -2,12 +2,22 @@ import Foundation
 
 // All mutable state lives on syncQueue. Every callback re-enters through
 // syncQueue.async, so nothing is ever touched from two threads at once.
+/// Schedules and tracks the chunks of one download: runs the Range probe,
+/// splits the file, dispatches chunk tasks up to the connection cap, retries
+/// failures with backoff, and falls back to a single stream when the server
+/// does not honour Range requests.
 public final class ChunkManager {
+    /// Unique download identifier, also used as the engine registration key.
     public let id: UUID
+    /// Remote source URL.
     public let url: URL
+    /// Local file every chunk writes into.
     public let destinationURL: URL
+    /// Byte range each chunk covers.
     public private(set) var chunkSize: Int64
+    /// Total file size, known once the probe (or resume) reports it.
     public private(set) var totalSize: Int64 = 0
+    /// Recent throughput in bytes/second, recomputed once per second.
     public private(set) var downloadSpeed: Int64 = 0
 
     private var maxConcurrent: Int
@@ -37,15 +47,20 @@ public final class ChunkManager {
     private var isPaused = false
     private var retryWorkItems: [Int: DispatchWorkItem] = [:]
 
+    /// Progress callback: `(writtenBytes, totalBytes, bytesPerSecond)`.
     public var onProgress: ((Int64, Int64, Int64) -> Void)?
+    /// Chunk-array callback, delivered at a throttled cadence.
     public var onChunksChanged: (([Chunk]) -> Void)?
+    /// Completion callback with the overall `Result<Void, Error>`.
     public var onCompletion: ((Result<Void, Error>) -> Void)?
+    /// Server resume-support callback.
     public var onResumeSupport: ((Bool) -> Void)?
-    /// true = range-probe/detection phase (no chunks scheduled yet);
-    /// false = actual downloading. Set before the probe and when chunks are
+    /// `true` = range-probe/detection phase (no chunks scheduled yet);
+    /// `false` = actual downloading. Set before the probe and when chunks are
     /// built or single-stream begins.
     public var onPhaseChanged: ((Bool) -> Void)?
 
+    /// Creates a manager for one download.
     public init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
         self.id = id
         self.url = url
@@ -56,6 +71,7 @@ public final class ChunkManager {
 
     // MARK: - Public control
 
+    /// Runs the Range probe, then splits the file into chunks and schedules them.
     public func start() {
         EngineLog.manager.notice("start probe chunkSize=\(chunkSize) maxConcurrent=\(maxConcurrent)")
         startLogTimer()
@@ -66,6 +82,7 @@ public final class ChunkManager {
         }
     }
 
+    /// Resumes from a persisted chunk list; completed chunks are never re-fetched.
     public func start(withChunks existing: [Chunk], totalSize: Int64) {
         EngineLog.manager.notice("resume chunks=\(existing.count) pending=\(existing.filter { $0.status != .completed }.count) completed=\(existing.filter { $0.status == .completed }.count) total=\(totalSize)")
         startLogTimer()
@@ -227,6 +244,7 @@ public final class ChunkManager {
         return true
     }
 
+    /// Updates the byte/second throttle shared by all chunks of this download.
     public func setSpeedLimit(_ limit: Int64) {
         EngineLog.manager.notice("speedLimit=\(limit)/s")
         syncQueue.async {
@@ -235,12 +253,15 @@ public final class ChunkManager {
         }
     }
 
+    /// Updates the parallel-connection cap and re-dispatches pending chunks.
     public func setMaxConcurrent(_ max: Int) {
         maxConcurrent = max
         EngineLog.manager.notice("maxConcurrent=\(max)")
         syncQueue.async { self.dispatchNext() }
     }
 
+    /// Pauses the download: freezes scheduling, cancels retry timers and stops
+    /// the throttle so nothing can resume until `resume()`.
     public func pause() {
         EngineLog.manager.notice("pause")
         syncQueue.async { [weak self] in
@@ -263,6 +284,7 @@ public final class ChunkManager {
         }
     }
 
+    /// Resumes a paused download, rebuilding the schedule from chunk state.
     public func resume() {
         EngineLog.manager.notice("resume")
         startLogTimer()
@@ -287,6 +309,7 @@ public final class ChunkManager {
         }
     }
 
+    /// Cancels every in-flight task and clears all scheduling state.
     public func cancel() {
         EngineLog.manager.notice("cancel")
         syncQueue.async { [weak self] in
@@ -307,10 +330,10 @@ public final class ChunkManager {
         }
     }
 
+    /// True while any chunk task or the single-stream task is transferring.
     public var hasActiveTasks: Bool {
         syncQueue.sync { !activeTasks.isEmpty || singleStreamTask != nil }
     }
-
     // MARK: - Scheduling
 
     private func updateBucket() {
@@ -531,6 +554,7 @@ public final class ChunkManager {
 
     // MARK: - Helpers
 
+    /// Splits `totalSize` bytes into fixed-size ``Chunk`` values.
     public func buildChunks(totalSize: Int64, chunkSize: Int64) -> [Chunk] {
         Chunk.chunks(totalSize: totalSize, chunkSize: chunkSize)
     }

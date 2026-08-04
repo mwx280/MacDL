@@ -1,11 +1,18 @@
 import Foundation
 
+/// Errors the engine surfaces to the app layer.
 public enum DownloadError: Error, LocalizedError, Equatable {
+    /// The task was cancelled by the user.
     case cancelled
+    /// The destination file could not be opened for writing.
     case fileDeleted
+    /// The requested byte range is not satisfiable by the server (416).
     case rangeNotSatisfiable
+    /// The server file changed size mid-download; safe resume is impossible.
     case fileChanged
+    /// An unexpected HTTP status was returned.
     case httpStatus(Int)
+    /// A transport-level failure wrapped from `URLError` or similar.
     case network(Error)
 
     public static func == (lhs: DownloadError, rhs: DownloadError) -> Bool {
@@ -41,6 +48,7 @@ public enum DownloadError: Error, LocalizedError, Equatable {
         }
     }
 
+    /// True when a retry is worth attempting (transient HTTP/network failures).
     public var isRetryable: Bool {
         switch self {
         case .cancelled, .fileDeleted, .rangeNotSatisfiable, .fileChanged: return false

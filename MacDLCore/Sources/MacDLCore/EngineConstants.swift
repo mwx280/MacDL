@@ -1,6 +1,8 @@
 import Foundation
 
 // Named engine tuning constants (replaces scattered magic numbers).
+/// Central place for the engine's tuning knobs: chunk scheduling, retry
+/// backoff, buffer sizes, timeouts and reporting cadence.
 public enum EngineConstants {
     // Chunk scheduling / retry
     public static let maxChunkRetries = 3

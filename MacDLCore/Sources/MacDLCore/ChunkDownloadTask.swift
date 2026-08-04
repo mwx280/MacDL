@@ -1,7 +1,12 @@
 import Foundation
 
+/// One range request that streams bytes into a file handle at the throttle
+/// rate. All chunk tasks share a single URLSession so HTTP/2 can multiplex.
 public final class ChunkDownloadTask: NSObject {
+    /// Returns the per-host connection cap used by the shared URLSession.
+    /// Set once at app launch from the user's settings.
     public nonisolated(unsafe) static var maxConnectionsProvider: (() -> Int)?
+    /// Test hook replacing the shared URLSession configuration.
     public nonisolated(unsafe) static var sessionConfigurationOverride: URLSessionConfiguration?
 
     nonisolated(unsafe) static let sharedDelegate = ChunkSessionDelegate()

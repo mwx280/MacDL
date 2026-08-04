@@ -109,9 +109,14 @@ xcodebuild -project MacDL.xcodeproj -scheme MacDL -destination 'platform=macOS'
 
 ```bash
 cd MacDLCore && swift test                    # engine suite
-xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
-  -destination 'platform=macOS' -parallel-testing-enabled NO   # app suite
+xcodebuild build-for-testing -project MacDL.xcodeproj \
+  -scheme MacDL -destination 'platform=macOS' \
+  && xcodebuild test-without-building -project MacDL.xcodeproj \
+  -scheme MacDL -destination 'platform=macOS'   # app suite
 ```
+
+> Run the app suite via `build-for-testing` + `test-without-building`: a plain
+> `xcodebuild test` resolves 0 tests on a clean checkout.
 
 ## 📜 Changelog
 

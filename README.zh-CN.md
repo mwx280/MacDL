@@ -98,9 +98,14 @@ xcodebuild -project MacDL.xcodeproj -scheme MacDL -destination 'platform=macOS'
 
 ```bash
 cd MacDLCore && swift test                    # 引擎套件
-xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
-  -destination 'platform=macOS' -parallel-testing-enabled NO   # App 套件
+xcodebuild build-for-testing -project MacDL.xcodeproj \
+  -scheme MacDL -destination 'platform=macOS' \
+  && xcodebuild test-without-building -project MacDL.xcodeproj \
+  -scheme MacDL -destination 'platform=macOS'   # App 套件
 ```
+
+> App 套件请用 `build-for-testing` + `test-without-building`：干净的检出下直接
+> `xcodebuild test` 会解析到 0 个测试。
 
 ## 📜 更新日志
 

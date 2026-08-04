@@ -3,6 +3,9 @@ import Foundation
 // Shared byte-level token bucket for smooth throttling across all chunks.
 // Event-driven: waiters sleep on an NSCondition and are woken by stop()/reset(),
 // instead of polling every 20 ms.
+/// Byte-level throttle shared by all chunks of a download. Waiters sleep on an
+/// `NSCondition` until enough tokens accrue, and are woken early by
+/// `stop()`/`reset()` instead of polling.
 public final class TokenBucket {
     private let condition = NSCondition()
     private var rate: Double
@@ -10,10 +13,12 @@ public final class TokenBucket {
     private var lastRefill = Date()
     private var stopped = false
 
+    /// Creates a bucket. `rate` is in bytes/second; 0 means unlimited.
     public init(rate: Double) {
         self.rate = max(0, rate)
     }
 
+    /// Changes the refill rate; wakes any waiting consumer to re-evaluate.
     public func setRate(_ newRate: Double) {
         condition.lock()
         rate = max(0, newRate)
@@ -21,6 +26,7 @@ public final class TokenBucket {
         condition.unlock()
     }
 
+    /// Stops the bucket; `take()` returns false from now on until `reset()`.
     public func stop() {
         condition.lock()
         stopped = true
@@ -28,6 +34,7 @@ public final class TokenBucket {
         condition.unlock()
     }
 
+    /// Re-activates the bucket with a fresh rate and empty token pool.
     public func reset(rate newRate: Double) {
         condition.lock()
         stopped = false
@@ -38,7 +45,8 @@ public final class TokenBucket {
         condition.unlock()
     }
 
-    /// Blocks until `amount` bytes can be consumed, or until `stop()` is called. Returns false when stopped.
+    /// Blocks until `amount` bytes can be consumed, or until `stop()` is
+    /// called. Returns false when stopped.
     @discardableResult
     public func take(_ amount: Double) -> Bool {
         condition.lock()
