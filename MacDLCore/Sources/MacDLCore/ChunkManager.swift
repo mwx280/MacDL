@@ -343,11 +343,10 @@ public final class ChunkManager {
         lastLogBytes = 0
         // cancel() of the old task stops the shared bucket; re-activate it and re-apply the throttle
         bucket.reset(rate: speedLimit > 0 ? Double(speedLimit) : 0)
-        try? FileManager.default.removeItem(at: destinationURL)
         onChunksChanged?([])
 
         let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: Int64.max)
-        task.requestsWholeFile = true
+        task.requestsWholeFile = false
         task.bucket = bucket
         task.onProgress = { [weak self] (bytes: Int64) in
             guard let self else { return }
