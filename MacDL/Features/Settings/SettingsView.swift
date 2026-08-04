@@ -14,6 +14,12 @@ struct SettingsView: View {
 
     var body: some View {
         TabView(selection: $pane) {
+            NotificationsPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Notifications") }, icon: { Image(systemName: "bell") })
+                }
+                .tag(Pane.notifications)
+
             GeneralPane()
                 .tabItem {
                     Label(title: { LocalizedText(key: "General") }, icon: { Image(systemName: "gear") })
@@ -31,12 +37,6 @@ struct SettingsView: View {
                     Label(title: { LocalizedText(key: "Update") }, icon: { Image(systemName: "arrow.triangle.2.circlepath") })
                 }
                 .tag(Pane.update)
-
-            NotificationsPane()
-                .tabItem {
-                    Label(title: { LocalizedText(key: "Notifications") }, icon: { Image(systemName: "bell") })
-                }
-                .tag(Pane.notifications)
         }
         .frame(width: 420, height: height(for: pane))
     }
