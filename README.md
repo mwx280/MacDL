@@ -70,6 +70,10 @@ Every big download is a small war. The browser gives up on resume mid-file. The
 
 That's it. This is a download manager, not a productivity suite.
 
+## 📸 Screenshot
+
+![MacDL](screenshot.png)
+
 ## 🧠 Under the hood
 
 ```
