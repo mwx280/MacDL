@@ -212,6 +212,11 @@ public final class ChunkManager {
                     self.chunks[index].downloadedSize = self.chunks[index].size
                     self.retryCounts[index] = nil
                     os_log("[ChunkManager] chunk %d completed", index)
+                    if self.totalSize == 0, self.chunks.count == 1, !self.singleStreamMode {
+                        os_log("[ChunkManager] probe completed without file size, falling back to single-stream")
+                        self.enterSingleStream()
+                        return
+                    }
                 case .failure(let error):
                     self.handleChunkFailure(index, error: error)
                 }
@@ -437,6 +442,7 @@ public final class ChunkManager {
     private func checkDone() {
         let done = chunks.filter { $0.status == .completed }.count
         let failed = chunks.filter { $0.status == .failed }.count
+        guard totalSize > 0 || singleStreamMode else { return }
         if done + failed >= chunks.count, !chunks.isEmpty {
             logTimer?.invalidate()
             logTimer = nil

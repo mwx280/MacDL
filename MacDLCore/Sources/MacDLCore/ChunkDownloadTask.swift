@@ -154,9 +154,11 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
             if http.statusCode == 206 {
                 if let range = http.allHeaderFields["Content-Range"] as? String,
                    let slash = range.lastIndex(of: "/") {
-                    let totalStr = range[range.index(after: slash)...].trimmingCharacters(in: .whitespaces)
-                    if let total = Int64(totalStr), total > 0 {
+                    let totalStr = String(range[range.index(after: slash)...]).trimmingCharacters(in: .whitespaces)
+                    if totalStr != "*", let total = Int64(totalStr), total > 0 {
                         onTotalSizeKnown?(total)
+                    } else {
+                        os_log("[Chunk #%d] Content-Range size unparsable: %{public}@", chunkIndex, range)
                     }
                 }
             } else {

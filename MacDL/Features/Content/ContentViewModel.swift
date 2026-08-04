@@ -157,10 +157,12 @@ final class ContentViewModel {
                 guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
                 let prevTotal = self.downloads[idx].totalSize
                 self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
-                self.downloads[idx].downloadedSize = bytes
+                self.downloads[idx].downloadedSize = max(bytes, self.downloads[idx].downloadedSize)
                 self.downloads[idx].downloadSpeed = speed
                 self.needsProgressSave = true
-                if !self.progress.isPublished(for: id) {
+                // During the range-probe phase the engine has not learned the file size yet;
+                // deferred progress publishing prevents a broken 0-total-unit progress object.
+                if total > 0, !self.progress.isPublished(for: id) {
                     self.progress.publish(for: self.downloads[idx], fileURL: self.stagingURL(for: self.downloads[idx]))
                 }
                 self.progress.update(for: id, download: self.downloads[idx])
