@@ -1,61 +1,61 @@
 # MacDL
 
-一个常驻菜单栏的 macOS 高速下载管理器。它由一套基于 `URLSession` 的多线程分块下载引擎驱动，安静地在后台完成工作，不打扰你。
+一个常驻 macOS 菜单栏的下载管理器。底层是建立在 `URLSession` 之上的多线程分块下载引擎，下载快，平时就安静待在菜单栏里，不碍事。
 
 ![screenshot](screenshot.png)
 
 ## 功能特性
 
-- **菜单栏应用** — 关闭主窗口后继续在后台运行，下载不会中断（可设置关闭窗口时隐藏 Dock 图标）。
-- **多线程分块下载** — 每个下载最多 8 条并行连接，所有分块共用同一个 `URLSession`，HTTP/2 可在单条连接上多路复用。
-- **自动探测断点支持** — 启动时发送 `Range` 探测请求，获取真实文件大小并判断服务器是否支持 `206`；不支持 Range 的服务器自动降级为单流下载。
-- **暂停 / 续传** — 下载先写入 `.macdl` 暂存文件，完成后改名。续传不重复下载已完成的字节（有界的 `Range` 请求头），断点状态在应用重启后依然有效。
-- **服务器变更安全保护** — 下载过程中若服务器端文件大小发生变化，立即中止而非产出损坏文件。
-- **限速** — 字节级令牌桶节流，既支持单任务限速，也支持全局默认限速。
-- **优先下载** — 将一个任务置为优先，其余任务自动暂停；优先结束时自动恢复（状态跨重启保留）。
-- **从剪贴板下载** — 直接在菜单栏提取链接；遇到重复链接会提示是否重新下载。
-- **Finder 进度徽章** — 下载中的任务在 Dock 和 Finder 中显示实时进度。
-- **系统通知** — 可分别开关开始 / 完成 / 失败通知，失败通知带「重新下载」操作按钮。
-- **自动更新** — 检查 GitHub Releases，可一键下载并安装新版 DMG（安装永远需要手动点击，不会自动执行）。
-- **中英双语界面** — 支持 English 与简体中文，运行时即时切换。
-- **沙盒化** — 启用 App Sandbox，自定义下载目录通过安全作用域书签访问。
+- **常驻菜单栏**：关闭主窗口后程序照常运行，下载不中断；也可以设置在关窗时隐藏 Dock 图标。
+- **多线程分块下载**：单个下载最多开 8 条并行连接；所有分块共用同一个 `URLSession`，HTTP/2 下能复用一条连接。
+- **自动检测断点续传**：开始前先发一个 `Range` 探测请求，拿到真实文件大小，同时确认服务器是否返回 `206`；不支持 Range 的服务器会自动退回单线程下载。
+- **暂停 / 续传**：下载过程中先写进 `.macdl` 暂存文件，全部完成后改成正式文件名。续传时用有界的 `Range` 请求头，已下载的字节不会重复拉取，断点状态重启后依然有效。
+- **服务器变化保护**：下载途中如果服务器上的文件大小变了，会直接中止，不会拼出一份损坏文件。
+- **限速**：按字节计量的令牌桶，单个任务和全局默认都可以限速。
+- **优先下载**：把一个任务置为优先，其它任务自动暂停，优先结束后自动恢复；这个状态重启后也保留。
+- **从剪贴板下载**：菜单栏一键提取剪贴板里的链接；遇到重复链接会问是否重新下载。
+- **Finder 下载进度**：正在下载的任务会在 Dock 和 Finder 里显示实时进度。
+- **系统通知**：开始 / 完成 / 失败可分别开关，失败通知带「重新下载」按钮。
+- **自动更新**：检查 GitHub Releases，可一键下载并安装新版 DMG（安装始终需要手动点击，不会自动执行）。
+- **中英双语界面**：支持英文和简体中文，运行时可随时切换。
+- **沙盒化**：开启了 App Sandbox，自定义下载目录靠安全作用域书签访问。
 
 ## 架构
 
-项目分为两层：
+项目分两层：
 
-1. **`MacDLCore`** — 独立 Swift Package，不依赖 AppKit。负责下载引擎：分块调度、限速、重试与续传。
-2. **`MacDL`** — App 目标。SwiftUI 视图、业务逻辑、持久化、通知、更新与沙盒处理。
+1. **`MacDLCore`**：独立的 Swift Package，不依赖 AppKit。下载引擎就在这里——分块调度、限速、重试、续传都由它负责。
+2. **`MacDL`**：应用本体。SwiftUI 界面、业务逻辑、持久化、通知、更新和沙盒处理。
 
-App 通过 `DownloadEngineProtocol` 协议驱动引擎，因此测试可以用假引擎替换真实引擎，完全不触碰网络与磁盘。
+应用通过 `DownloadEngineProtocol` 协议驱动引擎，测试时可以换成假引擎，完全不用碰网络和磁盘。
 
-### 引擎层（`MacDLCore/Sources/MacDLCore`）
+### 引擎（`MacDLCore/Sources/MacDLCore`）
 
 | 文件 | 职责 |
 |------|------|
-| `DownloadEngine.swift` | 门面。每个下载对应一个 `ChunkManager`，所有控制调用串行化处理。 |
-| `DownloadEngineProtocol.swift` | 协议边界，App 层可注入测试替身。 |
-| `ChunkManager.swift` | 协调单个下载：Range 探测、按连接上限调度分块、指数退避重试、单流降级。 |
-| `ChunkDownloadTask.swift` | 单条 Range 请求。基于事件驱动写入（`NSCondition`，无轮询），带缓冲上限与背压。 |
-| `ChunkSessionDelegate.swift` | 把 `URLSession` 的回调路由到对应的分块任务。 |
-| `TokenBucket.swift` | 同一下载内所有分块共享的字节级限速桶。 |
-| `Chunk.swift` | 一个字节区间及其进度；`Codable`，保证重启后状态可恢复。 |
-| `EngineConstants.swift` | 调参集中地：超时、缓冲大小、重试退避、上报节奏。 |
-| `DownloadError.swift` | 引擎抛给 App 层的错误（`cancelled`、`fileDeleted`、`rangeNotSatisfiable`、`fileChanged`、`httpStatus`、`network`）。 |
-| `EngineLog.swift` | `os.Logger` 分类日志，同时镜像写入容器内的日志文件。 |
+| `DownloadEngine.swift` | 门面。每个下载对应一个 `ChunkManager`，所有控制调用统一走一条串行队列。 |
+| `DownloadEngineProtocol.swift` | 协议边界，方便测试注入替身。 |
+| `ChunkManager.swift` | 协调单个下载：Range 探测、按连接上限调度分块、指数退避重试、不支持 Range 时退回单线程。 |
+| `ChunkDownloadTask.swift` | 一条 Range 请求。用 `NSCondition` 事件驱动写入（不轮询），带缓冲上限和背压保护。 |
+| `ChunkSessionDelegate.swift` | 把 `URLSession` 的回调分发给对应的分块任务。 |
+| `TokenBucket.swift` | 同一下载内所有分块共用的限速桶。 |
+| `Chunk.swift` | 一个字节区间及其进度；可 `Codable`，重启后状态能恢复。 |
+| `EngineConstants.swift` | 集中管理引擎的调优参数：超时、缓冲大小、重试退避、上报节奏。 |
+| `DownloadError.swift` | 引擎抛给上层应用的错误：`cancelled`、`fileDeleted`、`rangeNotSatisfiable`、`fileChanged`、`httpStatus`、`network`。 |
+| `EngineLog.swift` | 用 `os.Logger` 分类记日志，同时镜像写进容器内的日志文件。 |
 
-**一次下载的工作流程**
+**一次下载是怎么跑的**
 
-1. 探测请求携带 `Range: bytes=0-262143`，通过响应头 `Content-Range` 得知文件总大小，并判断服务器是否返回 `206`。
-2. 文件按固定 256 KB 大小切分，并按 `maxConcurrent` 上限调度。
-3. 失败的分块按指数退避重试（1s、2s、4s … 上限 10s，最多 3 次）；`429`/`5xx`/网络错误会重试，永久性错误不会。
-4. 若服务器忽略 `Range`（返回 `200`），引擎降级为单流整文件下载，失败时快速重试一次。
+1. 先发一个带 `Range: bytes=0-262143` 的探测请求，从响应头 `Content-Range` 拿到文件总大小，并确认服务器是否返回 `206`。
+2. 文件按固定 256 KB 切块，按 `maxConcurrent` 上限调度并行下载。
+3. 失败的分块按指数退避重试（1 秒、2 秒、4 秒……封顶 10 秒，最多 3 次）；`429`、`5xx`、网络错误会重试，永久性错误不重试。
+4. 如果服务器忽略 Range（直接返回 `200`），引擎退回整文件单线程下载，失败后快速重试一次。
 
-引擎所有可变状态都限定在一条串行队列内，回调仍回到该队列，保证任何状态都不会被两个线程同时访问。
+引擎里所有可变状态都锁在一条串行队列上，回调也回到这条队列，任何状态都不会被两个线程同时读写。
 
-### App 层（`MacDL`）
+### 应用层（`MacDL`）
 
-App 围绕 `@Observable` 状态对象组织：
+应用围绕 `@Observable` 状态对象组织：
 
 ```
 ContentView ──────────────► ContentViewModel ─────► DownloadService ──► DownloadStore
@@ -68,92 +68,92 @@ ContentView ──────────────► ContentViewModel ─�
 
 | 文件 | 职责 |
 |------|------|
-| `App/MacDLApp.swift` | SwiftUI `App`、菜单栏附加、设置场景、单实例强制、退出前活动下载确认。 |
+| `App/MacDLApp.swift` | 程序入口。SwiftUI App、菜单栏图标、设置窗口、单实例限制、退出前确认有下载任务。 |
 | `App/MenuBarContent.swift` | 菜单栏操作：从剪贴板下载、显示/隐藏窗口、关于、偏好设置、退出。 |
-| `Features/Content/ContentViewModel.swift` | SwiftUI 面向的视图状态（选中项、过滤器），把调用转发给 `DownloadService`。 |
-| `Features/Content/DownloadService.swift` | 下载生命周期：添加/暂停/续传/重试/重新下载/删除、等待队列、引擎完成处理、文件完整性检查。 |
-| `Features/Content/DownloadStore.swift` | 下载列表与持久化的唯一数据源。 |
-| `Features/Content/DownloadEngineCoordinator.swift` | 安装引擎回调、进度持久化节流、错误到本地化文案的映射。 |
-| `Features/Content/PriorityDownloadCoordinator.swift` | 优先下载状态机（置顶、自动暂停其它、恢复）。 |
-| `Features/Content/ProgressPublisher.swift` | 发布/更新 Finder 的 `NSProgress` 徽章并接管取消。 |
-| `Models/Download.swift` | 下载模型；紧凑持久化（合并的已完成区间 + 部分分块续传点）。 |
-| `Models/DownloadPath.swift` | `.macdl` 暂存文件与最终目标路径的唯一来源。 |
-| `Models/AppConfig.swift` | 在沙盒下解析真实用户「下载」目录。 |
-| `Services/DownloadPersistence.swift` | Application Support 下的 JSON 持久化、后台写入、旧数据迁移。 |
-| `Services/DownloadNotifier.swift` | `UNUserNotificationCenter` 通知与「重新下载」操作。 |
-| `Services/SettingsStore.swift` | `UserDefaults` 支撑的设置。 |
-| `Services/SandboxAccess.swift` | 对用户自选目录的安全作用域访问。 |
-| `Services/LanguageManager.swift` | 运行时语言切换（跟随系统 / English / 简体中文）。 |
+| `Features/Content/ContentViewModel.swift` | 面向 SwiftUI 的视图状态（选中项、过滤器），实际操作转发给 `DownloadService`。 |
+| `Features/Content/DownloadService.swift` | 下载生命周期：添加/暂停/续传/重试/重新下载/删除、等待队列、引擎完成后的处理、文件完整性检查。 |
+| `Features/Content/DownloadStore.swift` | 下载列表的唯一数据源，负责读写持久化。 |
+| `Features/Content/DownloadEngineCoordinator.swift` | 注册引擎回调、控制进度保存频率、把错误映射成中文/英文文案。 |
+| `Features/Content/PriorityDownloadCoordinator.swift` | 优先下载的状态机：置顶、自动暂停其它任务、结束后的恢复。 |
+| `Features/Content/ProgressPublisher.swift` | 发布和更新 Finder 的 `NSProgress` 进度，并接管取消操作。 |
+| `Models/Download.swift` | 下载模型；持久化用紧凑格式（合并的已完成区间 + 各分块续传点）。 |
+| `Models/DownloadPath.swift` | 统一决定 `.macdl` 暂存文件和最终文件的路径，避免各处写死。 |
+| `Models/AppConfig.swift` | 在沙盒下解析真实的用户「下载」目录。 |
+| `Services/DownloadPersistence.swift` | 把下载列表存成 JSON 放到 Application Support，后台写入，兼容旧数据。 |
+| `Services/DownloadNotifier.swift` | 系统通知和「重新下载」操作按钮。 |
+| `Services/SettingsStore.swift` | 基于 `UserDefaults` 的设置。 |
+| `Services/SandboxAccess.swift` | 对用户手动选择的目录做安全作用域访问。 |
+| `Services/LanguageManager.swift` | 运行时切换语言（跟随系统 / 英文 / 简体中文）。 |
 | `Services/UpdateService.swift`、`UpdateModel.swift` | GitHub Releases 自动更新：检查、下载 DMG、安装并重启。 |
-| `Services/LaunchAtLoginService.swift` | 通过 `SMAppService` 开机自启。 |
-| `Services/DockIconManager.swift` | 窗口开关时隐藏/恢复 Dock 图标。 |
+| `Services/LaunchAtLoginService.swift` | 通过 `SMAppService` 实现开机自启。 |
+| `Services/DockIconManager.swift` | 根据窗口开关隐藏/恢复 Dock 图标。 |
 | `Features/Settings/*` | 设置面板：通用、下载、更新、通知。 |
-| `Features/Content/NewDownloadView.swift`、`NewDownloadModel.swift` | 新建下载面板：粘贴/拖拽链接、每个任务独立线程数与限速、续传探测。 |
+| `Features/Content/NewDownloadView.swift`、`NewDownloadModel.swift` | 新建下载面板：粘贴/拖入链接、每个任务独立设置线程数和限速、探测是否支持续传。 |
 
 **下载生命周期**
 
 ```
-添加 → 探测（状态 .active，显示「Preparing」）→ 分块调度
-     → 完成 → 把 .macdl 改名为正式文件 → 通知
-     → 暂停 → .paused → 续传（不重复下载已完成的字节）
-     → 失败 → .error → 重试 / 重新下载 / 删除
+添加 → 探测（状态为「下载中」，界面显示 Preparing）→ 分块调度
+     → 完成 → 把 .macdl 改成正式文件名 → 发通知
+     → 暂停 → 状态变为已暂停 → 续传（不重复拉已下载的字节）
+     → 失败 → 状态变为错误 → 重试 / 重新下载 / 删除
 ```
 
-每个下载与全局都有并发上限，超出部分进入等待队列；任务结束时会自动启动下一个等待中的下载。
+单个下载和全局都设了并发上限，超出上限的任务进等待队列；某个任务结束后，会自动开始下一个等待中的下载。
 
 **持久化**
 
-分块进度不存全量分块数组，而是紧凑存储：合并的连续已完成区间 + 各分块续传偏移。这样一份完成 100 GB 的文件只占几个区间条目，而不是约 40 万个分块条目。进度节流保存（每 5 秒一次），退出时立即落盘。
+分块进度不存全量分块数组，而是存合并后的连续已完成区间，以及各个分块的续传偏移。这样一份 100 GB 的文件下载完，落盘也只有几个区间条目，而不是约 40 万个分块。进度每 5 秒保存一次，退出时立即落盘。
 
 ## 系统要求与构建
 
-- macOS 26.5 及以上（引擎包声明的最低版本为 macOS 15）。
-- 带 macOS 26 SDK 的 Xcode。
-- 无外部依赖。
+- macOS 26.5 及以上（引擎包声明的最低版本是 macOS 15）。
+- 装有 macOS 26 SDK 的 Xcode。
+- 没有任何外部依赖。
 
 ```sh
 # 打开并在 Xcode 中运行
 open MacDL.xcodeproj
-# scheme: MacDL
+# scheme 选 MacDL
 
 # 引擎包测试
 cd MacDLCore && swift test
 
-# App 测试
+# 应用测试
 xcodebuild test -project MacDL.xcodeproj -scheme MacDL -destination 'platform=macOS'
 ```
 
 ## 目录结构
 
 ```
-MacDL.xcodeproj        Xcode 工程（App + App 测试）
-MacDL/                 App 目标
-  App/                 App 入口、菜单栏、关于窗口
+MacDL.xcodeproj        Xcode 工程（应用 + 应用测试）
+MacDL/                 应用目标
+  App/                 程序入口、菜单栏、关于窗口
   Features/Content/    下载界面、视图模型、服务、协调器
   Features/Settings/   设置面板
   Models/              下载模型、路径、格式化、过滤器
-  Components/          共享 SwiftUI 组件
+  Components/          通用 SwiftUI 组件
   Services/            持久化、通知、更新、沙盒、语言
   Resources/           Localizable.xcstrings、资源目录
 MacDLCore/             引擎 Swift Package
   Sources/MacDLCore/   引擎实现
   Tests/               引擎测试（Swift Testing + 假 URLProtocol）
-MacDLTests/            App 测试（XCTest + 假引擎）
-.github/workflows/     CI：引擎测试 + App 构建 + App 测试
+MacDLTests/            应用测试（XCTest + 假引擎）
+.github/workflows/     CI：引擎测试 + 应用构建 + 应用测试
 ```
 
 ## 测试
 
-共 180 个测试，分两套：
+一共 180 个测试，分两套：
 
-- **引擎（30）** — 使用 Swift Testing 配合假 `URLProtocol`，不发起真实网络请求。覆盖分块完整性、暂停/续传、限速、退避、单流降级与 Range 边界情况。
-- **App（150）** — 使用 XCTest 配合假引擎，不触碰真实磁盘与通知中心。覆盖下载生命周期、优先流程、重复策略、持久化往返、更新状态机与本地化。
+- **引擎（30 个）**：Swift Testing + 假 `URLProtocol`，不发真实网络请求。覆盖分块完整性、暂停/续传、限速、退避、单线程回退和 Range 边界情况。
+- **应用（150 个）**：XCTest + 假引擎，不碰真实磁盘和通知中心。覆盖下载生命周期、优先流程、重复下载策略、持久化往返、更新状态机和本地化。
 
-CI（GitHub Actions）先跑引擎测试，再构建并测试 App。
+CI（GitHub Actions）先跑引擎测试，再构建并测试应用。
 
 ## 本地化
 
-界面文案集中在 `MacDL/Resources/Localizable.xcstrings`（英文为源语言，含简体中文翻译）。`LanguageManager` 决定使用语言（跟随系统或手动指定），语言切换时所有文案响应式刷新。错误信息持久化的是目录键（catalog key），因此切换语言后仍会正确重新本地化。
+界面文案统一放在 `MacDL/Resources/Localizable.xcstrings`（英文为源语言，附简体中文翻译）。`LanguageManager` 决定用哪种语言（跟随系统或手动指定），切换后界面立刻刷新。错误信息持久化存的是文案的 key，所以换语言后也能正确显示。
 
 ## 许可证
 
