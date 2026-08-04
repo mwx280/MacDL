@@ -152,7 +152,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         if let http = response as? HTTPURLResponse {
             onSupportsResume?(http.statusCode == 206)
             if http.statusCode == 206 {
-                if let range = http.allHeaderFields["Content-Range"] as? String,
+                if let range = http.value(forHTTPHeaderField: "Content-Range"),
                    let slash = range.lastIndex(of: "/") {
                     let totalStr = String(range[range.index(after: slash)...]).trimmingCharacters(in: .whitespaces)
                     if totalStr != "*", let total = Int64(totalStr), total > 0 {
