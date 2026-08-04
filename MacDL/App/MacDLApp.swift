@@ -6,6 +6,8 @@ import MacDLCore
 struct MacDLApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    private static let firstLaunchKey = "didCompleteFirstLaunchSetup"
+
     init() {
         NSWindow.allowsAutomaticWindowTabbing = false
         // File log in the sandbox container's Logs dir; truncated each launch.
@@ -24,6 +26,7 @@ struct MacDLApp: App {
             DownloadNotifier.shared.requestAuthorization()
             ContentViewModel.shared.startAppServices()
             UpdateModel.shared.autoCheckAndDownloadIfNeeded()
+            performFirstLaunchSetupIfNeeded()
         }
         _ = DockIconManager.shared
     }
@@ -60,6 +63,21 @@ struct MacDLApp: App {
             MenuBarContent()
         } label: {
             Image(systemName: "arrow.down.circle")
+        }
+    }
+
+    // Runs once: notification permission is requested separately above, and
+    // launch at login is enabled here. Registering only works from /Applications,
+    // so it is skipped silently when running from a build product.
+    private func performFirstLaunchSetupIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.firstLaunchKey) else { return }
+        defaults.set(true, forKey: Self.firstLaunchKey)
+        do {
+            try LaunchAtLoginService.setEnabled(true)
+            EngineLog.app.notice("first launch: launch at login enabled")
+        } catch {
+            EngineLog.app.debug("first launch: launch at login skipped (\(error.localizedDescription))")
         }
     }
 
