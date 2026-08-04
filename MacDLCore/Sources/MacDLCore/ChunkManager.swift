@@ -346,7 +346,10 @@ public final class ChunkManager {
         onChunksChanged?([])
 
         let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: Int64.max)
-        task.requestsWholeFile = false
+        // Only send a Range header when the probe confirmed the server honors 206.
+        // Servers that ignored the probe's Range (200) must get a plain GET, or they
+        // may drop the Range or behave inconsistently.
+        task.requestsWholeFile = (serverSupportsResume != true)
         task.bucket = bucket
         task.onProgress = { [weak self] (bytes: Int64) in
             guard let self else { return }
