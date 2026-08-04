@@ -48,4 +48,30 @@ import MacDLCore
         let d = Download(id: UUID(), filename: filename, url: "", totalSize: 0, downloadedSize: 0, downloadSpeed: 0, status: .active, addedAt: Date())
         #expect(d.fileTypeColor != .clear)
     }
+
+    @Test(arguments: [
+        "notes.txt", "readme.md", "data.json", "font.ttf", "font.otf", "file.torrent",
+    ]) func fileTypeColorKnownTypesNotSecondary(filename: String) {
+        let d = Download(id: UUID(), filename: filename, url: "")
+        #expect(d.fileTypeColor != .secondary)
+    }
+
+    @Test(arguments: [
+        ("setup.exe", FileTypeFilter.archive, true),
+        ("installer.msi", FileTypeFilter.archive, true),
+        ("video.iso", FileTypeFilter.archive, true),
+        ("disk.img", FileTypeFilter.archive, true),
+        ("font.ttf", FileTypeFilter.document, true),
+        ("font.otf", FileTypeFilter.document, true),
+        ("movie.mkv", FileTypeFilter.video, true),
+        ("notes.txt", FileTypeFilter.document, true),
+        ("file.torrent", FileTypeFilter.other, false),
+        ("setup.exe", FileTypeFilter.other, false),
+        ("video.iso", FileTypeFilter.other, false),
+        ("font.ttf", FileTypeFilter.other, false),
+        ("unknown.xyz", FileTypeFilter.other, true),
+    ]) func fileTypeFilter(filename: String, filter: FileTypeFilter, expected: Bool) {
+        let d = Download(id: UUID(), filename: filename, url: "")
+        #expect(filter.matches(d) == expected)
+    }
 }

@@ -54,7 +54,7 @@ struct DownloadRow: View {
                             Text(download.progress, format: .percent.precision(.fractionLength(1)))
                         }
                     }
-                    if download.status == .error, let msg = download.errorMessage {
+                    if download.status == .error, let msg = DownloadErrorText.text(for: download) {
                         Text(msg)
                             .font(.caption2)
                             .foregroundStyle(download.status.displayColor)
@@ -237,7 +237,7 @@ struct DownloadRow: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "square.grid.3x2")
-                Text(String(format: LanguageManager.shared.localized("%lld Threads"), current))
+                Text(String(format: LanguageManager.shared.localized("%lld Threads"), Int64(current)))
             }
         }
     }

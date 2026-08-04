@@ -87,7 +87,7 @@ enum DialogPresenter {
     /// Bulk delete with a "also remove files" checkbox.
     static func confirmBulkDelete(count: Int) -> (confirmed: Bool, deleteFiles: Bool) {
         let alert = NSAlert()
-        alert.messageText = String(format: LanguageManager.shared.localized("Are you sure you want to delete %lld download(s)?"), count)
+        alert.messageText = String(format: LanguageManager.shared.localized("Are you sure you want to delete %lld download(s)?"), Int64(count))
         alert.alertStyle = .warning
         alert.addButton(withTitle: LanguageManager.shared.localized("Delete"))
         alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))

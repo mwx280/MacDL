@@ -18,8 +18,11 @@ struct MacDLApp: App {
         EngineLog.app.notice("didFinishLaunching (log file: \(FileLogWriter.logFileURL?.path ?? "nil"))")
         // Ask up front so the first download's "started" banner isn't dropped
         // while the permission prompt is still pending. No-op if already decided.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+        // The view model's app services (redownload/termination observers, file
+        // check timer) are also only started in the real app, never under tests.
+        if !ProcessInfo.isRunningTests {
             DownloadNotifier.shared.requestAuthorization()
+            ContentViewModel.shared.startAppServices()
         }
         _ = DockIconManager.shared
     }

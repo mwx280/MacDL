@@ -73,10 +73,12 @@ extension Download {
     static let audioExts: Set<String> = ["mp3", "flac", "wav", "aac", "m4a", "ogg", "opus", "wma"]
     static let fontExts: Set<String> = ["ttf", "otf", "woff", "woff2"]
     static let diskImageExts: Set<String> = ["iso", "img", "vmdk", "qcow2"]
+    static let executableExts: Set<String> = ["exe", "msi"]
+    static let torrentExts: Set<String> = ["torrent"]
 
     var fileTypeIcon: String {
         let ext = (filename as NSString).pathExtension.lowercased()
-        if ext == "exe" || ext == "msi" { return "pc" }
+        if Self.executableExts.contains(ext) { return "pc" }
         if Self.installerExts.contains(ext) { return "app.dashed" }
         if Self.diskImageExts.contains(ext) { return ext == "iso" ? "opticaldisc" : "externaldrive" }
         if Self.videoExts.contains(ext) { return "film" }
@@ -89,7 +91,7 @@ extension Download {
         if Self.imageExts.contains(ext) { return "photo" }
         if Self.audioExts.contains(ext) { return "music.note" }
         if Self.fontExts.contains(ext) { return "textformat" }
-        if ext == "torrent" { return "arrow.down.doc" }
+        if Self.torrentExts.contains(ext) { return "arrow.down.doc" }
         return "doc"
     }
 
@@ -97,13 +99,16 @@ extension Download {
         let ext = (filename as NSString).pathExtension.lowercased()
         if Self.diskImageExts.contains(ext) { return .indigo }
         if Self.videoExts.contains(ext) { return .purple }
-        if Self.archiveExts.contains(ext) || Self.installerExts.contains(ext) || ext == "exe" || ext == "msi" { return .orange }
+        if Self.archiveExts.contains(ext) || Self.installerExts.contains(ext) || Self.executableExts.contains(ext) { return .orange }
         if Self.modelExts.contains(ext) { return .mint }
         if Self.officeExts.contains(ext) { return .red }
+        if Self.textExts.contains(ext) { return .gray }
         if Self.codeExts.contains(ext) { return Self.codeColorMap[ext] ?? .teal }
         if Self.scriptExts.contains(ext) { return .gray }
         if Self.imageExts.contains(ext) { return .blue }
         if Self.audioExts.contains(ext) { return .pink }
+        if Self.fontExts.contains(ext) { return .teal }
+        if Self.torrentExts.contains(ext) { return .purple }
         return .secondary
     }
 }

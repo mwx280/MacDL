@@ -15,7 +15,7 @@ final class DownloadPersistence {
     init(fileURL: URL? = nil) {
         if let fileURL {
             self.fileURL = fileURL
-        } else if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+        } else if ProcessInfo.isRunningTests {
             self.fileURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("com.xiaowu.MacDL-tests")
                 .appendingPathComponent("downloads.json")
@@ -26,12 +26,31 @@ final class DownloadPersistence {
         }
     }
 
+    /// Maps a persisted (English) error message to its catalog key so legacy
+    /// entries — saved before errorKey existed — can be re-localized at display
+    /// time instead of showing a stale language.
+    private static let legacyErrorKeyMap: [String: String] = [
+        "Download file has been deleted": "Download file has been deleted",
+        "Invalid URL": "Invalid URL",
+        "Cancelled": "Cancelled",
+        "Unknown error": "Unknown error",
+        "Server does not support this download range": "Server does not support this download range",
+        "File changed on server, resume not possible": "File changed on server, resume not possible",
+        "Download folder access lost. Choose it again in Settings.": "Download folder access lost. Choose it again in Settings.",
+    ]
+
     func load() -> [Download] {
         queue.sync {
             let url = fileURL
             guard let data = try? Data(contentsOf: url),
-                  let list = try? JSONDecoder().decode([Download].self, from: data)
+                  var list = try? JSONDecoder().decode([Download].self, from: data)
             else { return [] }
+            for i in list.indices where list[i].errorKey == nil {
+                if let msg = list[i].errorMessage,
+                   let key = Self.legacyErrorKeyMap[msg] {
+                    list[i].errorKey = key
+                }
+            }
             return list
         }
     }

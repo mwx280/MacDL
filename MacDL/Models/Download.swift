@@ -23,6 +23,10 @@ public struct Download: Identifiable, Codable {
     public var saveBookmark: Data?
     public var downloadLimit: Int?
     public var errorMessage: String?
+    /// Catalog key of the error, so the message is re-localized at display time.
+    /// `errorMessage` alone goes stale when the app language changes (it was
+    /// persisted in whatever language was active when the error occurred).
+    public var errorKey: String?
     public var chunkSize: Int64 = 262144
     public var maxConcurrentChunks: Int = 8
     public var chunks: [Chunk] = []
@@ -39,7 +43,7 @@ public struct Download: Identifiable, Codable {
         return TimeInterval(totalSize - downloadedSize) / TimeInterval(downloadSpeed)
     }
 
-    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, saveBookmark: Data? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 8, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil) {
+    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, saveBookmark: Data? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, errorKey: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 8, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil) {
         self.id = id
         self.filename = filename
         self.url = url
@@ -52,6 +56,7 @@ public struct Download: Identifiable, Codable {
         self.saveBookmark = saveBookmark
         self.downloadLimit = downloadLimit
         self.errorMessage = errorMessage
+        self.errorKey = errorKey
         self.chunkSize = chunkSize
         self.maxConcurrentChunks = maxConcurrentChunks
         self.chunks = chunks

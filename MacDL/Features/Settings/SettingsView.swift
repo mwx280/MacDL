@@ -80,8 +80,8 @@ private struct GeneralPane: View {
                         }
                 }
             }
-            .alert("Launch at Login", isPresented: $launchAtLoginFailed) {
-                Button("OK", role: .cancel) { }
+            .alert(LanguageManager.shared.localized("Launch at Login"), isPresented: $launchAtLoginFailed) {
+                Button(LanguageManager.shared.localized("OK"), role: .cancel) { }
             } message: {
                 LocalizedText(key: "Launch at Login requires the app to run from the Applications folder.")
             }

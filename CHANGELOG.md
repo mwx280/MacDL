@@ -7,11 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+### Added
 
-- App icon
-- Root-cause the parallel-test-host crash (currently worked around with
-  `-parallel-testing-enabled NO`)
+- App icon: macOS-style rounded-rect tile with a blue gradient and download
+  arrow, shipped as a full multi-size `AppIcon.icns` set.
+
+### Fixed
+
+- Flaky parallel-test-host crashes: `DownloadNotifier`, `DownloadEngineCoordinator`
+  and `SandboxAccess` serialize their shared mutable state, and
+  `ContentViewModel` no longer registers global observers / a file-check timer
+  per instance (moved to `startAppServices()`, app-only). Parallel app tests now
+  run reliably, so CI no longer needs `-parallel-testing-enabled NO`.
+- `.other` file-type filter no longer swallows known types: `.ttf`/`.otf` count
+  as documents, `.iso`/`.img`/`.exe`/`.msi` as archives, and `.torrent` is
+  recognized (not "Other"); `allKnown` now covers every extension the app gives
+  an icon/color.
+- `fileTypeColor` no longer falls back to `.secondary` for text, font and
+  torrent files.
+- `%lld` format-string/argument type mismatches fixed in `DownloadRow` and
+  `DialogPresenter`.
+- Test-detection is centralized in `ProcessInfo.isRunningTests` instead of
+  duplicated `XCTestConfigurationFilePath` env checks.
+- New-download sheet: the previously dead `browseFolder()` folder picker is now
+  wired to a button, so per-batch custom folders (with security-scoped
+  bookmarks) actually work.
+- Removed a duplicated `import Foundation` in `AppConfig`.
+
+### Localization
+
+- Added missing catalog entries: `HTTP %ld`, `Invalid URL`, `Version %@ (build %@)`,
+  and filled in the empty `OK` key (zh: 确定), so they no longer fall back to the
+  English key in Chinese.
+- Localized two hardcoded settings strings: the "Launch at Login" alert title and
+  its "OK" button.
+- Error messages now persist a catalog key (`Download.errorKey`) instead of only a
+  pre-localized string, so failed-download text re-localizes when the app language
+  changes. Legacy persisted English messages are migrated to keys on load and the
+  download row / notifications / duplicate dialog render through it.
 
 ## [0.1.0] - 2026-08-02
 

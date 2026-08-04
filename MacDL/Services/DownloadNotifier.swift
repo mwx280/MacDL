@@ -17,6 +17,12 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     var removePending: ([String]) -> Void
     private var pending: [UNNotificationRequest] = []
 
+    // The notifier is a shared singleton: startedAt/pending/authorized can be
+    // touched from the test host's parallel suites (and defensively from any
+    // background path), so all shared-state access is serialized. A data race
+    // here crashed the parallel test host (Dictionary subscript setter ->
+    // doesNotRecognizeSelector).
+    private let lock = NSLock()
     var startedDelay: TimeInterval = 0.5
     private var startedAt: [UUID: Date] = [:]
 
@@ -67,14 +73,19 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func setAuthorized(_ value: Bool) {
+        lock.lock()
         let was = authorized
         authorized = value
-        if value && !was { flushPending() }
+        let shouldFlush = value && !was
+        lock.unlock()
+        if shouldFlush { flushPending() }
     }
 
     func notifyStarted(_ download: Download) {
         EngineLog.app.debug("DownloadNotifier notifyStarted \(download.filename) authorized=\(self.authorized ? 1 : 0)")
+        lock.lock()
         startedAt[download.id] = Date()
+        lock.unlock()
         // Small delay so the banner lands after the new-download sheet has fully
         // dismissed - a notification posted mid-transition gets parked in the
         // notification center instead of presenting.
@@ -103,7 +114,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyFailed(_ download: Download) {
-        let reason = download.errorMessage ?? LanguageManager.shared.localized("Unknown error")
+        let reason = DownloadErrorText.text(for: download) ?? LanguageManager.shared.localized("Unknown error")
         EngineLog.app.debug("DownloadNotifier notifyFailed \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         suppressPendingStarted(for: download.id)
         send(title: LanguageManager.shared.localized("Download failed"),
@@ -123,10 +134,13 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         let request = UNNotificationRequest(identifier: UUID().uuidString + "-redownload",
                                             content: content,
                                             trigger: nil)
+        lock.lock()
         guard authorized else {
             pending.append(request)
+            lock.unlock()
             return
         }
+        lock.unlock()
         EngineLog.app.debug("DownloadNotifier posting redownload prompt")
         post(request)
     }
@@ -145,10 +159,13 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         // If the permission prompt is still pending, hold the banner and deliver
         // it once access is granted (otherwise the first download's "started"
         // notification would be silently dropped).
+        lock.lock()
         guard authorized else {
             pending.append(request)
+            lock.unlock()
             return
         }
+        lock.unlock()
         EngineLog.app.debug("DownloadNotifier posting \(title)")
         post(request)
     }
@@ -156,16 +173,24 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     // If a download finishes inside the started banner's delay window, drop the
     // pending "started" so a fast download can't show "completed" first.
     private func suppressPendingStarted(for id: UUID) {
-        guard let at = startedAt.removeValue(forKey: id) else { return }
-        guard Date().timeIntervalSince(at) < startedDelay else { return }
+        lock.lock()
+        guard let at = startedAt.removeValue(forKey: id),
+              Date().timeIntervalSince(at) < startedDelay else {
+            lock.unlock()
+            return
+        }
         let identifier = id.uuidString + "-started"
         pending.removeAll { $0.identifier == identifier }
+        lock.unlock()
         removePending([identifier])
     }
 
     func flushPending() {
-        for request in pending { post(request) }
+        lock.lock()
+        let toPost = pending
         pending.removeAll()
+        lock.unlock()
+        for request in toPost { post(request) }
     }
 
     // Show the banner even while the app (or its menu bar UI) is frontmost.

@@ -131,6 +131,23 @@ struct NewDownloadView: View {
             }
 
             HStack(spacing: 12) {
+                Button {
+                    browseFolder()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "folder")
+                        Text(downloadPath)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .help(LanguageManager.shared.localized("Select download folder"))
+
+                Spacer()
+
                 Button(LanguageManager.shared.localized("Cancel")) { dismiss() }
                     .keyboardShortcut(.escape)
                 Button(LanguageManager.shared.localized("Download")) {

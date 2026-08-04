@@ -65,7 +65,15 @@ final class ContentViewModel {
             store.downloads[i].status = .paused
         }
         priority.restoreFromStore()
+    }
 
+    /// Sets up the app-wide observers and file-check timer. Called exactly once
+    /// from the real app (MacDLApp). Tests must NOT call this per-instance:
+    /// the global .requestRedownload observer and the repeating timer would
+    /// leak across suites in the parallel test host and corrupt each other's
+    /// downloads.
+    func startAppServices() {
+        guard termObserver == nil, redownloadObserver == nil, fileCheckTimer == nil else { return }
         redownloadObserver = NotificationCenter.default.addObserver(
             forName: .requestRedownload,
             object: nil,
@@ -94,6 +102,21 @@ final class ContentViewModel {
             self.checkDownloadFiles()
             self.coordinator.persistProgressIfNeeded()
         }
+    }
+
+    /// Tears down the observers/timer installed by startAppServices(). Tests call
+    /// this after exercising the app flow so nothing leaks into other suites.
+    func stopAppServices() {
+        if let observer = redownloadObserver {
+            NotificationCenter.default.removeObserver(observer)
+            redownloadObserver = nil
+        }
+        if let observer = termObserver {
+            NotificationCenter.default.removeObserver(observer)
+            termObserver = nil
+        }
+        fileCheckTimer?.invalidate()
+        fileCheckTimer = nil
     }
 
     deinit {
@@ -143,6 +166,16 @@ final class ContentViewModel {
 
     // MARK: - File Integrity
 
+    /// Records an error state that survives language switches: stores the
+    /// catalog key for re-localization at display time, plus the currently
+    /// localized text as a fallback for legacy readers.
+    private func recordError(id: UUID, key: String) {
+        store.update(id) {
+            $0.errorKey = key
+            $0.errorMessage = LanguageManager.shared.localized(key)
+        }
+    }
+
     private func checkDownloadFiles() {
         // Snapshot paths on the main thread, then probe the filesystem off-main
         // so fileExists I/O never blocks the UI.
@@ -171,7 +204,7 @@ final class ContentViewModel {
                 coordinator.untrack(item.id)
             }
             downloads[idx].status = .error
-            downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
+            recordError(id: item.id, key: "Download file has been deleted")
             coordinator.progress.unpublish(for: item.id)
         }
         store.save()
@@ -194,7 +227,11 @@ final class ContentViewModel {
             notifier.notifyCompleted(store.downloads[idx])
         case .failure(let error):
             store.downloads[idx].status = .error
-            store.downloads[idx].errorMessage = coordinator.localizedMessage(for: error)
+            if let key = coordinator.errorKey(for: error) {
+                recordError(id: id, key: key)
+            } else {
+                store.downloads[idx].errorMessage = coordinator.localizedMessage(for: error)
+            }
             coordinator.progress.unpublish(for: id)
             if id == priority.priorityDownloadID {
                 // The priority task gave up after retries; tell the user the
@@ -261,7 +298,7 @@ final class ContentViewModel {
         // Under the XCTest host the app's real ContentViewModel also observes the
         // global paste/redownload notifications. Never let it touch the real engine
         // or disk during tests, or it would spawn real downloads into ~/Downloads.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+        if ProcessInfo.isRunningTests,
            (engine as AnyObject) === DownloadEngine.shared {
             return
         }
@@ -271,7 +308,7 @@ final class ContentViewModel {
         if !allowDuplicate, let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
             switch existing.status {
             case .active, .waiting:
-                DialogPresenter.duplicateActive()
+                _ = DialogPresenter.duplicateActive()
                 return
             case .paused:
                 let resp = DialogPresenter.duplicatePaused()
@@ -280,7 +317,7 @@ final class ContentViewModel {
             case .completed:
                 if !DialogPresenter.duplicateCompleted() { return }
             case .error, .stopped:
-                let reason = existing.errorMessage ?? LanguageManager.shared.localized("Unknown error")
+                let reason = DownloadErrorText.text(for: existing) ?? LanguageManager.shared.localized("Unknown error")
                 if !DialogPresenter.duplicateFailed(reason: reason) { return }
             }
         }
@@ -300,6 +337,7 @@ final class ContentViewModel {
         guard let sourceURL = URL(string: url) else {
             store.update(d.id) {
                 $0.status = .error
+                $0.errorKey = "Invalid URL"
                 $0.errorMessage = LanguageManager.shared.localized("Invalid URL")
             }
             store.save()
@@ -326,6 +364,7 @@ final class ContentViewModel {
             store.save()
             guard let sourceURL = URL(string: downloads[idx].url) else {
                 downloads[idx].status = .error
+                downloads[idx].errorKey = "Invalid URL"
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
                 store.save()
                 continue
@@ -339,6 +378,7 @@ final class ContentViewModel {
         if !coordinator.beginAccess(for: src) {
             store.update(id) {
                 $0.status = .error
+                $0.errorKey = "Download folder access lost. Choose it again in Settings."
                 $0.errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
             }
             store.save()
@@ -361,6 +401,7 @@ final class ContentViewModel {
         if coordinator.isTracked(id) {
             if !FileManager.default.fileExists(atPath: stagingURL(for: downloads[idx]).path) {
                 downloads[idx].status = .error
+                downloads[idx].errorKey = "Download file has been deleted"
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
                 store.save()
                 return
@@ -376,6 +417,7 @@ final class ContentViewModel {
 
         if !coordinator.beginAccess(for: downloads[idx]) {
             downloads[idx].status = .error
+            downloads[idx].errorKey = "Download folder access lost. Choose it again in Settings."
             downloads[idx].errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
             store.save()
             return
@@ -388,6 +430,7 @@ final class ContentViewModel {
 
         guard let sourceURL = URL(string: downloads[idx].url) else {
             downloads[idx].status = .error
+            downloads[idx].errorKey = "Invalid URL"
             downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
             store.save()
             return
@@ -447,6 +490,7 @@ final class ContentViewModel {
 
         downloads[idx].status = .active
         downloads[idx].errorMessage = nil
+        downloads[idx].errorKey = nil
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
         downloads[idx].chunks = []
@@ -455,6 +499,7 @@ final class ContentViewModel {
 
         guard let sourceURL = URL(string: d.url) else {
             downloads[idx].status = .error
+            downloads[idx].errorKey = "Invalid URL"
             downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
             store.save()
             return
@@ -487,6 +532,7 @@ final class ContentViewModel {
         // from stale offsets.
         downloads[idx].status = .active
         downloads[idx].errorMessage = nil
+        downloads[idx].errorKey = nil
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
         downloads[idx].chunks = []
@@ -494,6 +540,7 @@ final class ContentViewModel {
 
         guard let sourceURL = URL(string: d.url) else {
             downloads[idx].status = .error
+            downloads[idx].errorKey = "Invalid URL"
             downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
             return
         }

@@ -11,6 +11,16 @@
 		5866C30A301E9D2E00F0FD4D /* MacDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = BB0000000000000000000002 /* MacDLCore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		E5C0A1000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 58D1C36B301A5754003A4EEB;
+			remoteInfo = MacDL;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		58D1C36C301A5754003A4EEB /* MacDL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacDL.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		"F261E0EC-4C28-45E0-889C-A5CC7D7596E8" /* MacDLTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacDLTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -184,6 +194,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E5C0A1000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 58D1C36B301A5754003A4EEB /* MacDL */;
+			targetProxy = E5C0A1000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		58D1C375301A5755003A4EEB /* Debug */ = {
@@ -455,24 +473,6 @@
 			productName = MacDLCore;
 		};
 /* End XCSwiftPackageProductDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		E5C0A1000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 58D1C36B301A5754003A4EEB;
-			remoteInfo = MacDL;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		E5C0A1000000000000000002 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 58D1C36B301A5754003A4EEB /* MacDL */;
-			targetProxy = E5C0A1000000000000000001 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 	};
 	rootObject = 58D1C364301A5754003A4EEB /* Project object */;
 }

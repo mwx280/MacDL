@@ -64,9 +64,13 @@ import MacDLCore
     @Test func redownloadNotificationTriggersAdd() {
         let engine = FakeEngine()
         let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        // The .requestRedownload observer is only installed by the real app's
+        // startAppServices(); install it here to exercise the app flow.
+        vm.startAppServices()
         NotificationCenter.default.post(name: .requestRedownload, object: "https://example.com/redl.bin")
         DispatchQueue.main.sync { }
         #expect(vm.downloads.contains { $0.url == "https://example.com/redl.bin" })
+        vm.stopAppServices()
     }
 
     @Test func handleLinksWithoutLinksNotifies() {

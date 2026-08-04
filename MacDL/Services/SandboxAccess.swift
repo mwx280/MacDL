@@ -8,6 +8,9 @@ final class SandboxAccess {
     static let shared = SandboxAccess()
 
     private var active: [UUID: URL] = [:]
+    // Shared singleton: beginAccess/endAccess can arrive from the test host's
+    // parallel suites (and any background path), so serialize the dictionary.
+    private let lock = NSLock()
 
     // Returns true when the app is allowed to write into the download's folder.
     // Every true result must be paired with endAccess once the download is done.
@@ -24,16 +27,24 @@ final class SandboxAccess {
             bookmarkDataIsStale: &stale
         ) else { return false }
         guard url.startAccessingSecurityScopedResource() else { return false }
+        lock.lock()
         active[download.id] = url
+        lock.unlock()
         return true
     }
 
     func endAccess(for id: UUID) {
-        active.removeValue(forKey: id)?.stopAccessingSecurityScopedResource()
+        lock.lock()
+        let url = active.removeValue(forKey: id)
+        lock.unlock()
+        url?.stopAccessingSecurityScopedResource()
     }
 
     func endAllAccess() {
-        for (_, url) in active { url.stopAccessingSecurityScopedResource() }
+        lock.lock()
+        let all = Array(active.values)
         active.removeAll()
+        lock.unlock()
+        for url in all { url.stopAccessingSecurityScopedResource() }
     }
 }

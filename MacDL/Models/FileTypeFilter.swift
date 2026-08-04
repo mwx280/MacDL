@@ -42,8 +42,8 @@ enum FileTypeFilter: String, CaseIterable {
         let ext = (file.filename as NSString).pathExtension.lowercased()
         switch self {
         case .video: return Download.videoExts.contains(ext)
-        case .document: return Download.officeExts.contains(ext) || Download.textExts.contains(ext)
-        case .archive: return Download.archiveExts.contains(ext) || Download.installerExts.contains(ext)
+        case .document: return Download.officeExts.contains(ext) || Download.textExts.contains(ext) || Download.fontExts.contains(ext)
+        case .archive: return Download.archiveExts.contains(ext) || Download.installerExts.contains(ext) || Download.diskImageExts.contains(ext) || Download.executableExts.contains(ext)
         case .image: return Download.imageExts.contains(ext)
         case .audio: return Download.audioExts.contains(ext)
         case .code: return Download.codeExts.contains(ext) || Download.scriptExts.contains(ext) || Download.modelExts.contains(ext)
@@ -52,16 +52,23 @@ enum FileTypeFilter: String, CaseIterable {
         }
     }
 
+    /// Every extension the app recognizes (icon/color aware). `.other` is
+    /// reserved for genuinely unknown extensions, so a known type like `.ttf`
+    /// or `.iso` is never mislabeled as "Other".
     private static var allKnown: Set<String> {
         Download.videoExts
             .union(Download.officeExts)
             .union(Download.textExts)
+            .union(Download.fontExts)
             .union(Download.archiveExts)
             .union(Download.installerExts)
+            .union(Download.diskImageExts)
             .union(Download.imageExts)
             .union(Download.audioExts)
             .union(Download.codeExts)
             .union(Download.scriptExts)
             .union(Download.modelExts)
+            .union(Download.executableExts)
+            .union(Download.torrentExts)
     }
 }
