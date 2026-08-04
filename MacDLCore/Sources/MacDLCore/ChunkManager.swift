@@ -398,6 +398,9 @@ public final class ChunkManager {
                 self.logTimer = nil
                 switch result {
                 case .success:
+                    // Backfill the real size now that the stream finished, so the
+                    // final progress report and persisted state carry the actual total.
+                    self.singleStreamTotal = self.singleStreamBytes
                     self.onProgress?(self.singleStreamTotal, self.singleStreamTotal, self.downloadSpeed)
                     self.onCompletion?(.success(()))
                 case .failure(let error):
@@ -437,7 +440,7 @@ public final class ChunkManager {
             lastLogTime = now
             lastLogBytes = singleStreamBytes
         }
-        let total = max(singleStreamTotal, singleStreamBytes)
+        let total = singleStreamTotal > 0 ? singleStreamTotal : 0
         onProgress?(singleStreamBytes, total, downloadSpeed)
     }
 

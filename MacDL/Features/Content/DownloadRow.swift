@@ -37,8 +37,14 @@ struct DownloadRow: View {
                     }
                 }
 
-                ProgressView(value: download.progress)
-                    .tint(download.status == .active ? .blue : .secondary)
+                if download.totalSize > 0 {
+                    ProgressView(value: download.progress)
+                        .tint(download.status == .active ? .blue : .secondary)
+                } else {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .tint(download.status == .active ? .blue : .secondary)
+                }
 
                 HStack(spacing: 8) {
                     if isWaitingForServer {
@@ -47,7 +53,7 @@ struct DownloadRow: View {
                                 .font(.system(size: 9))
                             Text(LanguageManager.shared.localized("Waiting for server..."))
                         }
-                    } else {
+                    } else if download.totalSize > 0 {
                         HStack(spacing: 3) {
                             Image(systemName: "gauge.with.dots.needle.50percent")
                                 .font(.system(size: 9))
@@ -76,7 +82,9 @@ struct DownloadRow: View {
                         }
                     }
                     Spacer()
-                    Text(formatSize(download.downloadedSize) + " / " + formatSize(download.totalSize))
+                    Text(download.totalSize > 0
+                         ? formatSize(download.downloadedSize) + " / " + formatSize(download.totalSize)
+                         : formatSize(download.downloadedSize))
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
