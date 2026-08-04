@@ -5,7 +5,7 @@ import MacDLCore
 @testable import MacDL
 
 // Inject FakeEngine to verify ContentViewModel's action logic against the engine, no real network needed.
-@Suite(.serialized) struct ContentViewModelEngineTests {
+@MainActor @Suite(.serialized) struct ContentViewModelEngineTests {
     private func makePersistence() -> DownloadPersistence {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("vm-tests-\(UUID().uuidString)", isDirectory: true)
@@ -206,7 +206,7 @@ import MacDLCore
         #expect(requests[0].content.body == "notif.bin")
     }
 
-    @Test func completionSendsCompletedNotification() {
+    @Test func completionSendsCompletedNotification() async {
         let engine = FakeEngine()
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
@@ -216,11 +216,11 @@ import MacDLCore
         vm.downloads = [d]
         vm.resumeDownload(id: d.id)
         engine.fireCompletion(id: d.id, result: .success(()))
-        drainMain()
+        await drainMain()
         #expect(requests.contains { $0.identifier == d.id.uuidString + "-completed" && $0.content.body == AppConfig.defaultDownloadDir + "/done.bin" })
     }
 
-    @Test func failureSendsFailedNotification() {
+    @Test func failureSendsFailedNotification() async {
         let engine = FakeEngine()
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
@@ -230,11 +230,11 @@ import MacDLCore
         vm.downloads = [d]
         vm.resumeDownload(id: d.id)
         engine.fireCompletion(id: d.id, result: .failure(DownloadError.network(URLError(.notConnectedToInternet))))
-        drainMain()
+        await drainMain()
         #expect(requests.contains { $0.identifier == d.id.uuidString + "-failed" && $0.content.body.hasPrefix("fail.bin — ") })
     }
 
-    @Test func priorityFailurePostsDedicatedNotification() {
+    @Test func priorityFailurePostsDedicatedNotification() async {
         let engine = FakeEngine()
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
@@ -246,14 +246,14 @@ import MacDLCore
         vm.resumeDownload(id: a.id)
         vm.setPriorityDownload(id: a.id)
         engine.fireCompletion(id: a.id, result: .failure(DownloadError.network(URLError(.notConnectedToInternet))))
-        drainMain()
+        await drainMain()
         // A dedicated "message" notification replaces the generic "-failed" one.
         #expect(requests.contains { $0.identifier.hasSuffix("-message") && $0.content.body.contains("pri.bin") })
         #expect(!requests.contains { $0.identifier == a.id.uuidString + "-failed" })
     }
 
-    private func drainMain() {
-        // Let the queued main-async completion handler run before asserting.
-        DispatchQueue.main.sync { }
+    private func drainMain() async {
+        // Let the queued main-actor completion task run before asserting.
+        for _ in 0..<8 { await Task.yield() }
     }
 }

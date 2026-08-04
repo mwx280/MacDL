@@ -3,6 +3,7 @@ import AppKit
 import Observation
 import MacDLCore
 
+@MainActor
 @Observable
 final class ContentViewModel {
     // One instance for the whole app session: reopening a window reuses it, so
@@ -90,13 +91,6 @@ final class ContentViewModel {
         }
         fileCheckTimer?.invalidate()
         fileCheckTimer = nil
-    }
-
-    deinit {
-        fileCheckTimer?.invalidate()
-        service.unpublishAllProgress()
-        if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
-        if let observer = redownloadObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
     // MARK: - Filtering

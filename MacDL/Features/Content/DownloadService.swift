@@ -7,6 +7,7 @@ import MacDLCore
 // delete, priority, engine-completion handling and file-integrity checks.
 // ContentViewModel keeps the view state (selection, filters) and forwards
 // lifecycle calls here, so the business logic is testable in isolation.
+@MainActor
 @Observable
 final class DownloadService {
     let store: DownloadStore

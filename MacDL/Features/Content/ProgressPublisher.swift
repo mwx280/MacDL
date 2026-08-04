@@ -3,23 +3,21 @@ import Foundation
 import MacDLCore
 
 // Publishes, updates and unpublishes Finder download progress badges (NSProgress).
+// Main-actor isolated: published/updated from the main thread; the cancellation
+// handler dispatches back to main before touching state, so no lock is needed.
+@MainActor
 final class ProgressPublisher {
     private var progressMap: [UUID: Progress] = [:]
-    private let lock = NSLock()
     private var onCancel: (UUID) -> Void = { _ in }
 
     init() {}
 
     func setCancelHandler(_ handler: @escaping (UUID) -> Void) {
-        lock.lock()
         onCancel = handler
-        lock.unlock()
     }
 
     func isPublished(for id: UUID) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return progressMap[id] != nil
+        progressMap[id] != nil
     }
 
     func publish(for download: Download, fileURL: URL) {
@@ -36,32 +34,24 @@ final class ProgressPublisher {
             }
         }
         p.publish()
-        lock.lock()
         progressMap[download.id] = p
-        lock.unlock()
     }
 
     func update(for id: UUID, download: Download) {
-        lock.lock()
-        guard let p = progressMap[id] else { lock.unlock(); return }
+        guard let p = progressMap[id] else { return }
         p.totalUnitCount = max(download.totalSize, 1)
         p.completedUnitCount = download.downloadedSize
         p.isCancellable = download.status == .active
-        lock.unlock()
     }
 
     func unpublish(for id: UUID) {
-        lock.lock()
         let p = progressMap.removeValue(forKey: id)
-        lock.unlock()
         p?.unpublish()
     }
 
     func unpublishAll() {
-        lock.lock()
         let all = progressMap.values
         progressMap.removeAll()
-        lock.unlock()
         for p in all { p.unpublish() }
     }
 }

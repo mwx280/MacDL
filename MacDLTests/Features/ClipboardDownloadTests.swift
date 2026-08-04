@@ -4,7 +4,7 @@ import UserNotifications
 import MacDLCore
 @testable import MacDL
 
-@Suite struct ClipboardDownloadTests {
+@MainActor @Suite struct ClipboardDownloadTests {
     @Test func extractsValidURLs() {
         let links = ContentViewModel.downloadLinks(from: "https://e.com/a.zip http://f.org/b.txt")
         #expect(links == ["https://e.com/a.zip", "http://f.org/b.txt"])
@@ -68,7 +68,9 @@ import MacDLCore
         // startAppServices(); install it here to exercise the app flow.
         vm.startAppServices()
         NotificationCenter.default.post(name: .requestRedownload, object: "https://example.com/redl.bin")
-        DispatchQueue.main.sync { }
+        // The test already runs on the main thread; pump it so the main-queue
+        // observer runs before asserting.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
         #expect(vm.downloads.contains { $0.url == "https://example.com/redl.bin" })
         vm.stopAppServices()
     }

@@ -3,7 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
-@Suite(.serialized) struct PriorityCoordinatorTests {
+@MainActor @Suite(.serialized) struct PriorityCoordinatorTests {
     private func makePersistence() -> DownloadPersistence {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("prio-tests-\(UUID().uuidString)", isDirectory: true)

@@ -6,9 +6,12 @@ import MacDLCore
 // installing progress/completion/resume-support handlers, pause/resume/cancel,
 // speed limits, sandbox access and the Finder progress badge.
 //
-// Handlers mutate DownloadStore; completion is handed back to ContentViewModel
+// Handlers mutate DownloadStore; completion is handed back to DownloadService
 // via onTaskCompletion for the business logic (rename, notifications, priority,
 // next-waiting promotion) so this type stays purely "engine glue".
+// Main-actor isolated: engine callbacks are dispatched to main in installHandlers,
+// so the bookkeeping sets need no lock.
+@MainActor
 final class DownloadEngineCoordinator {
     let progress: ProgressPublisher
 
@@ -23,10 +26,6 @@ final class DownloadEngineCoordinator {
     private let settings: SettingsStore
     private var startedNotified: Set<UUID> = []
     private var engineTrackedDownloads: Set<UUID> = []
-    // startedNotified/engineTrackedDownloads are mutated from engine callbacks
-    // (main) and from start()/untrack() which tests can invoke off-main; a lock
-    // keeps them safe when suites run in the parallel test host.
-    private let stateLock = NSLock()
     private var needsProgressSave = false
     private var lastProgressSaveTime: Date = .distantPast
 
@@ -41,9 +40,7 @@ final class DownloadEngineCoordinator {
     // MARK: - Task lifecycle
 
     func start(id: UUID, url sourceURL: URL, dest: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) {
-        stateLock.lock()
         engineTrackedDownloads.insert(id)
-        stateLock.unlock()
         store.ensureChunks(for: id)
         if let d = store.downloads.first(where: { $0.id == id }) {
             notifyStartedIfNeeded(id, download: d)
@@ -86,15 +83,11 @@ final class DownloadEngineCoordinator {
     }
 
     func isTracked(_ id: UUID) -> Bool {
-        stateLock.lock()
-        defer { stateLock.unlock() }
-        return engineTrackedDownloads.contains(id)
+        engineTrackedDownloads.contains(id)
     }
 
     func untrack(_ id: UUID) {
-        stateLock.lock()
         engineTrackedDownloads.remove(id)
-        stateLock.unlock()
     }
 
     // MARK: - Sandbox + notifications
@@ -109,11 +102,7 @@ final class DownloadEngineCoordinator {
 
     /// Posts the "started" banner at most once per download.
     func notifyStartedIfNeeded(_ id: UUID, download: Download) {
-        let shouldNotify: Bool
-        stateLock.lock()
-        shouldNotify = startedNotified.insert(id).inserted
-        stateLock.unlock()
-        if shouldNotify {
+        if startedNotified.insert(id).inserted {
             notifier.notifyStarted(download)
         }
     }
@@ -175,35 +164,33 @@ final class DownloadEngineCoordinator {
 
     private func installHandlers(for id: UUID) {
         engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 self?.handleProgress(id: id, bytes: bytes, total: total, speed: speed)
             }
         }
 
         engine.setChunksChangeHandler(for: id) { [weak self] chunks in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 self?.store.update(id) { $0.chunks = chunks }
             }
         }
 
         engine.setResumeSupportHandler(for: id) { [weak self] supports in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 self?.handleResumeSupport(id: id, supports: supports)
             }
         }
 
         engine.setPhaseHandler(for: id) { [weak self] isProbing in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 self?.onPhaseChange?(id, isProbing)
             }
         }
 
         engine.setCompletionHandler(for: id) { [weak self] result in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.stateLock.lock()
                 self.engineTrackedDownloads.remove(id)
-                self.stateLock.unlock()
                 self.engine.cleanup(id: id)
                 self.onTaskCompletion?(id, result)
             }

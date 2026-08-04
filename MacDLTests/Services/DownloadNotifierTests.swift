@@ -4,7 +4,7 @@ import UserNotifications
 import MacDLCore
 @testable import MacDL
 
-@Suite(.serialized) struct DownloadNotifierTests {
+@MainActor @Suite(.serialized) struct DownloadNotifierTests {
     @Test func startedSendsRequest() {
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })

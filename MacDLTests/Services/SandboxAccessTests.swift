@@ -3,7 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
-@Suite(.serialized) struct SandboxAccessTests {
+@MainActor @Suite(.serialized) struct SandboxAccessTests {
     @Test func defaultDownloadDirIsRealDownloads() {
         let dir = AppConfig.defaultDownloadDir
         #expect(FileManager.default.fileExists(atPath: dir))
