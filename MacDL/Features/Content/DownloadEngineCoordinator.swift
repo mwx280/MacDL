@@ -221,8 +221,4 @@ final class DownloadEngineCoordinator {
             store.save()
         }
     }
-
-    private func stagingURL(for download: Download) -> URL {
-        DownloadPath.staging(for: download)
-    }
 }
