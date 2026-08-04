@@ -112,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        os_log("[MacDL] didFinishLaunching")
+        EngineLog.app.notice("didFinishLaunching")
         // 单实例：杀掉已存在的其他 MacDL 进程，避免菜单栏出现多个图标。
         let bundleID = Bundle.main.bundleIdentifier ?? "com.xiaowu.MacDL"
         let myPID = ProcessInfo.processInfo.processIdentifier
@@ -124,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        os_log("[MacDL] willTerminate")
+        EngineLog.app.notice("willTerminate")
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

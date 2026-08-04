@@ -28,7 +28,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         removePending = { UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: $0) }
         super.init()
         UNUserNotificationCenter.current().delegate = self
-        os_log("[DownloadNotifier] delegate set")
+        EngineLog.app.debug("DownloadNotifier delegate set")
         let action = UNNotificationAction(identifier: redownloadAction,
                                           title: LanguageManager.shared.localized("Redownload"),
                                           options: [])
@@ -40,9 +40,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         ])
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
-                os_log("[DownloadNotifier] settings auth=%@ alert=%@",
-                       String(describing: settings.authorizationStatus),
-                       String(describing: settings.alertSetting))
+                EngineLog.app.debug("DownloadNotifier settings auth=\(String(describing: settings.authorizationStatus)) alert=\(String(describing: settings.alertSetting))")
                 self?.setAuthorized(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
             }
         }
@@ -60,9 +58,9 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
             DispatchQueue.main.async {
                 guard let self else { return }
                 if let error {
-                    os_log("[DownloadNotifier] authorization error: %{public}@", String(describing: error))
+                    EngineLog.app.error("DownloadNotifier authorization error: \(String(describing: error))")
                 }
-                os_log("[DownloadNotifier] authorization granted=%d", granted ? 1 : 0)
+                EngineLog.app.debug("DownloadNotifier authorization granted=\(granted ? 1 : 0)")
                 self.setAuthorized(granted)
             }
         }
@@ -75,7 +73,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyStarted(_ download: Download) {
-        os_log("[DownloadNotifier] notifyStarted %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
+        EngineLog.app.debug("DownloadNotifier notifyStarted \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         startedAt[download.id] = Date()
         // Small delay so the banner lands after the new-download sheet has fully
         // dismissed - a notification posted mid-transition gets parked in the
@@ -89,13 +87,13 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notify(title: String, body: String) {
-        os_log("[DownloadNotifier] notify %{public}@", title)
+        EngineLog.app.debug("DownloadNotifier notify \(title)")
         send(title: title, body: body, id: UUID(), kind: "message", sound: false)
     }
 
     func notifyCompleted(_ download: Download) {
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
-        os_log("[DownloadNotifier] notifyCompleted %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
+        EngineLog.app.debug("DownloadNotifier notifyCompleted \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         suppressPendingStarted(for: download.id)
         send(title: LanguageManager.shared.localized("Download Completed"),
              body: dir + "/" + download.filename,
@@ -106,7 +104,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     func notifyFailed(_ download: Download) {
         let reason = download.errorMessage ?? LanguageManager.shared.localized("Unknown error")
-        os_log("[DownloadNotifier] notifyFailed %{public}@ authorized=%d", download.filename, authorized ? 1 : 0)
+        EngineLog.app.debug("DownloadNotifier notifyFailed \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         suppressPendingStarted(for: download.id)
         send(title: LanguageManager.shared.localized("Download failed"),
              body: download.filename + " — " + reason,
@@ -116,7 +114,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func notifyRedownload(_ url: String) {
-        os_log("[DownloadNotifier] notifyRedownload %{public}@", url)
+        EngineLog.app.debug("DownloadNotifier notifyRedownload \(url)")
         let content = UNMutableNotificationContent()
         content.title = LanguageManager.shared.localized("Already in Download List")
         content.body = url
@@ -129,7 +127,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
             pending.append(request)
             return
         }
-        os_log("[DownloadNotifier] posting redownload prompt")
+        EngineLog.app.debug("DownloadNotifier posting redownload prompt")
         post(request)
     }
 
@@ -151,7 +149,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
             pending.append(request)
             return
         }
-        os_log("[DownloadNotifier] posting %{public}@", title)
+        EngineLog.app.debug("DownloadNotifier posting \(title)")
         post(request)
     }
 
@@ -174,7 +172,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        os_log("[DownloadNotifier] willPresent called id=%{public}@", notification.request.identifier)
+        EngineLog.app.debug("DownloadNotifier willPresent called id=\(notification.request.identifier)")
         completionHandler([.banner, .list, .sound])
     }
 

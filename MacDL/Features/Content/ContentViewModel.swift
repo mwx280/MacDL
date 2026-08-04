@@ -11,22 +11,24 @@ final class ContentViewModel {
     static var current: ContentViewModel?
     private static var terminationSaved = false
 
-    var downloads: [Download] = []
+    // Downloads live in the store; these computed properties keep the same
+    // public surface that SwiftUI and the tests bind to.
+    var downloads: [Download] {
+        get { store.downloads }
+        set { store.downloads = newValue }
+    }
     var selectedDownloads = Set<UUID>()
     var fileTypeFilter: FileTypeFilter = .all
 
+    private let store: DownloadStore
     private let engine: DownloadEngineProtocol
+    private let coordinator: DownloadEngineCoordinator
     private let persistence: DownloadPersistence
     private let settings: SettingsStore
-    private let progress: ProgressPublisher
     private let notifier: DownloadNotifier
-    private var startedNotified: Set<UUID> = []
     private var termObserver: NSObjectProtocol?
     private var redownloadObserver: NSObjectProtocol?
     private var fileCheckTimer: Timer?
-    private var engineTrackedDownloads: Set<UUID> = []
-    private var needsProgressSave = false
-    private var lastProgressSaveTime: Date = .distantPast
     private var priorityDownloadID: UUID?
     private var pausedForPriority: Set<UUID> = []
 
@@ -39,20 +41,22 @@ final class ContentViewModel {
         self.engine = engine
         self.persistence = persistence
         self.settings = settings
-        self.progress = ProgressPublisher()
         self.notifier = notifier
+        let store = DownloadStore(persistence: persistence)
+        self.store = store
+        let coordinator = DownloadEngineCoordinator(engine: engine, store: store, notifier: notifier, settings: settings)
+        self.coordinator = coordinator
         Self.current = self
-        self.progress.setCancelHandler { [weak self] id in self?.cancelProgressDownload(id) }
-        downloads = persistence.load()
-        for i in downloads.indices where downloads[i].status == .active {
-            downloads[i].status = .paused
+        coordinator.progress.setCancelHandler { [weak self] id in self?.cancelProgressDownload(id) }
+        coordinator.onTaskCompletion = { [weak self] id, result in
+            self?.handleEngineCompletion(id: id, result: result)
         }
-        pausedForPriority = Set(downloads.filter { $0.pausedForPriority == true }.map(\.id))
-        let priority = downloads.first { $0.isPriorityDownload == true }?.id
-        if let priority {
-            priorityDownloadID = priority
-            resumeDownload(id: priority)
+
+        for i in store.downloads.indices where store.downloads[i].status == .active {
+            store.downloads[i].status = .paused
         }
+        pausedForPriority = Set(store.downloads.filter { $0.pausedForPriority == true }.map(\.id))
+
         redownloadObserver = NotificationCenter.default.addObserver(
             forName: .requestRedownload,
             object: nil,
@@ -71,7 +75,7 @@ final class ContentViewModel {
             Self.terminationSaved = true
             self.fileCheckTimer?.invalidate()
             self.fileCheckTimer = nil
-            self.progress.unpublishAll()
+            self.coordinator.progress.unpublishAll()
             if self.downloads.contains(where: { $0.totalSize > 0 }) {
                 self.persistence.saveImmediately(self.downloads)
             }
@@ -79,25 +83,25 @@ final class ContentViewModel {
         fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.checkDownloadFiles()
-            self.persistProgressIfNeeded()
+            self.coordinator.persistProgressIfNeeded()
         }
     }
 
     deinit {
         fileCheckTimer?.invalidate()
-        progress.unpublishAll()
+        coordinator.progress.unpublishAll()
         if let observer = termObserver { NotificationCenter.default.removeObserver(observer) }
         if let observer = redownloadObserver { NotificationCenter.default.removeObserver(observer) }
     }
 
     private func cancelProgressDownload(_ id: UUID) {
-        if let idx = downloads.firstIndex(where: { $0.id == id }) {
-            let d = downloads[idx]
+        if let idx = store.index(of: id) {
+            let d = store.downloads[idx]
             if d.status == .active {
-                engine.pause(id: id)
+                coordinator.pause(id)
             }
-            downloads[idx].status = .paused
-            persistence.save(downloads)
+            store.downloads[idx].status = .paused
+            store.save()
         }
     }
 
@@ -116,7 +120,7 @@ final class ContentViewModel {
         return statusFiltered.filter { fileTypeFilter.matches($0) }
     }
 
-    // MARK: - Progress (Finder Download Badge)
+    // MARK: - File Paths
 
     private func destinationURL(for download: Download) -> URL {
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
@@ -138,167 +142,57 @@ final class ContentViewModel {
             let url = stagingURL(for: d)
             if !FileManager.default.fileExists(atPath: url.path) {
                 if d.status == .active {
-                    engine.cancel(id: d.id)
-                    engineTrackedDownloads.remove(d.id)
+                    coordinator.cancel(d.id)
+                    coordinator.untrack(d.id)
                 }
                 downloads[i].status = .error
                 downloads[i].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
-                progress.unpublish(for: d.id)
-                persistence.save(downloads)
+                coordinator.progress.unpublish(for: d.id)
+                store.save()
             }
         }
     }
 
-    // MARK: - Download Actions
+    // MARK: - Engine completion
 
-    private func progressHandler(for id: UUID) -> (Int64, Int64, Int64) -> Void {
-        { [weak self] bytes, total, speed in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                let prevTotal = self.downloads[idx].totalSize
-                self.downloads[idx].totalSize = max(total, self.downloads[idx].totalSize)
-                self.downloads[idx].downloadedSize = max(bytes, self.downloads[idx].downloadedSize)
-                self.downloads[idx].downloadSpeed = speed
-                self.needsProgressSave = true
-                // During the range-probe phase the engine has not learned the file size yet;
-                // deferred progress publishing prevents a broken 0-total-unit progress object.
-                if total > 0, !self.progress.isPublished(for: id) {
-                    self.progress.publish(for: self.downloads[idx], fileURL: self.stagingURL(for: self.downloads[idx]))
-                }
-                self.progress.update(for: id, download: self.downloads[idx])
-                if prevTotal == 0 {
-                    DownloadPersistence.shared.save(self.downloads, caller: "progressHandler")
-                }
+    private func handleEngineCompletion(id: UUID, result: Result<Void, Error>) {
+        guard let idx = store.index(of: id) else { return }
+        switch result {
+        case .success:
+            store.downloads[idx].status = .completed
+            coordinator.progress.unpublish(for: id)
+            let staging = stagingURL(for: store.downloads[idx])
+            let final = destinationURL(for: store.downloads[idx])
+            try? FileManager.default.moveItem(at: staging, to: final)
+            let dir = store.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
+            NSWorkspace.shared.noteFileSystemChanged(dir)
+            notifier.notifyCompleted(store.downloads[idx])
+        case .failure(let error):
+            store.downloads[idx].status = .error
+            store.downloads[idx].errorMessage = coordinator.localizedMessage(for: error)
+            coordinator.progress.unpublish(for: id)
+            if id == priorityDownloadID {
+                // The priority task gave up after retries; tell the user the
+                // auto-paused downloads are being resumed.
+                notifier.notify(
+                    title: LanguageManager.shared.localized("Priority Download Failed"),
+                    body: String(
+                        format: LanguageManager.shared.localized("Priority download %@ failed. Other downloads have been resumed."),
+                        store.downloads[idx].filename))
+            } else {
+                notifier.notifyFailed(store.downloads[idx])
             }
         }
-    }
-
-    private func persistProgressIfNeeded() {
-        guard needsProgressSave else { return }
-        let now = Date()
-        guard now.timeIntervalSince(lastProgressSaveTime) >= 5 else { return }
-        lastProgressSaveTime = now
-        needsProgressSave = false
-        persistence.save(downloads, caller: "periodicProgressSave")
-    }
-
-    private func localizedMessage(for error: Error) -> String {
-        guard let dl = error as? DownloadError else { return error.localizedDescription }
-        switch dl {
-        case .cancelled:
-            return LanguageManager.shared.localized("Cancelled")
-        case .fileDeleted:
-            return LanguageManager.shared.localized("Download file has been deleted")
-        case .rangeNotSatisfiable:
-            return LanguageManager.shared.localized("Server does not support this download range")
-        case .fileChanged:
-            return LanguageManager.shared.localized("File changed on server, resume not possible")
-        case .httpStatus(let code):
-            return String(format: LanguageManager.shared.localized("HTTP %ld"), code)
-        case .network(let e):
-            return String(format: LanguageManager.shared.localized("Network error: %@"), e.localizedDescription)
+        coordinator.endAccess(for: id)
+        store.save()
+        if id == priorityDownloadID {
+            endPriorityMode()
+        } else {
+            startNextWaitingDownload()
         }
     }
 
-    private func installCompletionHandler(for id: UUID) {
-        engine.setCompletionHandler(for: id) { [weak self] result in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                switch result {
-                case .success:
-                    self.downloads[idx].status = .completed
-                    self.progress.unpublish(for: id)
-                    let staging = self.stagingURL(for: self.downloads[idx])
-                    let final = self.destinationURL(for: self.downloads[idx])
-                    try? FileManager.default.moveItem(at: staging, to: final)
-                    let dir = self.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
-                    NSWorkspace.shared.noteFileSystemChanged(dir)
-                    self.notifier.notifyCompleted(self.downloads[idx])
-                case .failure(let error):
-                    self.downloads[idx].status = .error
-                    self.downloads[idx].errorMessage = self.localizedMessage(for: error)
-                    self.progress.unpublish(for: id)
-                    if id == self.priorityDownloadID {
-                        // The priority task gave up after retries; tell the user the
-                        // auto-paused downloads are being resumed.
-                        self.notifier.notify(
-                            title: LanguageManager.shared.localized("Priority Download Failed"),
-                            body: String(
-                                format: LanguageManager.shared.localized("Priority download %@ failed. Other downloads have been resumed."),
-                                self.downloads[idx].filename))
-                    } else {
-                        self.notifier.notifyFailed(self.downloads[idx])
-                    }
-                }
-                self.engineTrackedDownloads.remove(id)
-                self.engine.cleanup(id: id)
-                SandboxAccess.shared.endAccess(for: id)
-                self.persistence.save(self.downloads)
-                if id == self.priorityDownloadID {
-                    self.endPriorityMode()
-                } else {
-                    self.startNextWaitingDownload()
-                }
-            }
-        }
-    }
-
-    private func installResumeSupportHandler(for id: UUID) {
-        engine.setResumeSupportHandler(for: id) { [weak self] supports in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                if self.downloads[idx].supportsResume != supports {
-                    self.downloads[idx].supportsResume = supports
-                    self.persistence.save(self.downloads)
-                }
-            }
-        }
-    }
-
-    private func setupEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
-        let idx = downloads.firstIndex(where: { $0.id == id })
-        let limit = dlLimit > 0 ? dlLimit : (idx.map { downloads[$0].downloadLimit ?? 0 } ?? 0)
-        let speedLimit = Int64(limit)
-        guard let src = downloads.first(where: { $0.id == id }) else { return }
-        if !SandboxAccess.shared.beginAccess(for: src) {
-            if let ei = downloads.firstIndex(where: { $0.id == id }) {
-                downloads[ei].status = .error
-                downloads[ei].errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
-                persistence.save(downloads)
-            }
-            return
-        }
-        if startedNotified.insert(id).inserted {
-            notifier.notifyStarted(src)
-        }
-        let dest = stagingURL(for: src)
-
-        engineTrackedDownloads.insert(id)
-        if let idx {
-            let built = downloads[idx].ensureChunks()
-            downloads[idx].chunks = built
-            downloads[idx].downloadedSize = built.reduce(0) { $0 + $1.downloadedSize }
-            downloads[idx].totalSize = built.last?.endOffset ?? 0
-        }
-        // Use the just-updated entry; never fall back to a different download (idx ?? 0).
-        let cfg = idx.map { downloads[$0] }
-        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
-                     chunkSize: cfg?.chunkSize ?? 262144,
-                     maxConcurrent: cfg?.maxConcurrentChunks ?? settings.maxConnections,
-                     chunks: cfg?.chunks ?? [])
-
-        engine.setProgressHandler(for: id, handler: progressHandler(for: id))
-
-        engine.setChunksChangeHandler(for: id) { [weak self] chunks in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                self.downloads[idx].chunks = chunks
-            }
-        }
-
-        installResumeSupportHandler(for: id)
-        installCompletionHandler(for: id)
-    }
+    // MARK: - Clipboard / Links
 
     // Pulls http/https URLs out of arbitrary text (whitespace / newline separated).
     static func downloadLinks(from text: String) -> [String] {
@@ -335,6 +229,8 @@ final class ContentViewModel {
             }
         }
     }
+
+    // MARK: - Download Actions
 
     func addDownload(url: String, savePath: String? = nil, saveBookmark: Data? = nil, dlLimit: Int = 0, connections: Int? = nil, allowDuplicate: Bool = false) {
         // Under the XCTest host the app's real ContentViewModel also observes the
@@ -390,25 +286,24 @@ final class ContentViewModel {
             downloadLimit: dlLimit > 0 ? dlLimit : nil,
             maxConcurrentChunks: connections ?? settings.maxConnections
         )
-        downloads.append(d)
-        persistence.save(downloads)
+        store.append(d)
+        store.save()
 
         guard let sourceURL = URL(string: url) else {
-            if let idx = downloads.firstIndex(where: { $0.id == d.id }) {
-                downloads[idx].status = .error
-                downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
-                persistence.save(downloads)
+            store.update(d.id) {
+                $0.status = .error
+                $0.errorMessage = LanguageManager.shared.localized("Invalid URL")
             }
+            store.save()
             return
         }
 
         // Count actives excluding the one we just added; otherwise the new download
         // always nudges the count one over the limit and never starts at limit 1.
         let activeCount = downloads.filter { $0.status == .active && $0.id != d.id }.count
-        if activeCount >= max(settings.maxConcurrentDownloads, 1),
-           let idx = downloads.firstIndex(where: { $0.id == d.id }) {
-            downloads[idx].status = .waiting
-            persistence.save(downloads)
+        if activeCount >= max(settings.maxConcurrentDownloads, 1) {
+            store.update(d.id) { $0.status = .waiting }
+            store.save()
             return
         }
 
@@ -420,15 +315,33 @@ final class ContentViewModel {
         while downloads.filter({ $0.status == .active }).count < limit,
               let idx = downloads.firstIndex(where: { $0.status == .waiting }) {
             downloads[idx].status = .active
-            persistence.save(downloads)
+            store.save()
             guard let sourceURL = URL(string: downloads[idx].url) else {
                 downloads[idx].status = .error
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
-                persistence.save(downloads)
+                store.save()
                 continue
             }
             setupEngineTask(for: downloads[idx].id, url: sourceURL, dlLimit: downloads[idx].downloadLimit ?? 0)
         }
+    }
+
+    private func setupEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
+        guard let src = downloads.first(where: { $0.id == id }) else { return }
+        if !coordinator.beginAccess(for: src) {
+            store.update(id) {
+                $0.status = .error
+                $0.errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
+            }
+            store.save()
+            return
+        }
+        let dest = stagingURL(for: src)
+        let speedLimit = Int64(dlLimit > 0 ? dlLimit : (src.downloadLimit ?? 0))
+        coordinator.start(id: id, url: sourceURL, dest: dest, speedLimit: speedLimit,
+                          chunkSize: src.chunkSize,
+                          maxConcurrent: src.maxConcurrentChunks,
+                          chunks: src.chunks)
     }
 
     func pauseDownload(id: UUID) {
@@ -441,96 +354,79 @@ final class ContentViewModel {
             alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
-        engine.pause(id: id)
-        if engineTrackedDownloads.contains(id) {
+        coordinator.pause(id)
+        if coordinator.isTracked(id) {
             if !FileManager.default.fileExists(atPath: stagingURL(for: downloads[idx]).path) {
                 downloads[idx].status = .error
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
-                persistence.save(downloads)
+                store.save()
                 return
             }
         }
         downloads[idx].status = .paused
-        persistence.save(downloads)
+        store.save()
     }
 
     func resumeDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         guard downloads[idx].status == .paused || downloads[idx].status == .waiting else { return }
 
-        if !SandboxAccess.shared.beginAccess(for: downloads[idx]) {
+        if !coordinator.beginAccess(for: downloads[idx]) {
             downloads[idx].status = .error
             downloads[idx].errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
-            persistence.save(downloads)
+            store.save()
             return
         }
 
         downloads[idx].status = .active
-        persistence.save(downloads)
+        store.save()
 
-        if startedNotified.insert(id).inserted {
-            notifier.notifyStarted(downloads[idx])
-        }
-
-        if engine.resume(id: id) { return }
+        if coordinator.resume(id) { return }
 
         guard let sourceURL = URL(string: downloads[idx].url) else {
             downloads[idx].status = .error
             downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
-            persistence.save(downloads)
+            store.save()
             return
         }
 
         let dest = stagingURL(for: downloads[idx])
-        downloads[idx].chunks = downloads[idx].ensureChunks()
-        let chunks = downloads[idx].chunks
-        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: Int64(downloads[idx].downloadLimit ?? 0),
-                     chunkSize: downloads[idx].chunkSize,
-                     maxConcurrent: downloads[idx].maxConcurrentChunks,
-                     chunks: chunks)
-
-        engine.setProgressHandler(for: id, handler: progressHandler(for: id))
-
-        engine.setChunksChangeHandler(for: id) { [weak self] chunks in
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let idx = self.downloads.firstIndex(where: { $0.id == id }) else { return }
-                self.downloads[idx].chunks = chunks
-            }
-        }
-
-        installResumeSupportHandler(for: id)
-        installCompletionHandler(for: id)
+        coordinator.start(id: id, url: sourceURL, dest: dest,
+                          speedLimit: Int64(downloads[idx].downloadLimit ?? 0),
+                          chunkSize: downloads[idx].chunkSize,
+                          maxConcurrent: downloads[idx].maxConcurrentChunks,
+                          chunks: downloads[idx].chunks)
     }
 
     func deleteDownload(id: UUID) {
-        progress.unpublish(for: id)
-        SandboxAccess.shared.endAccess(for: id)
+        coordinator.progress.unpublish(for: id)
+        coordinator.endAccess(for: id)
         if id == priorityDownloadID {
             endPriorityMode(excluding: id)
         }
         pausedForPriority.remove(id)
         guard let d = downloads.first(where: { $0.id == id }) else { return }
         if d.status == .active {
-            engine.cancel(id: id)
-            engineTrackedDownloads.remove(id)
+            coordinator.cancel(id)
+            coordinator.untrack(id)
         }
-        SandboxAccess.shared.endAccess(for: id)
+        coordinator.endAccess(for: id)
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
-        downloads.removeAll { $0.id == id }
-        persistence.save(downloads)
+        store.remove(id)
+        store.save()
     }
 
     func retryDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         let d = downloads[idx]
         if d.status == .active {
-            engine.cancel(id: id)
-            engineTrackedDownloads.remove(id)
-            progress.unpublish(for: id)
+            coordinator.cancel(id)
+            coordinator.untrack(id)
+            coordinator.progress.unpublish(for: id)
         }
-        SandboxAccess.shared.endAccess(for: id)
+        coordinator.endAccess(for: id)
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
@@ -542,7 +438,7 @@ final class ContentViewModel {
         downloads[idx].downloadedSize = 0
         downloads[idx].totalSize = 0
         downloads[idx].chunks = []
-        persistence.save(downloads)
+        store.save()
 
         guard let sourceURL = URL(string: d.url) else {
             downloads[idx].status = .error
@@ -556,15 +452,15 @@ final class ContentViewModel {
     func setDownloadLimit(id: UUID, limit: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[idx].downloadLimit = limit
-        persistence.save(downloads)
-        engine.setSpeedLimit(id: id, limit: Int64(limit))
+        store.save()
+        coordinator.setSpeedLimit(id: id, limit: limit)
     }
 
     func setMaxChunks(id: UUID, count: Int) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         downloads[idx].maxConcurrentChunks = count
-        persistence.save(downloads)
-        engine.setMaxConcurrent(id: id, max: count)
+        store.save()
+        coordinator.setMaxConcurrent(id: id, count: count)
     }
 
     func pauseAll() {
@@ -579,10 +475,10 @@ final class ContentViewModel {
 
     func pauseAllDownloads() {
         for i in downloads.indices where downloads[i].status == .active {
-            engine.pause(id: downloads[i].id)
+            coordinator.pause(downloads[i].id)
             downloads[i].status = .paused
         }
-        persistence.save(downloads)
+        store.save()
     }
 
     func resumeAllDownloads() {
@@ -605,7 +501,7 @@ final class ContentViewModel {
             if let oi = downloads.firstIndex(where: { $0.id == old }) {
                 downloads[oi].isPriorityDownload = false
                 if downloads[oi].status == .active {
-                    engine.pause(id: old)
+                    coordinator.pause(old)
                     downloads[oi].status = .paused
                 }
             }
@@ -614,7 +510,7 @@ final class ContentViewModel {
 
         // Pause other active tasks (only those auto-paused for this priority)
         for i in downloads.indices where downloads[i].id != id && downloads[i].status == .active {
-            engine.pause(id: downloads[i].id)
+            coordinator.pause(downloads[i].id)
             downloads[i].status = .paused
             downloads[i].pausedForPriority = true
             pausedForPriority.insert(downloads[i].id)
@@ -624,7 +520,7 @@ final class ContentViewModel {
         if let ii = downloads.firstIndex(where: { $0.id == id }) {
             downloads[ii].isPriorityDownload = true
         }
-        persistence.save(downloads)
+        store.save()
     }
 
     func cancelPriorityDownload(id: UUID) {
@@ -647,7 +543,7 @@ final class ContentViewModel {
                 resumeDownload(id: downloads[i].id)
             }
         }
-        persistence.save(downloads)
+        store.save()
     }
 
     func confirmDelete() {
@@ -676,11 +572,11 @@ final class ContentViewModel {
         for id in toDelete.map(\.id) { pausedForPriority.remove(id) }
 
         for d in toDelete {
-            progress.unpublish(for: d.id)
-            SandboxAccess.shared.endAccess(for: d.id)
+            coordinator.progress.unpublish(for: d.id)
+            coordinator.endAccess(for: d.id)
             if d.status == .active {
-                engine.cancel(id: d.id)
-                engineTrackedDownloads.remove(d.id)
+                coordinator.cancel(d.id)
+                coordinator.untrack(d.id)
             }
             let dir = d.savePath ?? AppConfig.defaultDownloadDir
             if deleteFiles {
@@ -689,8 +585,8 @@ final class ContentViewModel {
             }
         }
 
-        downloads.removeAll { selectedDownloads.contains($0.id) }
+        for id in toDelete.map(\.id) { store.remove(id) }
         selectedDownloads.removeAll()
-        persistence.save(downloads)
+        store.save()
     }
 }

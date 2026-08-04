@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 // Routes URLSession delegate callbacks to the owning ChunkDownloadTask.
 // All chunk tasks share ONE URLSession so HTTP/2 can multiplex streams on a
@@ -55,8 +54,8 @@ public final class ChunkDownloadTask: NSObject {
     nonisolated(unsafe) static let sharedSession: URLSession = {
         let config = sessionConfigurationOverride ?? URLSessionConfiguration.default
         config.httpMaximumConnectionsPerHost = max(1, maxConnectionsProvider?() ?? 8)
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 86400
+        config.timeoutIntervalForRequest = EngineConstants.requestTimeout
+        config.timeoutIntervalForResource = EngineConstants.resourceTimeout
         return URLSession(configuration: config, delegate: sharedDelegate, delegateQueue: nil)
     }()
 
@@ -91,8 +90,8 @@ public final class ChunkDownloadTask: NSObject {
     private var responseComplete = false
     private var resumeOffset: Int64 = 0
     private let writerQueue = DispatchQueue(label: "com.xiaowu.chunkwriter")
-    private let bufferCap = 8 * 1024 * 1024
-    private let writeChunk = 64 * 1024
+    private let bufferCap = EngineConstants.chunkBufferCap
+    private let writeChunk = EngineConstants.chunkWriteSize
 
     var onProgress: ((Int64) -> Void)?
     var onTotalSizeKnown: ((Int64) -> Void)?
@@ -126,7 +125,7 @@ public final class ChunkDownloadTask: NSObject {
             // Always send a bounded Range so resuming near the chunk end never omits it (which made the server return the whole 200 file)
             req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
         }
-        os_log("[Chunk #%d] start range=%lld-%lld resumeFrom=%lld wholeFile=%d", chunkIndex, from, to, resumeFrom, requestsWholeFile ? 1 : 0)
+        EngineLog.chunk.debug("Chunk #\(self.chunkIndex) start range=\(from)-\(to) resumeFrom=\(resumeFrom) wholeFile=\(self.requestsWholeFile ? 1 : 0)")
 
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             FileManager.default.createFile(atPath: fileURL.path, contents: nil)
@@ -177,8 +176,7 @@ public final class ChunkDownloadTask: NSObject {
         let elapsed = Date().timeIntervalSince(chunkStartTime)
         let speed = elapsed > 0 ? Int64(Double(bytesWritten) / elapsed) : bytesWritten
         let resultStr = (try? result.get()) != nil ? "success" : "failure"
-        os_log("[Chunk #%d] done size=%lld speed=%lld/s time=%.2fs result=%{public}@",
-               chunkIndex, bytesWritten, speed, elapsed, resultStr)
+        EngineLog.chunk.notice("Chunk #\(self.chunkIndex) done size=\(self.bytesWritten) speed=\(self.speed)/s time=\(elapsed)s result=\(resultStr, privacy: .public)")
         fileHandle?.closeFile()
         fileHandle = nil
         DispatchQueue.main.async { [weak self] in
@@ -190,7 +188,7 @@ public final class ChunkDownloadTask: NSObject {
 extension ChunkDownloadTask: URLSessionDataDelegate {
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
         if let http = response as? HTTPURLResponse, http.statusCode == 416 {
-            os_log("[Chunk #%d] 416 range not satisfiable, marking chunk failed", chunkIndex)
+            EngineLog.chunk.warning("Chunk #\(self.chunkIndex) 416 range not satisfiable, marking chunk failed")
             completionHandler(.cancel)
             finish(with: .failure(DownloadError.rangeNotSatisfiable))
             return
@@ -205,7 +203,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     if totalStr != "*", let total = Int64(totalStr), total > 0 {
                         onTotalSizeKnown?(total)
                     } else {
-                        os_log("[Chunk #%d] Content-Range size unparsable: %{public}@", chunkIndex, range)
+                        EngineLog.chunk.warning("Chunk #\(self.chunkIndex) Content-Range size unparsable: \(range, privacy: .public)")
                     }
                 }
             case 200..<300:
@@ -215,13 +213,13 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                 // Error responses (4xx/5xx) must not be treated as a valid file
                 // size or written to the file. Fail the chunk so the engine can
                 // retry (e.g. a 429 from a rate-limiting mirror).
-                os_log("[Chunk #%d] HTTP %d, failing chunk", chunkIndex, http.statusCode)
+                EngineLog.chunk.warning("Chunk #\(self.chunkIndex) HTTP \(http.statusCode), failing chunk")
                 completionHandler(.cancel)
                 finish(with: .failure(DownloadError.httpStatus(http.statusCode)))
                 return
             }
         }
-        os_log("[Chunk #%d] response code=%d", chunkIndex, (response as? HTTPURLResponse)?.statusCode ?? 0)
+        EngineLog.chunk.debug("Chunk #\(self.chunkIndex) response code=\((response as? HTTPURLResponse)?.statusCode ?? 0)")
         completionHandler(.allow)
     }
 
@@ -240,7 +238,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
             let big = pendingData.count > bufferCap
             dataLock.unlock()
             if !big { break }
-            Thread.sleep(forTimeInterval: 0.01)
+            Thread.sleep(forTimeInterval: EngineConstants.drainPollInterval)
         }
     }
 
@@ -285,7 +283,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     speedCheckBytes = bytesWritten
                 }
                 let elapsed = now.timeIntervalSince(speedCheckTime)
-                if elapsed >= 0.3 {
+                if elapsed >= EngineConstants.speedSampleInterval {
                     speed = Int64(Double(bytesWritten - speedCheckBytes) / elapsed)
                     speedCheckTime = now
                     speedCheckBytes = bytesWritten
@@ -296,7 +294,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     finish(with: .success(()))
                     return
                 }
-                Thread.sleep(forTimeInterval: 0.01)
+                Thread.sleep(forTimeInterval: EngineConstants.drainPollInterval)
             }
         }
     }

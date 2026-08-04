@@ -134,7 +134,7 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         FakeURLProtocol.virtualFileSize = 1024 * 1024
         let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-changed.bin")
         let manager = ChunkManager(id: UUID(), url: URL(string: "https://fake.example/f.bin")!, destinationURL: dest, chunkSize: 262144, maxConcurrent: 4)
-        let chunks = Download(filename: "f.bin", url: "https://fake.example/f.bin", totalSize: 1024 * 1024).buildChunks()
+        let chunks = Chunk.chunks(totalSize: 1024 * 1024, chunkSize: 262144)
         let sem = DispatchSemaphore(value: 0)
         var err: Error?
         manager.onCompletion = { r in if case .failure(let e) = r { err = e }; sem.signal() }

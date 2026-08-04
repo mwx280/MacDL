@@ -1,5 +1,4 @@
 import Foundation
-import os
 
 // Shared byte-level token bucket for smooth throttling across all chunks.
 public final class TokenBucket {
@@ -53,7 +52,7 @@ public final class TokenBucket {
                 tokens += rate * elapsed
                 lastRefill = now
                 // Token cap: allows ~2s of burst, but at least 1MB so a single take(<=1MB) always succeeds and low-speed throttling can't deadlock
-                tokens = min(tokens, max(rate * 2, 1_048_576))
+                tokens = min(tokens, max(rate * EngineConstants.bucketTokenCapMultiplier, EngineConstants.bucketTokenMinCap))
             }
             if tokens >= amount {
                 tokens -= amount
@@ -61,7 +60,7 @@ public final class TokenBucket {
                 return true
             }
             lock.unlock()
-            Thread.sleep(forTimeInterval: 0.02)
+            Thread.sleep(forTimeInterval: EngineConstants.bucketPollInterval)
         }
     }
 }
@@ -89,7 +88,7 @@ public final class ChunkManager {
     private var singleStreamTotal: Int64 = 0
     private var singleStreamBytes: Int64 = 0
 
-    private let maxRetries = 3
+    private let maxRetries = EngineConstants.maxChunkRetries
     private let bucket = TokenBucket(rate: 0)
 
     private let syncQueue = DispatchQueue(label: "com.xiaowu.chunkmanager.sync")
@@ -113,16 +112,13 @@ public final class ChunkManager {
     // MARK: - Public control
 
     public func start() {
-        os_log("[ChunkManager] start probe chunkSize=%lld maxConcurrent=%d", chunkSize, maxConcurrent)
+        EngineLog.manager.notice("start probe chunkSize=\(self.chunkSize) maxConcurrent=\(self.maxConcurrent)")
         startLogTimer()
         syncQueue.async { self.startProbe() }
     }
 
     public func start(withChunks existing: [Chunk], totalSize: Int64) {
-        os_log("[ChunkManager] resume chunks=%d pending=%d completed=%d total=%lld",
-               existing.count,
-               existing.filter { $0.status != .completed }.count,
-               existing.filter { $0.status == .completed }.count, totalSize)
+        EngineLog.manager.notice("resume chunks=\(existing.count) pending=\(existing.filter { $0.status != .completed }.count) completed=\(existing.filter { $0.status == .completed }.count) total=\(totalSize)")
         startLogTimer()
         syncQueue.async {
             self.totalSize = totalSize
@@ -151,7 +147,7 @@ public final class ChunkManager {
             self.syncQueue.async {
                 guard total > 0 else { return }
                 self.totalSize = total
-                os_log("[ChunkManager] totalSize=%lld", total)
+                EngineLog.manager.notice("totalSize=\(total)")
                 guard !self.singleStreamMode else { return }
                 let built = self.buildChunks(totalSize: total, chunkSize: self.chunkSize)
                 self.chunks = built
@@ -191,7 +187,7 @@ public final class ChunkManager {
             self.syncQueue.async {
                 // Resume: the server file size doesn't match the persisted total, so safe resume isn't possible
                 guard total > 0, self.totalSize > 0, total != self.totalSize else { return }
-                os_log("[ChunkManager] server total=%lld differs from %lld, abort resume", total, self.totalSize)
+                EngineLog.manager.error("server total=\(total) differs from \(self.totalSize), abort resume")
                 self.lastError = DownloadError.fileChanged
                 for (_, t) in self.activeTasks { t.cancel() }
                 self.activeTasks.removeAll()
@@ -211,9 +207,9 @@ public final class ChunkManager {
                     self.chunks[index].status = .completed
                     self.chunks[index].downloadedSize = self.chunks[index].size
                     self.retryCounts[index] = nil
-                    os_log("[ChunkManager] chunk %d completed", index)
+                    EngineLog.manager.notice("chunk \(index) completed")
                     if self.totalSize == 0, self.chunks.count == 1, !self.singleStreamMode {
-                        os_log("[ChunkManager] probe completed without file size, falling back to single-stream")
+                        EngineLog.manager.notice("probe completed without file size, falling back to single-stream")
                         self.enterSingleStream()
                         return
                     }
@@ -233,14 +229,14 @@ public final class ChunkManager {
         if let dlError = error as? DownloadError, !dlError.isRetryable {
             lastError = error
             chunks[index].status = .failed
-            os_log("[ChunkManager] chunk %d failed permanently (%{public}@)", index, dlError.errorDescription ?? "?")
+            EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
             return
         }
         let attempt = (retryCounts[index] ?? 0) + 1
         guard attempt <= maxRetries else {
             lastError = error
             chunks[index].status = .failed
-            os_log("[ChunkManager] chunk %d failed permanently after %d attempts", index, maxRetries)
+            EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
             return
         }
         retryCounts[index] = attempt
@@ -248,15 +244,15 @@ public final class ChunkManager {
         pendingIndices.append(index)
         pendingIndices.sort()
         // Exponential backoff: 1s, 2s, 4s... capped at 10s.
-        let delay = min(1.0 * pow(2.0, Double(attempt - 1)), 10.0)
-        os_log("[ChunkManager] chunk %d failed, retry %d/%d in %.1fs", index, attempt, maxRetries, delay)
+        let delay = min(EngineConstants.retryBackoffBase * pow(2.0, Double(attempt - 1)), EngineConstants.retryBackoffCap)
+        EngineLog.manager.warning("chunk \(index) failed, retry \(attempt)/\(self.maxRetries) in \(delay)s")
         syncQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.dispatchNext()
         }
     }
 
     public func setSpeedLimit(_ limit: Int64) {
-        os_log("[ChunkManager] speedLimit=%lld/s", limit)
+        EngineLog.manager.notice("speedLimit=\(limit)/s")
         syncQueue.async {
             self.speedLimit = limit
             self.updateBucket()
@@ -265,12 +261,12 @@ public final class ChunkManager {
 
     public func setMaxConcurrent(_ max: Int) {
         maxConcurrent = max
-        os_log("[ChunkManager] maxConcurrent=%d", max)
+        EngineLog.manager.notice("maxConcurrent=\(max)")
         syncQueue.async { self.dispatchNext() }
     }
 
     public func pause() {
-        os_log("[ChunkManager] pause")
+        EngineLog.manager.notice("pause")
         syncQueue.async { [weak self] in
             guard let self else { return }
             self.logTimer?.invalidate()
@@ -284,7 +280,7 @@ public final class ChunkManager {
     }
 
     public func resume() {
-        os_log("[ChunkManager] resume")
+        EngineLog.manager.notice("resume")
         startLogTimer()
         syncQueue.async { [weak self] in
             guard let self else { return }
@@ -304,7 +300,7 @@ public final class ChunkManager {
     }
 
     public func cancel() {
-        os_log("[ChunkManager] cancel")
+        EngineLog.manager.notice("cancel")
         syncQueue.async { [weak self] in
             guard let self else { return }
             self.logTimer?.invalidate()
@@ -333,7 +329,7 @@ public final class ChunkManager {
     private func enterSingleStream() {
         guard singleStreamTask == nil else { return }
         singleStreamMode = true
-        os_log("[ChunkManager] server does not support Range, switch to single-stream from scratch")
+        EngineLog.manager.notice("server does not support Range, switch to single-stream from scratch")
         for (_, task) in activeTasks { task.cancel() }
         activeTasks.removeAll()
         pendingIndices.removeAll()
@@ -402,7 +398,7 @@ public final class ChunkManager {
             lastLogBytes = singleStreamBytes
         }
         let elapsed = now.timeIntervalSince(lastLogTime)
-        if elapsed >= 1.0 {
+        if elapsed >= EngineConstants.speedReportInterval {
             downloadSpeed = Int64(Double(singleStreamBytes - lastLogBytes) / elapsed)
             lastLogTime = now
             lastLogBytes = singleStreamBytes
@@ -436,9 +432,8 @@ public final class ChunkManager {
                 started += 1
             }
         }
-        os_log("[ChunkManager] dispatch active=%d/%d pending=%d done=%d/%d speed=%lld/s",
-               activeTasks.count, maxConcurrent, pendingIndices.count,
-               chunks.filter { $0.status == .completed }.count, chunks.count, downloadSpeed)
+        let completed = chunks.filter { $0.status == .completed }.count
+        EngineLog.manager.debug("dispatch active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(completed)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
     }
 
     private func checkDone() {
@@ -477,7 +472,7 @@ public final class ChunkManager {
         }
         let elapsed = now.timeIntervalSince(lastLogTime)
         // Average speed over the last full second; recompute at most once a second.
-        if elapsed >= 1.0 {
+        if elapsed >= EngineConstants.speedReportInterval {
             downloadSpeed = Int64(Double(written - lastLogBytes) / elapsed)
             lastLogTime = now
             lastLogBytes = written
@@ -488,12 +483,10 @@ public final class ChunkManager {
 
     private func startLogTimer() {
         logTimer?.invalidate()
-        logTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+        logTimer = Timer.scheduledTimer(withTimeInterval: EngineConstants.statusLogInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.syncQueue.async {
-                os_log("[ChunkManager] status active=%d/%d pending=%d done=%d/%d speed=%lld/s",
-                       self.activeTasks.count, self.maxConcurrent, self.pendingIndices.count,
-                       self.chunks.filter { $0.status == .completed }.count, self.chunks.count, self.downloadSpeed)
+                EngineLog.manager.debug("status active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(self.chunks.filter { $0.status == .completed }.count)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
             }
         }
     }
@@ -501,16 +494,6 @@ public final class ChunkManager {
     // MARK: - Helpers
 
     public func buildChunks(totalSize: Int64, chunkSize: Int64) -> [Chunk] {
-        let cs = max(Int64(1), chunkSize)
-        var result: [Chunk] = []
-        var offset: Int64 = 0
-        var index = 0
-        while offset < totalSize {
-            let end = min(offset + cs, totalSize)
-            result.append(Chunk(index: index, startOffset: offset, endOffset: end, downloadedSize: 0, status: .pending))
-            offset = end
-            index += 1
-        }
-        return result
+        Chunk.chunks(totalSize: totalSize, chunkSize: chunkSize)
     }
 }
