@@ -15,16 +15,11 @@ struct NewDownloadPayload {
 struct NewDownloadView: View {
     @Binding var text: String
     let onDownload: (String, NewDownloadPayload) -> Void
+    @State private var model: NewDownloadModel
     @State private var downloadPath: String
     @State private var downloadBookmark: Data?
-    @State private var downloadConnections: Int
-    @State private var resumeStatus: [String: Bool] = [:]
-    @State private var limits: [String: Int] = [:]
-    @State private var connectionsByURL: [String: Int] = [:]
-    @State private var probedURLs: Set<String> = []
     @State private var hoveredURL: String?
     @State private var refresh = UUID()
-    @State private var clipboardHasURL = false
     @State private var isDropTarget = false
     @Environment(\.dismiss) var dismiss
 
@@ -32,7 +27,10 @@ struct NewDownloadView: View {
         _text = text
         self.onDownload = onDownload
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
-        _downloadConnections = State(initialValue: SettingsStore.shared.maxConnections)
+        _downloadBookmark = State(initialValue: SettingsStore.shared.downloadPathBookmark)
+        _model = State(initialValue: NewDownloadModel(
+            defaultConnections: SettingsStore.shared.maxConnections,
+            defaultSpeedLimit: SettingsStore.shared.maxDownloadSpeed))
     }
 
     var body: some View {
@@ -52,8 +50,8 @@ struct NewDownloadView: View {
 
             ZStack(alignment: .bottomTrailing) {
                 dropZone
-                if text.isEmpty && !clipboardHasURL {
-                    Button { pasteFromClipboard() } label: {
+                if model.text.isEmpty && !model.clipboardHasURL {
+                    Button { model.pasteFromClipboard() } label: {
                         Label(LanguageManager.shared.localized("Paste from clipboard"), systemImage: "doc.on.clipboard")
                     }
                     .buttonStyle(.borderedProminent)
@@ -62,12 +60,12 @@ struct NewDownloadView: View {
                 }
             }
 
-            if text.isEmpty && clipboardHasURL {
+            if model.text.isEmpty && model.clipboardHasURL {
                 clipboardBanner
-            } else if hasInvalidLinks {
+            } else if model.hasInvalidLinks {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill").font(.caption2)
-                    Text(String(format: LanguageManager.shared.localized("Recognized %lld links, %lld invalid"), validCount, invalidCount))
+                    Text(String(format: LanguageManager.shared.localized("Recognized %lld links, %lld invalid"), model.validCount, model.invalidCount))
                         .font(.caption)
                         .fontWeight(.medium)
                     Spacer()
@@ -78,7 +76,7 @@ struct NewDownloadView: View {
             HStack(spacing: 12) {
                 Text(LanguageManager.shared.localized("Task Queue"))
                     .font(.headline)
-                Text("\(validTasks.count)")
+                Text("\(model.validTasks.count)")
                     .font(.caption2)
                     .monospacedDigit()
                     .padding(.horizontal, 7)
@@ -92,12 +90,12 @@ struct NewDownloadView: View {
                     .foregroundStyle(.tertiary)
             }
 
-            if validTasks.isEmpty {
+            if model.validTasks.isEmpty {
                 emptyState
             } else {
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 6) {
-                        ForEach(validTasks, id: \.url) { task in
+                        ForEach(model.validTasks) { task in
                             taskRow(task)
                         }
                     }
@@ -113,13 +111,13 @@ struct NewDownloadView: View {
                     .buttonStyle(.bordered)
                     .keyboardShortcut(.cancelAction)
                 Button {
-                    onDownload(text, NewDownloadPayload(
+                    onDownload(model.text, NewDownloadPayload(
                         path: downloadPath,
                         bookmark: downloadBookmark,
-                        connections: downloadConnections,
-                        connectionsByURL: connectionsByURL,
-                        limits: limits,
-                        resumeStatus: resumeStatus))
+                        connections: model.defaultConnections,
+                        connectionsByURL: model.connectionsByURL,
+                        limits: model.limits,
+                        resumeStatus: model.resumeStatus))
                     dismiss()
                 } label: {
                     Text(LanguageManager.shared.localized("Download"))
@@ -129,7 +127,7 @@ struct NewDownloadView: View {
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
                 .tint(.accentColor)
-                .disabled(validTasks.isEmpty || hasInvalidLinks || downloadPath.isEmpty)
+                .disabled(model.validTasks.isEmpty || model.hasInvalidLinks || downloadPath.isEmpty)
             }
         }
         .padding(14)
@@ -138,24 +136,22 @@ struct NewDownloadView: View {
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refresh = UUID()
         }
-        .onChange(of: text) { _, _ in
-            detectResumeSupport()
-            detectClipboard()
+        .onChange(of: model.text) { _, newText in
+            text = newText
+            model.detectResumeSupport()
+            model.detectClipboard()
         }
         .onAppear {
-            guard text.isEmpty else {
-                detectResumeSupport()
-                detectClipboard()
-                return
+            if text.isEmpty {
+                if let str = NSPasteboard.general.string(forType: .string),
+                   NewDownloadModel.containsValidURL(in: str) {
+                    model.text = str
+                }
+            } else {
+                model.text = text
             }
-            let pasteboard = NSPasteboard.general
-            guard let str = pasteboard.string(forType: .string) else { return }
-            let hasURL = str.components(separatedBy: .newlines)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .contains { isValid($0) }
-            if hasURL { text = str }
-            detectResumeSupport()
-            detectClipboard()
+            model.detectResumeSupport()
+            model.detectClipboard()
         }
     }
 
@@ -163,7 +159,7 @@ struct NewDownloadView: View {
 
     private var dropZone: some View {
         PlaceholderTextEditor(
-            text: $text,
+            text: $model.text,
             placeholder: LanguageManager.shared.localized("Paste download links here, one per line")
         )
         .frame(height: 64)
@@ -174,7 +170,7 @@ struct NewDownloadView: View {
                 .stroke(Color.accentColor.opacity(isDropTarget ? 1 : 0.55), style: StrokeStyle(lineWidth: isDropTarget ? 1.5 : 1, dash: [6, 4]))
         }
         .dropDestination(for: String.self) { items, _ in
-            appendURLs(items)
+            model.appendURLs(items)
             return true
         } isTargeted: { isDropTarget = $0 }
     }
@@ -184,7 +180,7 @@ struct NewDownloadView: View {
             Image(systemName: "sparkles").font(.caption2).foregroundStyle(.tint)
             Text(LanguageManager.shared.localized("Detected clipboard links")).font(.caption).foregroundStyle(.secondary)
             Spacer()
-            Button { pasteFromClipboard() } label: {
+            Button { model.pasteFromClipboard() } label: {
                 Label(LanguageManager.shared.localized("Fill"), systemImage: "doc.on.clipboard").font(.caption)
             }
             .buttonStyle(.bordered)
@@ -231,7 +227,7 @@ struct NewDownloadView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private func taskRow(_ task: (url: String, name: String, host: String, icon: String)) -> some View {
+    private func taskRow(_ task: NewDownloadModel.TaskInfo) -> some View {
         let isHovered = hoveredURL == task.url
         return HStack(spacing: 10) {
             Image(systemName: task.icon)
@@ -253,7 +249,7 @@ struct NewDownloadView: View {
                             .foregroundStyle(.purple)
                             .lineLimit(1)
                     }
-                    if duplicatedNames.contains(task.name) {
+                    if model.duplicatedNames.contains(task.name) {
                         Text(LanguageManager.shared.localized("Will be renamed automatically"))
                             .font(.system(size: 9))
                             .foregroundStyle(.orange)
@@ -274,7 +270,7 @@ struct NewDownloadView: View {
                 }
             }
             if isHovered {
-                Button { removeTask(task.url) } label: {
+                Button { model.removeTask(task.url) } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
@@ -293,7 +289,7 @@ struct NewDownloadView: View {
 
     @ViewBuilder
     private func resumeLabel(for url: String) -> some View {
-        switch resumeStatus[url] {
+        switch model.resumeStatus[url] {
         case true:
             Label(LanguageManager.shared.localized("Resumable"), systemImage: "arrow.clockwise")
                 .font(.caption)
@@ -313,10 +309,10 @@ struct NewDownloadView: View {
     }
 
     private func threadPicker(for url: String) -> some View {
-        let locked = resumeStatus[url] == false
+        let locked = model.resumeStatus[url] == false
         return Picker(selection: Binding(
-            get: { connectionsByURL[url] ?? downloadConnections },
-            set: { connectionsByURL[url] = $0 }
+            get: { model.connections(for: url) },
+            set: { model.connectionsByURL[url] = $0 }
         )) {
             ForEach([1, 2, 4, 8], id: \.self) { n in
                 Text(String(format: LanguageManager.shared.localized("%lld Threads"), n)).tag(n)
@@ -335,8 +331,8 @@ struct NewDownloadView: View {
 
     private func speedPicker(for url: String) -> some View {
         Picker(selection: Binding(
-            get: { limits[url] ?? SettingsStore.shared.maxDownloadSpeed },
-            set: { limits[url] = $0 }
+            get: { model.speedLimit(for: url) },
+            set: { model.limits[url] = $0 }
         )) {
             ForEach(speedOptions, id: \.self) { speed in
                 Text(speedLabel(speed)).tag(speed)
@@ -346,113 +342,6 @@ struct NewDownloadView: View {
         .pickerStyle(.menu)
         .controlSize(.small)
         .frame(width: 74)
-    }
-
-    // MARK: - Data
-
-    private var queueLines: [String] {
-        text.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-    }
-
-    private func isValid(_ line: String) -> Bool {
-        guard let url = URL(string: line),
-              let scheme = url.scheme?.lowercased(),
-              (scheme == "http" || scheme == "https"),
-              url.host != nil
-        else { return false }
-        return true
-    }
-
-    private var hasInvalidLinks: Bool {
-        invalidCount > 0
-    }
-
-    private var invalidCount: Int {
-        queueLines.filter { !isValid($0) }.count
-    }
-
-    private var validCount: Int {
-        queueLines.filter { isValid($0) }.count
-    }
-
-    private var validTasks: [(url: String, name: String, host: String, icon: String)] {
-        queueLines.compactMap { line in
-            guard isValid(line), let url = URL(string: line) else { return nil }
-            let name = url.lastPathComponent
-            let filename = name.isEmpty ? (url.host ?? line) : name
-            let icon = Download(filename: filename, url: line).fileTypeIcon
-            return (line, filename, url.host ?? "", icon)
-        }
-    }
-
-    private var duplicatedNames: Set<String> {
-        var seen = Set<String>()
-        var dupes = Set<String>()
-        for task in validTasks {
-            if seen.contains(task.name) { dupes.insert(task.name) }
-            seen.insert(task.name)
-        }
-        return dupes
-    }
-
-    // Probe resume support per URL
-    private func detectResumeSupport() {
-        for task in validTasks where !probedURLs.contains(task.url) {
-            probedURLs.insert(task.url)
-            resumeStatus[task.url] = nil
-            guard let url = URL(string: task.url) else { continue }
-            ResumeProbeService.detectResumeSupport(url: url) { result in
-                self.resumeStatus[task.url] = result
-            }
-        }
-    }
-
-    // MARK: - Actions
-
-    private func pasteFromClipboard() {
-        let pb = NSPasteboard.general
-        text = pb.string(forType: .string) ?? text
-        detectClipboard()
-    }
-
-    private func detectClipboard() {
-        guard text.isEmpty else {
-            clipboardHasURL = false
-            return
-        }
-        let pb = NSPasteboard.general
-        guard let str = pb.string(forType: .string) else {
-            clipboardHasURL = false
-            return
-        }
-        let hasURL = str.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .contains { isValid($0) }
-        clipboardHasURL = hasURL
-    }
-
-    private func appendURLs(_ raw: [String]) {
-        let lines = raw
-            .flatMap { $0.components(separatedBy: .newlines) }
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        guard !lines.isEmpty else { return }
-        var merged = text
-        if !merged.isEmpty { merged += "\n" }
-        merged += lines.joined(separator: "\n")
-        text = merged
-        detectClipboard()
-    }
-
-    private func removeTask(_ url: String) {
-        var lines = queueLines
-        if let idx = lines.firstIndex(of: url) { lines.remove(at: idx) }
-        text = lines.joined(separator: "\n")
-        connectionsByURL[url] = nil
-        limits[url] = nil
-        detectClipboard()
     }
 
     private func browseFolder() {
