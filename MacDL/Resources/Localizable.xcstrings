@@ -3360,6 +3360,23 @@
         }
       }
     },
+    "Recommended" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(Recommended)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（推荐）"
+          }
+        }
+      }
+    },
     "Redownload Prompt" : {
       "extractionState" : "manual",
       "localizations" : {

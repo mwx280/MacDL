@@ -376,7 +376,7 @@ private struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("checkmark.circle.fill", "Download Completed") {
+                    prefRow("checkmark.circle.fill", "Download Completed", suffix: "Recommended") {
                         Toggle("", isOn: $notifyCompleted)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -384,7 +384,7 @@ private struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("xmark.circle.fill", "Download failed") {
+                    prefRow("xmark.circle.fill", "Download failed", suffix: "Recommended") {
                         Toggle("", isOn: $notifyFailed)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -392,7 +392,7 @@ private struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("arrow.clockwise.circle", "Redownload Prompt") {
+                    prefRow("arrow.clockwise.circle", "Redownload Prompt", suffix: "Recommended") {
                         Toggle("", isOn: $notifyRedownload)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -447,14 +447,21 @@ private func card(@ViewBuilder content: () -> some View) -> some View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
 }
 
-private func prefRow<C: View>(_ icon: String, _ label: String, @ViewBuilder control: () -> C) -> some View {
+private func prefRow<C: View>(_ icon: String, _ label: String, suffix: String? = nil, @ViewBuilder control: () -> C) -> some View {
     HStack(spacing: 10) {
         Image(systemName: icon)
             .font(.body)
             .frame(width: 18)
             .foregroundStyle(.secondary)
-        LocalizedText(key: label)
-            .font(.body)
+        HStack(spacing: 5) {
+            LocalizedText(key: label)
+                .font(.body)
+            if let suffix {
+                LocalizedText(key: suffix)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
         Spacer()
         control()
     }
