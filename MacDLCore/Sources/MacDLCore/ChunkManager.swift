@@ -32,6 +32,8 @@ public final class ChunkManager {
     private var lastLogTime: Date = .distantPast
     private var lastChunksChangedTime: Date = .distantPast
     private var pendingChunksChanged = false
+    private var isPaused = false
+    private var retryWorkItems: [Int: DispatchWorkItem] = [:]
 
     public var onProgress: ((Int64, Int64, Int64) -> Void)?
     public var onChunksChanged: (([Chunk]) -> Void)?
@@ -138,43 +140,60 @@ public final class ChunkManager {
             guard let self else { return }
             self.syncQueue.async {
                 self.activeTasks.removeValue(forKey: index)
+                var willRetry = false
                 switch result {
                 case .success:
                     guard index < self.chunks.count else { return }
-                    self.chunks[index].status = .completed
-                    self.chunks[index].downloadedSize = self.chunks[index].size
-                    self.retryCounts[index] = nil
-                    EngineLog.manager.notice("chunk \(index) completed")
-                    if self.totalSize == 0, self.chunks.count == 1, !self.singleStreamMode {
-                        EngineLog.manager.notice("probe completed without file size, falling back to single-stream")
-                        self.enterSingleStream()
-                        return
+                    // Guard against short reads: a chunk that finished with fewer
+                    // bytes than its range (server closed early / bucket stopped)
+                    // must never be marked complete.
+                    if self.chunks[index].downloadedSize < self.chunks[index].size {
+                        EngineLog.manager.warning("chunk \(index) short read \(self.chunks[index].downloadedSize)/\(self.chunks[index].size), retrying")
+                        willRetry = self.handleChunkFailure(index, error: DownloadError.network(URLError(.resourceUnavailable)))
+                    } else {
+                        self.chunks[index].status = .completed
+                        self.chunks[index].downloadedSize = self.chunks[index].size
+                        self.retryCounts[index] = nil
+                        EngineLog.manager.notice("chunk \(index) completed")
+                        if self.totalSize == 0, self.chunks.count == 1, !self.singleStreamMode {
+                            EngineLog.manager.notice("probe completed without file size, falling back to single-stream")
+                            self.enterSingleStream()
+                            return
+                        }
                     }
                 case .failure(let error):
-                    self.handleChunkFailure(index, error: error)
+                    willRetry = self.handleChunkFailure(index, error: error)
                 }
                 self.updateProgress()
                 self.notifyChunksChanged()
                 self.checkDone()
-                self.dispatchNext()
+                // When a retry is scheduled, leave the slot open until the backoff
+                // timer fires — filling it immediately plus the retry would double
+                // connection churn during a 429/5xx storm.
+                if !willRetry {
+                    self.dispatchNext()
+                }
             }
         }
     }
 
-    private func handleChunkFailure(_ index: Int, error: Error) {
-        guard index < chunks.count else { return }
+    /// Returns true when a retry was scheduled (the caller should NOT immediately
+    /// re-dispatch, so a 429/5xx storm doesn't double-open connections).
+    @discardableResult
+    private func handleChunkFailure(_ index: Int, error: Error) -> Bool {
+        guard index < chunks.count else { return false }
         if let dlError = error as? DownloadError, !dlError.isRetryable {
             lastError = error
             chunks[index].status = .failed
             EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
-            return
+            return false
         }
         let attempt = (retryCounts[index] ?? 0) + 1
         guard attempt <= maxRetries else {
             lastError = error
             chunks[index].status = .failed
             EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
-            return
+            return false
         }
         retryCounts[index] = attempt
         chunks[index].status = .pending
@@ -183,9 +202,16 @@ public final class ChunkManager {
         // Exponential backoff: 1s, 2s, 4s... capped at 10s.
         let delay = min(EngineConstants.retryBackoffBase * pow(2.0, Double(attempt - 1)), EngineConstants.retryBackoffCap)
         EngineLog.manager.warning("chunk \(index) failed, retry \(attempt)/\(self.maxRetries) in \(delay)s")
-        syncQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.dispatchNext()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.retryWorkItems.removeValue(forKey: index)
+            guard !self.isPaused else { return }
+            self.dispatchNext()
         }
+        retryWorkItems[index]?.cancel()
+        retryWorkItems[index] = item
+        syncQueue.asyncAfter(deadline: .now() + delay, execute: item)
+        return true
     }
 
     public func setSpeedLimit(_ limit: Int64) {
@@ -206,9 +232,15 @@ public final class ChunkManager {
         EngineLog.manager.notice("pause")
         syncQueue.async { [weak self] in
             guard let self else { return }
+            self.isPaused = true
             self.logTimer?.invalidate()
             self.logTimer = nil
             self.bucket.stop()
+            // Freeze scheduling: cancel pending retries and clear the queue so
+            // nothing can start new chunk tasks while paused.
+            for (_, item) in self.retryWorkItems { item.cancel() }
+            self.retryWorkItems.removeAll()
+            self.pendingIndices.removeAll()
             for (_, task) in self.activeTasks { task.pause() }
             self.activeTasks.removeAll()
             self.singleStreamTask?.pause()
@@ -221,6 +253,7 @@ public final class ChunkManager {
         startLogTimer()
         syncQueue.async { [weak self] in
             guard let self else { return }
+            self.isPaused = false
             self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
             if self.singleStreamMode {
                 self.enterSingleStream()
@@ -240,9 +273,12 @@ public final class ChunkManager {
         EngineLog.manager.notice("cancel")
         syncQueue.async { [weak self] in
             guard let self else { return }
+            self.isPaused = false
             self.logTimer?.invalidate()
             self.logTimer = nil
             self.bucket.stop()
+            for (_, item) in self.retryWorkItems { item.cancel() }
+            self.retryWorkItems.removeAll()
             for (_, task) in self.activeTasks { task.cancel() }
             self.activeTasks.removeAll()
             self.singleStreamTask?.cancel()
@@ -347,6 +383,7 @@ public final class ChunkManager {
     }
 
     private func dispatchNext() {
+        guard !isPaused else { return }
         let activeCount = activeTasks.count
         let canStart = max(0, maxConcurrent - activeCount)
         if canStart > 0, !pendingIndices.isEmpty {

@@ -220,4 +220,39 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(delivered < 4)
         #expect(verifyPattern(in: dest, size: 262144))
     }
+
+    @Test func pauseStopsRetryFromDispatching() {
+        // Chunks after the probe return 429; retries are scheduled with backoff.
+        // After pause, no retry may fire and no new request may be dispatched.
+        FakeURLProtocol.statusOverrideAfterStart = 262144
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-pauseretry.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 4)
+        manager.start()
+        Thread.sleep(forTimeInterval: 0.4) // probe + first chunk 429s processed, retry pending
+        let before = FakeURLProtocol.requests.count
+        manager.pause()
+        Thread.sleep(forTimeInterval: 1.5) // well past the 1 s retry backoff
+        let after = FakeURLProtocol.requests.count
+        #expect(after == before)
+        #expect(!manager.hasActiveTasks)
+    }
+
+    @Test func range200AfterProbeFailsWithoutCorruptingFile() {
+        // Chunks after the probe get 200 (server ignored Range). The chunk must
+        // fail instead of writing the whole file at its offset.
+        FakeURLProtocol.statusOverrideAfterStart = 200
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-range200.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 4)
+        let sem = DispatchSemaphore(value: 0)
+        var failed = false
+        manager.onCompletion = { r in if case .failure = r { failed = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem))
+        #expect(failed)
+        // Only the probe chunk's 256 KB was written; 1-3 failed before writing.
+        let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? Int) ?? -1
+        #expect(size == 262144)
+    }
 }

@@ -4,6 +4,9 @@ import Foundation
 final class FakeURLProtocol: URLProtocol {
     nonisolated(unsafe) static var virtualFileSize: Int64 = 1024 * 1024
     nonisolated(unsafe) static var serverTotalOverride: Int64? = nil
+    // If set, Range requests whose start offset >= this value get this status
+    // code (simulates the server rate-limiting or ignoring Range after the probe).
+    nonisolated(unsafe) static var statusOverrideAfterStart: Int?
     private static let lock = NSLock()
     nonisolated(unsafe) static var requests: [URLRequest] = []
 
@@ -30,11 +33,19 @@ final class FakeURLProtocol: URLProtocol {
             if parts.count == 2, let a = Int64(parts[0]), let b = Int64(parts[1]), a >= 0, a <= b, a < total {
                 start = a
                 end = min(b, total - 1)
-                status = 206
-                headers["Content-Range"] = "bytes \(start)-\(end)/\(total)"
-                headers["Accept-Ranges"] = "bytes"
-                headers["Content-Length"] = "\(end - start + 1)"
-                data = Data(count: Int(end - start + 1))
+                // Optional override: simulate 429 / 200-for-Range on later chunks.
+                if let override = Self.statusOverrideAfterStart, start >= override {
+                    status = override
+                    headers["Content-Range"] = "bytes \(start)-\(end)/\(total)"
+                    headers["Content-Length"] = "\(end - start + 1)"
+                    data = Data(count: Int(end - start + 1))
+                } else {
+                    status = 206
+                    headers["Content-Range"] = "bytes \(start)-\(end)/\(total)"
+                    headers["Accept-Ranges"] = "bytes"
+                    headers["Content-Length"] = "\(end - start + 1)"
+                    data = Data(count: Int(end - start + 1))
+                }
             } else {
                 status = 416
                 headers["Content-Range"] = "bytes */\(total)"
@@ -60,6 +71,7 @@ final class FakeURLProtocol: URLProtocol {
     static func reset() {
         virtualFileSize = 1024 * 1024
         serverTotalOverride = nil
+        statusOverrideAfterStart = nil
         lock.lock()
         requests.removeAll()
         lock.unlock()

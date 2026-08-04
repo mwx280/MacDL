@@ -164,6 +164,16 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     }
                 }
             case 200..<300:
+                // A bounded Range request answered with 200 means the server ignored
+                // our Range header and is sending the whole file — writing it at this
+                // chunk's offset would corrupt the download. (The single-stream task
+                // with endOffset == Int64.max legitimately accepts a 200.)
+                if !requestsWholeFile, endOffset != Int64.max {
+                    EngineLog.chunk.warning("Chunk #\(self.chunkIndex) server ignored Range (200), failing chunk")
+                    completionHandler(.cancel)
+                    finish(with: .failure(DownloadError.httpStatus(200)))
+                    return
+                }
                 let expected = response.expectedContentLength
                 if expected > 0 { onTotalSizeKnown?(expected) }
             default:
