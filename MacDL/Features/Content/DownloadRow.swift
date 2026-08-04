@@ -8,6 +8,7 @@ struct DownloadRow: View {
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
+    var onRedownload: ((UUID) -> Void)?
     var onSetPriority: ((UUID) -> Void)?
     var onCancelPriority: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
@@ -82,6 +83,11 @@ struct DownloadRow: View {
                     Label(LanguageManager.shared.localized("Retry"), systemImage: "arrow.clockwise")
                 }
             }
+            if download.status == .completed {
+                Button(action: { onRedownload?(download.id) }) {
+                    Label(LanguageManager.shared.localized("Redownload"), systemImage: "arrow.down.circle")
+                }
+            }
             if canPrioritize, !isMultiSelection,
                download.isPriorityDownload != true,
                download.status == .active || download.status == .paused || download.status == .waiting {
@@ -94,19 +100,23 @@ struct DownloadRow: View {
                     Label(LanguageManager.shared.localized("Cancel Priority Download"), systemImage: "arrow.down.circle")
                 }
             }
-            Divider()
-            if !isMultiSelection {
-                speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
-                if download.supportsResume == false {
-                    Label {
-                        Text(LanguageManager.shared.localized("Single connection · server does not support resume"))
-                    } icon: {
-                        Image(systemName: "info.circle")
+            // Speed limit and thread settings only make sense while the download
+            // can run; hide them for completed / failed entries.
+            if [.active, .paused, .waiting].contains(download.status) {
+                Divider()
+                if !isMultiSelection {
+                    speedMenu("arrow.down", onSetDownloadLimit, download.downloadLimit)
+                    if download.supportsResume == false {
+                        Label {
+                            Text(LanguageManager.shared.localized("Single connection · server does not support resume"))
+                        } icon: {
+                            Image(systemName: "info.circle")
+                        }
+                        .foregroundStyle(.secondary)
+                        .disabled(true)
+                    } else {
+                        chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
                     }
-                    .foregroundStyle(.secondary)
-                    .disabled(true)
-                } else {
-                    chunkMenu(onSetMaxChunks, download.maxConcurrentChunks)
                 }
             }
             Divider()

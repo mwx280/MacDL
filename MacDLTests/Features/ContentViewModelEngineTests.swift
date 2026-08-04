@@ -46,6 +46,31 @@ import MacDLCore
         #expect(!vm.downloads.contains { $0.url == "https://example.com/noop.bin" })
     }
 
+    @Test func redownloadConfirmedRestartsCompletedDownload() {
+        let engine = FakeEngine()
+        let vm = makeVM(engine: engine)
+        let d = Download(filename: "redo.bin", url: "https://example.com/redo.bin", status: .completed)
+        vm.downloads = [d]
+        vm.redownloadConfirmation = { _, _ in true }
+        vm.redownloadDownload(id: d.id)
+        let result = vm.downloads.first { $0.id == d.id }
+        #expect(result?.status == .active)
+        #expect(result?.totalSize == 0)
+        #expect(result?.chunks.isEmpty == true)
+        #expect(engine.started.contains(d.id))
+    }
+
+    @Test func redownloadDeclinedKeepsCompleted() {
+        let engine = FakeEngine()
+        let vm = makeVM(engine: engine)
+        let d = Download(filename: "redo-no.bin", url: "https://example.com/redo-no.bin", status: .completed)
+        vm.downloads = [d]
+        vm.redownloadConfirmation = { _, _ in false }
+        vm.redownloadDownload(id: d.id)
+        #expect(vm.downloads.first { $0.id == d.id }?.status == .completed)
+        #expect(engine.started.isEmpty)
+    }
+
     @Test func addDownloadWaitsOverConcurrencyLimit() {
         let engine = FakeEngine()
         let vm = makeVM(engine: engine, maxConcurrentDownloads: 2)

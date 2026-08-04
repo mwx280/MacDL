@@ -7,6 +7,7 @@ struct DownloadListView: View {
     var onPause: ((UUID) -> Void)?
     var onResume: ((UUID) -> Void)?
     var onRetry: ((UUID) -> Void)?
+    var onRedownload: ((UUID) -> Void)?
     var onSetPriority: ((UUID) -> Void)?
     var onCancelPriority: ((UUID) -> Void)?
     var onDelete: ((UUID) -> Void)?
@@ -44,6 +45,7 @@ struct DownloadListView: View {
             isMultiSelection: selection.count > 1,
             canPrioritize: canPrioritize,
             onPause: onPause, onResume: onResume, onRetry: onRetry,
+            onRedownload: onRedownload,
             onSetPriority: onSetPriority,
             onCancelPriority: onCancelPriority,
             onDelete: onDelete,

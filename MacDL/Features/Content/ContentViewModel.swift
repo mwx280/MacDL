@@ -418,6 +418,70 @@ final class ContentViewModel {
         store.save()
     }
 
+    /// Confirmation prompt for re-downloading a finished file. Injectable so tests
+    /// can decide without presenting an NSAlert. `fileExists` tells whether the
+    /// destination file is already on disk (the dialog warns it will be overwritten).
+    var redownloadConfirmation: (Download, Bool) -> Bool = { download, fileExists in
+        let alert = NSAlert()
+        alert.messageText = LanguageManager.shared.localized("Redownload")
+        if fileExists {
+            alert.alertStyle = .warning
+            alert.informativeText = String(
+                format: LanguageManager.shared.localized("%@ already exists and will be overwritten. Download it again?"),
+                download.filename)
+        } else {
+            alert.informativeText = String(
+                format: LanguageManager.shared.localized("Download %@ again?"),
+                download.filename)
+        }
+        alert.addButton(withTitle: LanguageManager.shared.localized("Redownload"))
+        alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// Re-downloads a finished download. Confirms first; if the destination file
+    /// already exists the dialog warns that it will be overwritten.
+    func redownloadDownload(id: UUID) {
+        guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
+        let d = downloads[idx]
+        guard d.status == .completed else { return }
+
+        let dir = d.savePath ?? AppConfig.defaultDownloadDir
+        let finalPath = dir + "/" + d.filename
+        let fileExists = FileManager.default.fileExists(atPath: finalPath)
+
+        guard redownloadConfirmation(d, fileExists) else { return }
+
+        // Remove the finished file (and any stale staging) so the fresh download
+        // starts clean instead of resuming old chunks.
+        try? FileManager.default.removeItem(atPath: finalPath)
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
+
+        downloads[idx].status = .active
+        downloads[idx].errorMessage = nil
+        downloads[idx].downloadedSize = 0
+        downloads[idx].totalSize = 0
+        downloads[idx].chunks = []
+        downloads[idx].supportsResume = nil
+        store.save()
+
+        guard let sourceURL = URL(string: d.url) else {
+            downloads[idx].status = .error
+            downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
+            store.save()
+            return
+        }
+
+        let activeCount = downloads.filter { $0.status == .active && $0.id != id }.count
+        if activeCount >= max(settings.maxConcurrentDownloads, 1) {
+            downloads[idx].status = .waiting
+            store.save()
+            return
+        }
+
+        setupEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
+    }
+
     func retryDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         let d = downloads[idx]

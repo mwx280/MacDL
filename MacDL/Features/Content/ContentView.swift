@@ -103,6 +103,7 @@ struct ContentView: View {
                 onPause: { model.pauseDownload(id: $0) },
                 onResume: { model.resumeDownload(id: $0) },
                 onRetry: { model.retryDownload(id: $0) },
+                onRedownload: { model.redownloadDownload(id: $0) },
                 onSetPriority: { model.setPriorityDownload(id: $0) },
                 onCancelPriority: { model.cancelPriorityDownload(id: $0) },
                 onDelete: { id in model.selectedDownloads.insert(id); model.confirmDelete() },
