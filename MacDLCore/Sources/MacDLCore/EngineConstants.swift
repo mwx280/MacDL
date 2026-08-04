@@ -8,7 +8,6 @@ public enum EngineConstants {
     public static let retryBackoffCap: TimeInterval = 10.0
 
     // Token bucket
-    public static let bucketPollInterval: TimeInterval = 0.02
     public static let bucketTokenCapMultiplier = 2.0
     public static let bucketTokenMinCap: Double = 1_048_576 // 1 MiB
 
@@ -26,4 +25,5 @@ public enum EngineConstants {
     public static let speedReportInterval: TimeInterval = 1.0
     public static let statusLogInterval: TimeInterval = 3.0
     public static let progressSaveInterval: TimeInterval = 5.0
+    public static let chunksChangedInterval: TimeInterval = 0.5
 }

@@ -425,7 +425,6 @@ final class ContentViewModel {
         let alert = NSAlert()
         alert.messageText = LanguageManager.shared.localized("Redownload")
         if fileExists {
-            alert.alertStyle = .warning
             alert.informativeText = String(
                 format: LanguageManager.shared.localized("%@ already exists and will be overwritten. Download it again?"),
                 download.filename)

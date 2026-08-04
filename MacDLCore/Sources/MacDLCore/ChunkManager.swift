@@ -1,8 +1,10 @@
 import Foundation
 
 // Shared byte-level token bucket for smooth throttling across all chunks.
+// Event-driven: waiters sleep on an NSCondition and are woken by stop()/reset(),
+// instead of polling every 20 ms.
 public final class TokenBucket {
-    private let lock = NSLock()
+    private let condition = NSCondition()
     private var rate: Double
     private var tokens: Double = 0
     private var lastRefill = Date()
@@ -13,37 +15,40 @@ public final class TokenBucket {
     }
 
     public func setRate(_ newRate: Double) {
-        lock.lock()
+        condition.lock()
         rate = max(0, newRate)
-        lock.unlock()
+        condition.signal()
+        condition.unlock()
     }
 
     public func stop() {
-        lock.lock()
+        condition.lock()
         stopped = true
-        lock.unlock()
+        condition.broadcast()
+        condition.unlock()
     }
 
     public func reset(rate newRate: Double) {
-        lock.lock()
+        condition.lock()
         stopped = false
         rate = max(0, newRate)
         tokens = 0
         lastRefill = Date()
-        lock.unlock()
+        condition.signal()
+        condition.unlock()
     }
 
     /// Blocks until `amount` bytes can be consumed, or until `stop()` is called. Returns false when stopped.
     @discardableResult
     public func take(_ amount: Double) -> Bool {
+        condition.lock()
         while true {
-            lock.lock()
             if stopped {
-                lock.unlock()
+                condition.unlock()
                 return false
             }
             if rate <= 0 {
-                lock.unlock()
+                condition.unlock()
                 return true
             }
             let now = Date()
@@ -56,11 +61,14 @@ public final class TokenBucket {
             }
             if tokens >= amount {
                 tokens -= amount
-                lock.unlock()
+                condition.unlock()
                 return true
             }
-            lock.unlock()
-            Thread.sleep(forTimeInterval: EngineConstants.bucketPollInterval)
+            // Sleep precisely until enough tokens accrue (no polling); a rate
+            // change or stop() wakes us earlier to re-evaluate.
+            let deficit = amount - tokens
+            let wait = deficit / rate
+            condition.wait(until: Date().addingTimeInterval(wait))
         }
     }
 }
@@ -95,6 +103,8 @@ public final class ChunkManager {
     private var logTimer: Timer?
     private var lastLogBytes: Int64 = 0
     private var lastLogTime: Date = .distantPast
+    private var lastChunksChangedTime: Date = .distantPast
+    private var pendingChunksChanged = false
 
     public var onProgress: ((Int64, Int64, Int64) -> Void)?
     public var onChunksChanged: (([Chunk]) -> Void)?
@@ -154,7 +164,7 @@ public final class ChunkManager {
                 self.chunks[0].status = .downloading
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
-                self.onChunksChanged?(self.chunks)
+                self.notifyChunksChanged(force: true)
                 self.dispatchNext()
             }
         }
@@ -217,7 +227,7 @@ public final class ChunkManager {
                     self.handleChunkFailure(index, error: error)
                 }
                 self.updateProgress()
-                self.onChunksChanged?(self.chunks)
+                self.notifyChunksChanged()
                 self.checkDone()
                 self.dispatchNext()
             }
@@ -340,6 +350,8 @@ public final class ChunkManager {
         // cancel() of the old task stops the shared bucket; re-activate it and re-apply the throttle
         bucket.reset(rate: speedLimit > 0 ? Double(speedLimit) : 0)
         onChunksChanged?([])
+        lastChunksChangedTime = Date()
+        pendingChunksChanged = false
 
         let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: Int64.max)
         // Only send a Range header when the probe confirmed the server honors 206.
@@ -443,6 +455,9 @@ public final class ChunkManager {
         if done + failed >= chunks.count, !chunks.isEmpty {
             logTimer?.invalidate()
             logTimer = nil
+            // Flush the final chunk state before reporting done so the app
+            // persists/displayed chunks are never stale from throttling.
+            notifyChunksChanged(force: true)
             if failed > 0 {
                 for (_, task) in activeTasks { task.cancel() }
                 activeTasks.removeAll()
@@ -455,6 +470,29 @@ public final class ChunkManager {
     }
 
     // MARK: - Progress
+
+    /// Delivers the chunk array to the app at most once per interval. Per-chunk
+    /// completions coalesce (a 5863-chunk file would otherwise fire 5863 full
+    /// array copies); structural changes use `force` to deliver immediately.
+    /// Call on syncQueue.
+    private func notifyChunksChanged(force: Bool = false) {
+        let now = Date()
+        if force || now.timeIntervalSince(lastChunksChangedTime) >= EngineConstants.chunksChangedInterval {
+            lastChunksChangedTime = now
+            pendingChunksChanged = false
+            onChunksChanged?(chunks)
+        } else if !pendingChunksChanged {
+            pendingChunksChanged = true
+            syncQueue.asyncAfter(deadline: .now() + EngineConstants.chunksChangedInterval) { [weak self] in
+                guard let self else { return }
+                if self.pendingChunksChanged {
+                    self.lastChunksChangedTime = Date()
+                    self.pendingChunksChanged = false
+                    self.onChunksChanged?(self.chunks)
+                }
+            }
+        }
+    }
 
     private func updateProgress() {
         var written: Int64 = 0

@@ -169,4 +169,35 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(ok)
         #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
     }
+
+    @Test func chunksChangedIsThrottled() {
+        // 4 chunks complete near-instantly; onChunksChanged must coalesce to far
+        // fewer than 4 deliveries, and the final delivery must show all completed.
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-throttle.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let lock = NSLock()
+        var count = 0
+        var last: [Chunk] = []
+        manager.onChunksChanged = { c in
+            lock.lock()
+            count += 1
+            last = c
+            lock.unlock()
+        }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem))
+        #expect(ok)
+        lock.lock()
+        let delivered = count
+        let finalAllCompleted = last.allSatisfy { $0.status == .completed }
+        lock.unlock()
+        // probe rebuild (force) + coalesced completions + final flush
+        #expect(delivered < 4)
+        #expect(finalAllCompleted)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+    }
 }
