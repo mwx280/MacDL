@@ -151,7 +151,8 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         }
         if let http = response as? HTTPURLResponse {
             onSupportsResume?(http.statusCode == 206)
-            if http.statusCode == 206 {
+            switch http.statusCode {
+            case 206:
                 if let range = http.value(forHTTPHeaderField: "Content-Range"),
                    let slash = range.lastIndex(of: "/") {
                     let totalStr = String(range[range.index(after: slash)...]).trimmingCharacters(in: .whitespaces)
@@ -161,9 +162,17 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                         os_log("[Chunk #%d] Content-Range size unparsable: %{public}@", chunkIndex, range)
                     }
                 }
-            } else {
+            case 200..<300:
                 let expected = response.expectedContentLength
                 if expected > 0 { onTotalSizeKnown?(expected) }
+            default:
+                // Error responses (4xx/5xx) must not be treated as a valid file
+                // size or written to the file. Fail the chunk so the engine can
+                // retry (e.g. a 429 from a rate-limiting mirror).
+                os_log("[Chunk #%d] HTTP %d, failing chunk", chunkIndex, http.statusCode)
+                completionHandler(.cancel)
+                finish(with: .failure(DownloadError.httpStatus(http.statusCode)))
+                return
             }
         }
         os_log("[Chunk #%d] response code=%d", chunkIndex, (response as? HTTPURLResponse)?.statusCode ?? 0)

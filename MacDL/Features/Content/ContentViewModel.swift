@@ -193,6 +193,8 @@ final class ContentViewModel {
             return LanguageManager.shared.localized("Server does not support this download range")
         case .fileChanged:
             return LanguageManager.shared.localized("File changed on server, resume not possible")
+        case .httpStatus(let code):
+            return String(format: LanguageManager.shared.localized("HTTP %ld"), code)
         case .network(let e):
             return String(format: LanguageManager.shared.localized("Network error: %@"), e.localizedDescription)
         }
