@@ -219,7 +219,7 @@ final class DownloadEngineCoordinator {
         needsProgressSave = true
         // Defer publishing until the file size is known (avoids a broken 0-total Progress).
         if total > 0, !progress.isPublished(for: id) {
-            progress.publish(for: store.downloads[idx], fileURL: stagingURL(for: store.downloads[idx]))
+            progress.publish(for: store.downloads[idx], fileURL: DownloadPath.staging(for: store.downloads[idx]))
         }
         progress.update(for: id, download: store.downloads[idx])
         if prevTotal == 0 {
@@ -236,7 +236,6 @@ final class DownloadEngineCoordinator {
     }
 
     private func stagingURL(for download: Download) -> URL {
-        let dir = download.savePath ?? AppConfig.defaultDownloadDir
-        return URL(fileURLWithPath: dir + "/" + download.filename + ".macdl")
+        DownloadPath.staging(for: download)
     }
 }

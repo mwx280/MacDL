@@ -154,15 +154,8 @@ final class ContentViewModel {
 
     // MARK: - File Paths
 
-    private func destinationURL(for download: Download) -> URL {
-        let dir = download.savePath ?? AppConfig.defaultDownloadDir
-        return URL(fileURLWithPath: dir + "/" + download.filename)
-    }
-
-    private func stagingURL(for download: Download) -> URL {
-        let dir = download.savePath ?? AppConfig.defaultDownloadDir
-        return URL(fileURLWithPath: dir + "/" + download.filename + ".macdl")
-    }
+    // Paths are derived through DownloadPath so the coordinator and this view
+    // model always agree on the ".macdl" staging convention.
 
     // MARK: - File Integrity
 
@@ -182,7 +175,7 @@ final class ContentViewModel {
         let toCheck = downloads.compactMap { d -> (id: UUID, status: DownloadStatus, path: String)? in
             guard d.status == .active || d.status == .paused else { return nil }
             if d.totalSize == 0, d.downloadedSize == 0 { return nil }
-            return (d.id, d.status, stagingURL(for: d).path)
+            return (d.id, d.status, DownloadPath.staging(for: d).path)
         }
         guard !toCheck.isEmpty else { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -219,8 +212,8 @@ final class ContentViewModel {
         case .success:
             store.downloads[idx].status = .completed
             coordinator.progress.unpublish(for: id)
-            let staging = stagingURL(for: store.downloads[idx])
-            let final = destinationURL(for: store.downloads[idx])
+            let staging = DownloadPath.staging(for: store.downloads[idx])
+            let final = DownloadPath.destination(for: store.downloads[idx])
             try? FileManager.default.moveItem(at: staging, to: final)
             let dir = store.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
             NSWorkspace.shared.noteFileSystemChanged(dir)
@@ -306,19 +299,14 @@ final class ContentViewModel {
         let dir = savePath ?? AppConfig.defaultDownloadDir
 
         if !allowDuplicate, let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
-            switch existing.status {
-            case .active, .waiting:
-                _ = DialogPresenter.duplicateActive()
+            switch DuplicatePolicy.decide(for: existing) {
+            case .proceed:
+                break
+            case .resume:
+                resumeDownload(id: existing.id)
                 return
-            case .paused:
-                let resp = DialogPresenter.duplicatePaused()
-                if resp == .resume { resumeDownload(id: existing.id) }
-                if resp != .newDownload { return }
-            case .completed:
-                if !DialogPresenter.duplicateCompleted() { return }
-            case .error, .stopped:
-                let reason = DownloadErrorText.text(for: existing) ?? LanguageManager.shared.localized("Unknown error")
-                if !DialogPresenter.duplicateFailed(reason: reason) { return }
+            case .skip:
+                return
             }
         }
 
@@ -384,7 +372,7 @@ final class ContentViewModel {
             store.save()
             return
         }
-        let dest = stagingURL(for: src)
+        let dest = DownloadPath.staging(for: src)
         let speedLimit = Int64(dlLimit > 0 ? dlLimit : (src.downloadLimit ?? 0))
         coordinator.start(id: id, url: sourceURL, dest: dest, speedLimit: speedLimit,
                           chunkSize: src.chunkSize,
@@ -399,7 +387,7 @@ final class ContentViewModel {
         }
         coordinator.pause(id)
         if coordinator.isTracked(id) {
-            if !FileManager.default.fileExists(atPath: stagingURL(for: downloads[idx]).path) {
+            if !FileManager.default.fileExists(atPath: DownloadPath.staging(for: downloads[idx]).path) {
                 downloads[idx].status = .error
                 downloads[idx].errorKey = "Download file has been deleted"
                 downloads[idx].errorMessage = LanguageManager.shared.localized("Download file has been deleted")
@@ -436,7 +424,7 @@ final class ContentViewModel {
             return
         }
 
-        let dest = stagingURL(for: downloads[idx])
+        let dest = DownloadPath.staging(for: downloads[idx])
         coordinator.start(id: id, url: sourceURL, dest: dest,
                           speedLimit: Int64(downloads[idx].downloadLimit ?? 0),
                           chunkSize: downloads[idx].chunkSize,
