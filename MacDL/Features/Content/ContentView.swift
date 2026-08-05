@@ -82,7 +82,12 @@ struct ContentView: View {
         }
         .onChange(of: selected) { _, _ in model.selectedDownloads.removeAll() }
         .onChange(of: appearance) { _, new in new.apply() }
-        .onAppear { appearance.apply() }
+        .onAppear {
+            appearance.apply()
+            // Tag this scene's window so the menu bar "Show Window" can target
+            // it exactly instead of a lingering hidden settings window.
+            NSApp.keyWindow?.identifier = NSUserInterfaceItemIdentifier("main")
+        }
     }
 
     @ViewBuilder

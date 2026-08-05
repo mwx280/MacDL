@@ -144,6 +144,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         EngineLog.app.notice("didFinishLaunching")
+        // Launch-in-background suppresses the main window; apply the accessory
+        // policy right away so no Dock icon lingers (window events never fire
+        // when the window is never shown).
+        DockIconManager.shared.update()
         // Single-instance: terminate other running MacDL processes so only one menu bar icon exists.
         let bundleID = Bundle.main.bundleIdentifier ?? "com.xiaowu.MacDL"
         let myPID = ProcessInfo.processInfo.processIdentifier

@@ -22,8 +22,16 @@ final class DockIconManager {
     func update() {
         guard NSApp != nil else { return }
         let policy: NSApplication.ActivationPolicy
-        if SettingsStore.shared.hideDockIconOnClose,
-           !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeKey }) {
+        // Only titled windows count: the menu bar's pop-up window also becomes
+        // key while tracking, and treating it as a real window would re-show
+        // the Dock icon just from hovering the menu.
+        let hasRealWindow = NSApp.windows.contains {
+            $0.isVisible && $0.canBecomeKey && $0.styleMask.contains(.titled)
+        }
+        // Launch-in-background hides the Dock icon too, so a background start
+        // with no visible window never leaves one lingering.
+        if (SettingsStore.shared.hideDockIconOnClose || SettingsStore.shared.launchInBackground),
+           !hasRealWindow {
             policy = .accessory
         } else {
             policy = .regular
