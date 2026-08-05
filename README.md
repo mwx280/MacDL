@@ -11,7 +11,7 @@
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
 [![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/badge/release-v0.2.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
-[![Size](https://img.shields.io/badge/app-1.8%20MB-lightgrey.svg)]()
+[![Size](https://img.shields.io/badge/app-5.5%20MB-lightgrey.svg)]()
 
 </div>
 
