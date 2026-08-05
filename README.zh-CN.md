@@ -5,7 +5,7 @@
 # MacDL
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-000000.svg)]()
+[![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-000000.svg)]()
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
 [![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
@@ -121,8 +121,8 @@ ContentView ──────────────► ContentViewModel ─�
 
 ## 系统要求与构建
 
-- macOS 26.5 及以上（引擎包声明的最低版本是 macOS 15）。
-- 装有 macOS 26 SDK 的 Xcode。
+- macOS 15 及以上。
+- 装有 macOS 15 SDK 或更高版本的 Xcode。
 - 没有任何外部依赖。
 
 ```sh
@@ -172,3 +172,12 @@ CI（GitHub Actions）先跑引擎测试，再构建并测试应用。
 ## 许可证
 
 [GPL-3.0](LICENSE)
+
+**明确限制：**
+
+- 个人使用、学习、修改、fork 完全自由
+- 将修改后的版本以 GPL-3.0 协议开源发布，完全自由
+- 将本项目的任何部分（包括 `MacDLCore` 引擎）以闭源形式集成进任何商业软件并分发，严格禁止
+- 将本项目的代码或修改版作为闭源产品对外销售，严格禁止
+
+违反上述条款的行为将被视为侵犯著作权，作者保留追究法律责任的权利。

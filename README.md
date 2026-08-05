@@ -5,7 +5,7 @@
 # MacDL
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-000000.svg)]()
+[![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-000000.svg)]()
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
 [![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
 [![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
@@ -154,8 +154,8 @@ quit.
 
 ## Requirements and build
 
-- macOS 26.5 or later (the engine package declares a macOS 15 baseline).
-- Xcode with a macOS 26 SDK.
+- macOS 15 or later.
+- Xcode with a macOS 15 SDK or later.
 - No external dependencies.
 
 ```sh
@@ -213,4 +213,16 @@ correctly even after a language switch.
 
 ## License
 
-[GPL-3.0](LICENSE)
+[GPL-3.0](LICENSE) — use it, change it, but keep derivatives open source.
+
+**Explicit restrictions:**
+
+- Personal use, learning, modification, and forking are completely free
+- Publishing your modified version under GPL-3.0 is completely free
+- Integrating any part of this project (including the `MacDLCore` engine) into
+  closed-source commercial software and distributing it is strictly prohibited
+- Selling this code or modified versions as a closed-source product is strictly
+  prohibited
+
+Violating the above will be treated as copyright infringement, and the author
+reserves the right to pursue legal action.
