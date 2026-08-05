@@ -22,3 +22,6 @@ TODO.md
 # Swift Package Manager
 MacDLCore/.build/
 MacDLCore/.swiftpm/
+
+# DMG build scripts and artifacts
+macdl-dmg/
