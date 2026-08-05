@@ -26,7 +26,7 @@ trying to solve, not just the feature — it helps us find a better solution.
    cd MacDLCore && swift test
 
    xcodebuild test -project MacDL.xcodeproj -scheme MacDL \
-     -destination 'platform=macOS' -parallel-testing-enabled NO
+     -destination 'platform=macOS'
    ```
 
 4. Open a PR against `main`. Use the PR template and fill in the checklist.

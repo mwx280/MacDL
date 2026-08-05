@@ -16,8 +16,7 @@ jobs:
 
       - name: Select Xcode 26
         run: |
-          # Pick the newest Xcode present; the app needs an Xcode 26 SDK
-          # (deployment target is macOS 26.5).
+          # Pick the newest Xcode present (deployment target is macOS 15).
           NEWEST=$(for d in /Applications/Xcode*.app; do [ -d "$d" ] && echo "$d"; done | sort -r | head -1)
           if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
           xcodebuild -version

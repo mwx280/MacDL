@@ -33,7 +33,7 @@ body:
     id: os
     attributes:
       label: macOS version
-      placeholder: e.g. macOS 26.5
+      placeholder: e.g. macOS 15
     validations:
       required: true
   - type: input

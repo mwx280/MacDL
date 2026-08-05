@@ -52,6 +52,10 @@ Second preview release.
   the backpressure path no longer busy-sleeps
 - Settings panes split into per-file views
 - Localized strings update reactively (dropped the `.id(refresh)` view rebuild)
+- Migrated to the Swift 6 language mode with explicit actor isolation
+  (`@MainActor`, `@Sendable`, `nonisolated`) instead of the approachable-
+  concurrency default isolation
+- Deployment target lowered from macOS 26.5 to macOS 15
 
 ### Fixed
 
@@ -80,6 +84,10 @@ Second preview release.
   wired to a button, so per-batch custom folders (with security-scoped
   bookmarks) actually work.
 - Removed a duplicated `import Foundation` in `AppConfig`.
+- Menu bar "Show Window" no longer raises a previously opened hidden settings
+  window
+- No lingering Dock icon when the app launches in the background
+- Opening Preferences from the menu bar now fronts the settings window
 
 ### Localization
 
@@ -97,6 +105,8 @@ Second preview release.
 ### Testing
 
 - App tests grew from 86 to 150; engine tests from 21 to 30 (total 180).
+- Swift 6 migration: every test suite is explicitly `@MainActor`, and
+  timing-sensitive assertions poll for their condition instead of fixed sleeps.
 - New suites: `NewDownloadModel` (parsing / probing), `DuplicatePolicy`
   (duplicate-add decisions), `UpdateModel` (version compare + state machine),
   chunk compact-persistence round trips, notification toggle gates, bulk delete
