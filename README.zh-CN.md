@@ -1,4 +1,18 @@
+<div align="center">
+
+<img src="icon.png" width="128" alt="MacDL">
+
 # MacDL
+
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-000000.svg)]()
+[![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
+[![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
+[![Engine](https://img.shields.io/badge/engine-URLSession-745fff.svg)]()
+[![CI](https://github.com/mwx280/MacDL/actions/workflows/ci.yml/badge.svg)](https://github.com/mwx280/MacDL/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/release-v0.2.0%20Preview-orange.svg)](https://github.com/mwx280/MacDL/releases)
+
+</div>
 
 一个常驻 macOS 菜单栏的下载管理器。底层是建立在 `URLSession` 之上的多线程分块下载引擎，下载快，平时就安静待在菜单栏里，不碍事。
 
