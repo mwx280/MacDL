@@ -4,6 +4,7 @@ import MacDLCore
 // Owns the priority-download state machine: promoting one download and
 // auto-pausing the others, then restoring them when priority ends.
 // Isolated from ContentViewModel so this flow is independently testable.
+@MainActor
 final class PriorityDownloadCoordinator {
     private let store: DownloadStore
     private let engine: DownloadEngineCoordinator

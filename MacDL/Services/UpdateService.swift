@@ -110,7 +110,7 @@ enum UpdateService {
     }
 
     /// Downloads a release asset to the Downloads folder, reporting 0...1 progress.
-    static func download(_ asset: Asset, progress: @escaping (Double) -> Void) async throws -> URL {
+    static func download(_ asset: Asset, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         guard let url = asset.downloadURL else { throw UpdateError.noAsset }
         let dir = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
         let destination = dir.appendingPathComponent(asset.name)
@@ -131,11 +131,12 @@ enum UpdateService {
         return destination
     }
 
-    private static var activeDownloaders: [URL: UpdateDownloader] = [:]
+    nonisolated(unsafe) private static var activeDownloaders: [URL: UpdateDownloader] = [:]
 
     /// Installs the downloaded DMG: mount it, replace the running app bundle and
     /// relaunch. Throws mountFailed when the sandbox blocks mounting; the caller
     /// can then offer to open the DMG in Finder for a manual install.
+    @MainActor
     static func install(dmgURL: URL) async throws {
         let mountPoint = try await Task.detached(priority: .userInitiated) { try mount(dmgURL) }.value
         let mountedApp = mountPoint
@@ -151,7 +152,7 @@ enum UpdateService {
         }
     }
 
-    private static func mount(_ dmgURL: URL) throws -> URL {
+    private nonisolated static func mount(_ dmgURL: URL) throws -> URL {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
         proc.arguments = ["attach", "-nobrowse", "-noautoopen", "-plist", dmgURL.path]
@@ -172,6 +173,7 @@ enum UpdateService {
         return URL(fileURLWithPath: mountPath)
     }
 
+    @MainActor
     private static func replaceApp(from newApp: URL, to current: URL) throws {
         let parent = current.deletingLastPathComponent()
         guard ensureWritable(parent) else { throw UpdateError.installFailed }
@@ -185,6 +187,7 @@ enum UpdateService {
 
     /// The sandbox only allows writing into a folder the user picked. Ask for the
     /// install location (normally /Applications) once when the target isn't writable.
+    @MainActor
     private static func ensureWritable(_ dir: URL) -> Bool {
         if FileManager.default.isWritableFile(atPath: dir.path) { return true }
         let panel = NSOpenPanel()
@@ -208,7 +211,7 @@ private final class UpdateDownloader: NSObject, URLSessionDownloadDelegate {
     private var session: URLSession?
     private var finished = false
 
-    init(progress: @escaping (Double) -> Void, completion: @escaping (Result<URL, Swift.Error>) -> Void) {
+    init(progress: @escaping @Sendable (Double) -> Void, completion: @escaping (Result<URL, Swift.Error>) -> Void) {
         self.progress = progress
         self.completion = completion
         super.init()

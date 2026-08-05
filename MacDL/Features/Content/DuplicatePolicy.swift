@@ -10,6 +10,7 @@ enum DuplicateDecision {
 // Decides how a duplicate-add should proceed based on the existing download's
 // status. The dialog prompts are injectable so the branching is unit-testable
 // without presenting NSAlerts.
+@MainActor
 enum DuplicatePolicy {
     static func decide(
         for existing: Download,

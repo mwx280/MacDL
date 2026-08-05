@@ -10,6 +10,7 @@ enum DownloadDialogResult {
 
 // Central NSAlert construction so the app's confirmation dialogs share one
 // implementation and can be re-tested through a single seam.
+@MainActor
 enum DialogPresenter {
     /// Duplicate URL already queued / downloading.
     static func duplicateActive() -> Bool {

@@ -44,9 +44,14 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
                                    options: [])
         ])
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            // Extract Sendable values here; the settings object itself must not
+            // cross into the main-actor closure.
+            let auth = settings.authorizationStatus
+            let alert = settings.alertSetting
+            let authorized = auth == .authorized || auth == .provisional
             DispatchQueue.main.async {
-                EngineLog.app.debug("DownloadNotifier settings auth=\(String(describing: settings.authorizationStatus)) alert=\(String(describing: settings.alertSetting))")
-                self?.setAuthorized(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+                EngineLog.app.debug("DownloadNotifier settings auth=\(String(describing: auth)) alert=\(String(describing: alert))")
+                self?.setAuthorized(authorized)
             }
         }
     }

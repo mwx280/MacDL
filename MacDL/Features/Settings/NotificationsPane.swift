@@ -73,8 +73,10 @@ struct NotificationsPane: View {
 
     private func refreshAuthorization() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
+            // Extract the Sendable flag so the settings object stays on this queue.
+            let enabled = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
             DispatchQueue.main.async {
-                notificationsEnabled = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+                notificationsEnabled = enabled
             }
         }
     }

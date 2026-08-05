@@ -1,7 +1,7 @@
 import Foundation
 import MacDLCore
 
-public enum DownloadStatus: String, Codable {
+public enum DownloadStatus: String, Codable, Sendable {
     case active
     case paused
     case waiting

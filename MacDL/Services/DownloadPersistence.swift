@@ -1,7 +1,8 @@
 import Foundation
 import MacDLCore
 
-final class DownloadPersistence {
+// Serializes reads/writes through an internal queue, so it is safe to share.
+final class DownloadPersistence: @unchecked Sendable {
     static let shared: DownloadPersistence = {
         let p = DownloadPersistence()
         p.migrateFromCaches()

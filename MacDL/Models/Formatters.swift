@@ -1,6 +1,6 @@
 import Foundation
 
-private let byteFormatter: ByteCountFormatter = {
+nonisolated(unsafe) private let byteFormatter: ByteCountFormatter = {
     let f = ByteCountFormatter()
     f.countStyle = .binary
     return f
@@ -16,12 +16,14 @@ func formatSize(_ bytes: Int64) -> String {
     byteFormatter.string(fromByteCount: bytes)
 }
 
+@MainActor
 func speedLabel(_ bytesPerSecond: Int) -> String {
     if bytesPerSecond == 0 { return LanguageManager.shared.localized("Unlimited") }
     if bytesPerSecond < 1_048_576 { return "\(bytesPerSecond / 1024) KB/s" }
     return "\(bytesPerSecond / 1_048_576) MB/s"
 }
 
+@MainActor
 func formatRemainingTime(_ seconds: TimeInterval) -> String {
     let s = max(Int(seconds), 0)
     if s < 60 {

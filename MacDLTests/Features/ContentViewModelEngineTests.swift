@@ -281,19 +281,33 @@ import MacDLCore
         for _ in 0..<8 { await Task.yield() }
     }
 
+    // Polls until the condition holds or the timeout passes. Timing-sensitive
+    // assertions like this are unreliable with fixed sleeps in a Swift 6 test
+    // host, where detached tasks can be delayed.
+    private func waitForCondition(timeout: Duration = .milliseconds(2000), _ condition: () -> Bool) async {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     @Test func completionMovesStagingToFinal() async throws {
         let engine = FakeEngine()
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-rename-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tempDir) }
-        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        // Mock the notifier: sending a real completion notification from a
+        // test host can block on UNUserNotificationCenter and stall the suite.
+        let notifier = DownloadNotifier(post: { _ in }, removePending: { _ in }, settings: SettingsStore())
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
         let bookmark = try? URL(fileURLWithPath: tempDir.path).bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
         let d = Download(filename: "done.bin", url: "https://example.com/done.bin", totalSize: 100, downloadedSize: 100, status: .paused, savePath: tempDir.path, saveBookmark: bookmark, supportsResume: true)
         try Data("hello".utf8).write(to: tempDir.appendingPathComponent("done.bin.macdl"))
         vm.downloads = [d]
         vm.resumeDownload(id: d.id)
         engine.fireCompletion(id: d.id, result: .success(()))
-        await drainMain()
+        await waitForCondition { vm.downloads.first(where: { $0.id == d.id })?.status == .completed }
         #expect(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("done.bin").path))
         #expect(!FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("done.bin.macdl").path))
         #expect(vm.downloads.first(where: { $0.id == d.id })?.status == .completed)
@@ -308,9 +322,8 @@ import MacDLCore
         let d = Download(filename: "gone.bin", url: "https://example.com/gone.bin", totalSize: 1000, downloadedSize: 500, status: .active, savePath: tempDir.path)
         vm.downloads = [d]
         vm.service.checkFilesAndPersistIfNeeded()
-        // Let the detached file probe run and hop back to the main actor.
-        try? await Task.sleep(for: .milliseconds(100))
-        for _ in 0..<10 { await Task.yield() }
+        // Wait for the detached file probe to hop back to the main actor.
+        await waitForCondition { vm.downloads.first { $0.id == d.id }?.status == .error }
         let updated = vm.downloads.first { $0.id == d.id }
         #expect(updated?.status == .error)
         #expect(updated?.errorKey == "Download file has been deleted")

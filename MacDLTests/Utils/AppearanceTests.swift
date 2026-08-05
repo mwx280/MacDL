@@ -1,6 +1,7 @@
 import Testing
 @testable import MacDL
 
+@MainActor
 @Suite struct AppearanceTests {
     @Test func appearanceAllCasesExist() {
         #expect(Appearance.allCases.count == 3)

@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import MacDL
 
+@MainActor
 @Suite struct FormattersTests {
     @Test func formatSpeedZero() {
         let result = formatSpeed(0)

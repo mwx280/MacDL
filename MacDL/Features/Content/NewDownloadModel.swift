@@ -6,6 +6,7 @@ import MacDLCore
 // Parsing, validation, resume probing and per-task settings for the new-download
 // sheet, isolated from the view so it is unit-testable. The probe service is
 // injectable; tests pass a stub instead of hitting the network.
+@MainActor
 @Observable
 final class NewDownloadModel {
     var text = ""
@@ -17,11 +18,11 @@ final class NewDownloadModel {
 
     var defaultConnections: Int
     var defaultSpeedLimit: Int
-    private let probe: (URL, @escaping (Bool?) -> Void) -> Void
+    private let probe: (URL, @escaping @MainActor (Bool?) -> Void) -> Void
 
     init(defaultConnections: Int = 8,
          defaultSpeedLimit: Int = 0,
-         probe: @escaping (URL, @escaping (Bool?) -> Void) -> Void = { url, completion in
+         probe: @escaping (URL, @escaping @MainActor (Bool?) -> Void) -> Void = { url, completion in
              ResumeProbeService.detectResumeSupport(url: url, completion: completion)
          }) {
         self.defaultConnections = defaultConnections

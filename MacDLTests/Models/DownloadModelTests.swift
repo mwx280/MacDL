@@ -3,7 +3,8 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
-@Suite @MainActor struct DownloadModelTests {
+@MainActor
+@Suite struct DownloadModelTests {
     @Test func progressCappedAtOne() {
         let d = Download(id: UUID(), filename: "t.bin", url: "https://e.com/t.bin", totalSize: 100, downloadedSize: 150, downloadSpeed: 0, status: .completed, addedAt: Date())
         #expect(d.progress == 1.0)

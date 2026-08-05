@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 final class SettingsStore {
     static let shared = SettingsStore()
 

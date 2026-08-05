@@ -3,6 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
+@MainActor
 @Suite struct DownloadChunkTests {
     private func makeDownload(totalSize: Int64, downloadedSize: Int64 = 0, chunks: [Chunk] = []) -> Download {
         Download(filename: "t.bin", url: "https://e.com/t.bin", totalSize: totalSize,

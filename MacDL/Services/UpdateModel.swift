@@ -3,16 +3,17 @@ import Observation
 
 // Shared update state so the app-launch auto-check and the Settings pane see
 // the same status (e.g. a background download is already finished when the pane opens).
+@MainActor
 @Observable
 final class UpdateModel {
     static let shared = UpdateModel()
 
     private let latestRelease: () async throws -> UpdateService.Release?
-    private let downloadAsset: (UpdateService.Asset, @escaping (Double) -> Void) async throws -> URL
+    private let downloadAsset: (UpdateService.Asset, @escaping @Sendable (Double) -> Void) async throws -> URL
     private let installer: (URL) async throws -> Void
 
     init(latestRelease: @escaping () async throws -> UpdateService.Release? = { try await UpdateService.latestRelease() },
-         downloadAsset: @escaping (UpdateService.Asset, @escaping (Double) -> Void) async throws -> URL = { asset, progress in
+         downloadAsset: @escaping (UpdateService.Asset, @escaping @Sendable (Double) -> Void) async throws -> URL = { asset, progress in
              try await UpdateService.download(asset, progress: progress)
          },
          installer: @escaping (URL) async throws -> Void = { try await UpdateService.install(dmgURL: $0) }) {

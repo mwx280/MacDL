@@ -2,6 +2,7 @@ import Testing
 import MacDLCore
 @testable import MacDL
 
+@MainActor
 @Suite struct DownloadStatusDisplayTests {
     @Test(arguments: [
         (DownloadStatus.active, "arrow.down.circle.fill"),

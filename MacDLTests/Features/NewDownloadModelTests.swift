@@ -3,6 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
+@MainActor
 @Suite struct NewDownloadModelTests {
     @Test func parsesValidAndInvalidLines() {
         let m = NewDownloadModel()

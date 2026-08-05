@@ -6,7 +6,9 @@ enum Appearance: String, CaseIterable {
     case light
     case dark
 
-    var displayKey: String {
+    // Pure lookup; nonisolated so it stays callable from any context (apply()
+    // touches NSApp and is inferred as main-actor isolated).
+    nonisolated var displayKey: String {
         switch self {
         case .system: "Follow System"
         case .light: "Light"

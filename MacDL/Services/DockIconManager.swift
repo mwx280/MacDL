@@ -2,6 +2,7 @@ import AppKit
 
 // Hides the Dock icon when every window is closed (pure menu-bar background app)
 // and restores it when a window becomes visible again.
+@MainActor
 final class DockIconManager {
     static let shared = DockIconManager()
 

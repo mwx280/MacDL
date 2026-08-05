@@ -3,6 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
+@MainActor
 @Suite struct DownloadPersistenceTests {
     private func tempFile() -> URL {
         let dir = FileManager.default.temporaryDirectory

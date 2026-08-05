@@ -3,6 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
+@MainActor
 @Suite struct DownloadFileTypeTests {
     @Test(arguments: [
         ("video.iso", "opticaldisc"),

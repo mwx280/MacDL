@@ -475,15 +475,23 @@ final class DownloadService {
 
     // MARK: - File integrity
 
+    /// A snapshot of a download's staging file, safe to probe off the main
+    /// thread.
+    private struct MissingFile: Sendable {
+        let id: UUID
+        let status: DownloadStatus
+        let path: String
+    }
+
     /// Records an error state that survives language switches: stores the
     /// catalog key for re-localization at display time.
     private func checkDownloadFiles() {
         // Snapshot paths on the main thread, then probe the filesystem off-main
         // so fileExists I/O never blocks the UI.
-        let toCheck = downloads.compactMap { d -> (id: UUID, status: DownloadStatus, path: String)? in
+        let toCheck = downloads.compactMap { d -> MissingFile? in
             guard d.status == .active || d.status == .paused else { return nil }
             if d.totalSize == 0, d.downloadedSize == 0 { return nil }
-            return (d.id, d.status, DownloadPath.staging(for: d).path)
+            return MissingFile(id: d.id, status: d.status, path: DownloadPath.staging(for: d).path)
         }
         guard !toCheck.isEmpty else { return }
         Task.detached { [weak self] in
@@ -495,7 +503,7 @@ final class DownloadService {
         }
     }
 
-    private func handleMissingFiles(_ missing: [(id: UUID, status: DownloadStatus, path: String)]) {
+    private func handleMissingFiles(_ missing: [MissingFile]) {
         for item in missing {
             guard let idx = store.index(of: item.id) else { continue }
             // Re-check the live status; it may have completed since the snapshot.

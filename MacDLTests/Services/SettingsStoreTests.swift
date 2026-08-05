@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import MacDL
 
+@MainActor
 @Suite(.serialized) struct SettingsStoreTests {
     let store = SettingsStore.shared
 

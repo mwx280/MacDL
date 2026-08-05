@@ -3,6 +3,7 @@ import Foundation
 import MacDLCore
 @testable import MacDL
 
+@MainActor
 let testDownloads: [Download] = [
     Download(filename: "ubuntu.iso", url: "https://example.com/ubuntu.iso", totalSize: 1000, downloadedSize: 500, downloadSpeed: 100, status: .active),
     Download(filename: "movie.mkv", url: "https://example.com/movie.mkv", totalSize: 2000, downloadedSize: 2000, downloadSpeed: 0, status: .completed),
