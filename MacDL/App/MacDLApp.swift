@@ -161,6 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         // macdl:// deep links (from the widget, bookmarklets, Shortcuts or the
         // terminal) hand a download to the app; non-macdl opens are ignored.
+        let handledMacDL = urls.contains { MacDLURL.isClipboardAction($0) || MacDLURL.downloadURL(from: $0) != nil }
         for url in urls {
             if MacDLURL.isClipboardAction(url) {
                 ContentViewModel.shared.downloadFromClipboard()
@@ -169,6 +170,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let target = MacDLURL.downloadURL(from: url) {
                 ContentViewModel.shared.addDownload(url: target)
             }
+        }
+        if handledMacDL {
+            // The deep link's activation must not surface the main window; hide
+            // any that slipped in and suppress ones still about to appear.
+            MacDLWindowHider.findMainWindow()?.orderOut(nil)
+            MacDLWindowHider.shared.suppress()
+            DockIconManager.shared.update()
         }
     }
 

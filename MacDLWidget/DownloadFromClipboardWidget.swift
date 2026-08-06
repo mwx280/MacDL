@@ -48,10 +48,10 @@ struct DownloadFromClipboardWidgetView: View {
             }
             Text(verbatim: "MacDL")
                 .font(.headline)
-            Text(verbatim: "Download from Clipboard")
+            Text("Download from Clipboard")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text(verbatim: "Copy a link, then tap")
+            Text("Copy a link, then tap")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
