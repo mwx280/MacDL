@@ -3598,6 +3598,40 @@
         }
       }
     },
+    "Resume Downloads on Launch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume Downloads on Launch"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动后自动开始下载"
+          }
+        }
+      }
+    },
+    "Resume Downloads on Launch description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-resume the downloads that were in progress when the app quit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动恢复上次退出时仍在进行中的下载"
+          }
+        }
+      }
+    },
     "You're up to date" : {
       "extractionState" : "manual",
       "localizations" : {

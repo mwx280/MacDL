@@ -6,6 +6,7 @@ struct DownloadPane: View {
     @State private var maxConcurrent: Int
     @State private var downloadPath: String
     @State private var maxDownloadSpeed: Int
+    @AppStorage("autoResumeOnLaunch") private var autoResumeOnLaunch = false
 
     private let connectionOptions = [1, 2, 4, 8]
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
@@ -50,6 +51,15 @@ struct DownloadPane: View {
                     .onChange(of: maxConcurrent) { _, v in
                         SettingsStore.shared.maxConcurrentDownloads = v
                     }
+                }
+
+                divider
+
+                prefRow("play.circle", "Resume Downloads on Launch") {
+                    Toggle("", isOn: $autoResumeOnLaunch)
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .help(LanguageManager.shared.localized("Resume Downloads on Launch description"))
                 }
             }
 

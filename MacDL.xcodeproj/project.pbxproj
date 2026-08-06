@@ -26,6 +26,16 @@
 		"F261E0EC-4C28-45E0-889C-A5CC7D7596E8" /* MacDLTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacDLTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		"F1D2E3C4-5B6A-4C7D-8E9F-0A1B2C3D4E5F" /* Exceptions for "MacDL" folder in "MacDL" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Info-Additional.plist",
+			);
+			target = 58D1C36B301A5754003A4EEB /* MacDL */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		58D1C36E301A5754003A4EEB /* MacDL */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;

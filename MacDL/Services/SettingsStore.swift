@@ -83,4 +83,10 @@ final class SettingsStore {
         get { defaults.object(forKey: "launchInBackground") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "launchInBackground") }
     }
+
+    /// Resume tasks that were downloading when the app quit, on next launch.
+    var autoResumeOnLaunch: Bool {
+        get { defaults.object(forKey: "autoResumeOnLaunch") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "autoResumeOnLaunch") }
+    }
 }

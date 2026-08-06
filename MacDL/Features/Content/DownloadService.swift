@@ -52,10 +52,16 @@ final class DownloadService {
             if isProbing { self.probingDownloads.insert(id) } else { self.probingDownloads.remove(id) }
         }
         // A fresh app launch must not keep tasks from a previous session running.
+        let wasActive = store.downloads.filter { $0.status == .active }.map(\.id)
         for i in store.downloads.indices where store.downloads[i].status == .active {
             store.downloads[i].status = .paused
         }
         priority.restoreFromStore()
+        // When enabled, pick up exactly the tasks that were still downloading at
+        // quit time; manually paused ones stay paused.
+        if settings.autoResumeOnLaunch {
+            for id in wasActive { resumeDownload(id: id) }
+        }
     }
 
     // MARK: - Clipboard / Links
