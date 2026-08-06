@@ -159,11 +159,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        // macdl:// deep links (from bookmarklets, Shortcuts or the terminal)
-        // hand a download URL to the app; non-macdl opens are ignored.
+        // macdl:// deep links (from the widget, bookmarklets, Shortcuts or the
+        // terminal) hand a download to the app; non-macdl opens are ignored.
         for url in urls {
-            guard let target = MacDLURL.downloadURL(from: url) else { continue }
-            ContentViewModel.shared.addDownload(url: target)
+            if MacDLURL.isClipboardAction(url) {
+                ContentViewModel.shared.downloadFromClipboard()
+                continue
+            }
+            if let target = MacDLURL.downloadURL(from: url) {
+                ContentViewModel.shared.addDownload(url: target)
+            }
         }
     }
 

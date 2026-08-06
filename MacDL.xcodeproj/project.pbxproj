@@ -12,6 +12,23 @@
 		"A1B2C3D4-0000-4A9B-8C2D-444444444444" /* MacDLWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = "A1B2C3D4-0000-4A9B-8C2D-333333333333" /* MacDLWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		"B1C2D3E4-0000-4A9B-8C2D-555555555555" /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = "A1B2C3D4-0000-4A9B-8C2D-555555555555";
+			remoteInfo = MacDLWidget;
+		};
+		E5C0A1000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 58D1C36B301A5754003A4EEB;
+			remoteInfo = MacDL;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		"B1C2D3E4-0000-4A9B-8C2D-444444444444" /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -26,44 +43,26 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-/* Begin PBXContainerItemProxy section */
-		E5C0A1000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 58D1C36B301A5754003A4EEB;
-			remoteInfo = MacDL;
-		};
-		"B1C2D3E4-0000-4A9B-8C2D-555555555555" /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 58D1C364301A5754003A4EEB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = "A1B2C3D4-0000-4A9B-8C2D-555555555555";
-			remoteInfo = MacDLWidget;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
 		58D1C36C301A5754003A4EEB /* MacDL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacDL.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		"F261E0EC-4C28-45E0-889C-A5CC7D7596E8" /* MacDLTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacDLTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		"A1B2C3D4-0000-4A9B-8C2D-333333333333" /* MacDLWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacDLWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		"F261E0EC-4C28-45E0-889C-A5CC7D7596E8" /* MacDLTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacDLTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		"F1D2E3C4-5B6A-4C7D-8E9F-0A1B2C3D4E5F" /* Exceptions for "MacDL" folder in "MacDL" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info-Additional.plist,
-			);
-			target = 58D1C36B301A5754003A4EEB /* MacDL */;
-		};
 		"A1B2C3D4-0000-4A9B-8C2D-222222222222" /* Exceptions for "MacDLWidget" folder in "MacDLWidget" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				"Widget-Info-Additional.plist",
-				"Widget.entitlements",
 			);
 			target = "A1B2C3D4-0000-4A9B-8C2D-555555555555" /* MacDLWidget */;
+		};
+		"F1D2E3C4-5B6A-4C7D-8E9F-0A1B2C3D4E5F" /* Exceptions for "MacDL" folder in "MacDL" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Info-Additional.plist",
+			);
+			target = 58D1C36B301A5754003A4EEB /* MacDL */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -100,18 +99,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		"B1C2D3E4-0000-4A9B-8C2D-222222222222" /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		"E1498D0A-E36F-411C-BAA2-DC929660E3A2" /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				5866C30A301E9D2E00F0FD4D /* MacDLCore in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		"B1C2D3E4-0000-4A9B-8C2D-222222222222" /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -299,15 +298,15 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		E5C0A1000000000000000002 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 58D1C36B301A5754003A4EEB /* MacDL */;
-			targetProxy = E5C0A1000000000000000001 /* PBXContainerItemProxy */;
-		};
 		"B1C2D3E4-0000-4A9B-8C2D-666666666666" /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = "A1B2C3D4-0000-4A9B-8C2D-555555555555" /* MacDLWidget */;
 			targetProxy = "B1C2D3E4-0000-4A9B-8C2D-555555555555" /* PBXContainerItemProxy */;
+		};
+		E5C0A1000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 58D1C36B301A5754003A4EEB /* MacDL */;
+			targetProxy = E5C0A1000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -488,6 +487,60 @@
 			};
 			name = Release;
 		};
+		"A1B2C3D4-0000-4A9B-8C2D-777777777777" /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MacDLWidget/Widget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MacDLWidget/Widget-Info-Additional.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "MacDL Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaowu.MacDL.Widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		"A1B2C3D4-0000-4A9B-8C2D-888888888888" /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MacDLWidget/Widget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MacDLWidget/Widget-Info-Additional.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "MacDL Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaowu.MacDL.Widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 		"B6B8BA38-CC40-48D5-8E46-9FAF603351F3" /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -526,60 +579,6 @@
 			};
 			name = Debug;
 		};
-		"A1B2C3D4-0000-4A9B-8C2D-777777777777" /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = MacDLWidget/Widget.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MacDLWidget/Widget-Info-Additional.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "MacDL Widget";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@executable_path/../../../../Frameworks",
-				);
-				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.xiaowu.MacDL.Widget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
-		};
-		"A1B2C3D4-0000-4A9B-8C2D-888888888888" /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = MacDLWidget/Widget.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_APP_SANDBOX = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MacDLWidget/Widget-Info-Additional.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "MacDL Widget";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@executable_path/../../../../Frameworks",
-				);
-				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.xiaowu.MacDL.Widget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -601,20 +600,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		"AB0F415B-0A5A-4C86-A4E9-455D93037564" /* Build configuration list for PBXNativeTarget "MacDLTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				"DF0ADBE1-47AA-45F8-9F25-2EA3517F135A" /* Debug */,
-				"B6B8BA38-CC40-48D5-8E46-9FAF603351F3" /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		"A1B2C3D4-0000-4A9B-8C2D-666666666666" /* Build configuration list for PBXNativeTarget "MacDLWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				"A1B2C3D4-0000-4A9B-8C2D-777777777777" /* Debug */,
 				"A1B2C3D4-0000-4A9B-8C2D-888888888888" /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		"AB0F415B-0A5A-4C86-A4E9-455D93037564" /* Build configuration list for PBXNativeTarget "MacDLTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				"DF0ADBE1-47AA-45F8-9F25-2EA3517F135A" /* Debug */,
+				"B6B8BA38-CC40-48D5-8E46-9FAF603351F3" /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

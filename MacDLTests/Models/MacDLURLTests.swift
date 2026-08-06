@@ -40,4 +40,18 @@ import Foundation
     @Test func rejectsTargetWithoutHost() throws {
         #expect(MacDLURL.downloadURL(from: link("macdl://add?url=https%3A%2F%2F%2Fpath")) == nil)
     }
+
+    @Test func clipboardActionRecognized() throws {
+        #expect(MacDLURL.isClipboardAction(link("macdl://clipboard")))
+        #expect(MacDLURL.isClipboardAction(link("macdl://CLIPBOARD")))
+    }
+
+    @Test func clipboardActionNotDownloadURL() throws {
+        #expect(MacDLURL.downloadURL(from: link("macdl://clipboard")) == nil)
+    }
+
+    @Test func addLinkIsNotClipboardAction() throws {
+        #expect(!MacDLURL.isClipboardAction(link("macdl://add?url=https%3A%2F%2Fexample.com%2Fa.bin")))
+        #expect(!MacDLURL.isClipboardAction(link("https://example.com")))
+    }
 }
