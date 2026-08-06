@@ -329,6 +329,42 @@ import MacDLCore
         #expect(updated?.errorKey == "Download file has been deleted")
     }
 
+    @Test func missingStagingFilePostsFailedNotification() async throws {
+        let engine = FakeEngine()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-missing-notif-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore(), notifier: notifier)
+        let d = Download(filename: "gone.bin", url: "https://example.com/gone.bin", totalSize: 1000, downloadedSize: 500, status: .active, savePath: tempDir.path)
+        vm.downloads = [d]
+        vm.service.checkFilesAndPersistIfNeeded()
+        await waitForCondition { vm.downloads.first { $0.id == d.id }?.status == .error }
+        #expect(requests.contains { $0.identifier == d.id.uuidString + "-failed" && $0.content.body.hasPrefix("gone.bin — ") })
+    }
+
+    @Test func missingStagingFileStartsWaitingDownload() async throws {
+        let engine = FakeEngine()
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-missing-waiting-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let suite = "missing-waiting-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let settings = SettingsStore(defaults: defaults)
+        settings.maxConcurrentDownloads = 1
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: settings)
+        let active = Download(filename: "gone.bin", url: "https://example.com/gone.bin", totalSize: 1000, downloadedSize: 500, status: .active, savePath: tempDir.path)
+        let waiting = Download(filename: "wait.bin", url: "https://example.com/wait.bin", status: .waiting)
+        vm.downloads = [active, waiting]
+        vm.service.checkFilesAndPersistIfNeeded()
+        await waitForCondition { vm.downloads.first { $0.id == active.id }?.status == .error }
+        await drainMain()
+        #expect(vm.downloads.first { $0.id == waiting.id }?.status == .active)
+        #expect(engine.started.contains(waiting.id))
+    }
+
     @Test func clearSelectedDeletesFiles() throws {
         let engine = FakeEngine()
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("dl-bulk-\(UUID().uuidString)")

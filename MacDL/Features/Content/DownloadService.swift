@@ -521,8 +521,13 @@ final class DownloadService {
             downloads[idx].status = .error
             recordError(id: item.id, key: "Download file has been deleted")
             coordinator.progress.unpublish(for: item.id)
+            // Surface the failure like any engine error (gated by notifyFailed).
+            notifier.notifyFailed(downloads[idx])
         }
         store.save()
+        // A deleted in-flight download just released a concurrency slot; let the
+        // next waiting task take it over.
+        startNextWaitingDownload()
     }
 
     // MARK: - Persistence
