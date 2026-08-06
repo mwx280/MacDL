@@ -39,6 +39,9 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		58D1C36E301A5754003A4EEB /* MacDL */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				"F1D2E3C4-5B6A-4C7D-8E9F-0A1B2C3D4E5F" /* Exceptions for "MacDL" folder in "MacDL" target */,
+			);
 			path = MacDL;
 			sourceTree = "<group>";
 		};
@@ -345,6 +348,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MacDL/Info-Additional.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -373,6 +377,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "MacDL/Info-Additional.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
