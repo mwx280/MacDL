@@ -90,6 +90,7 @@ struct MacDLApp: App {
 
     @MainActor
     static func hideWindow() {
+        MacDLWindowHider.shared.markHidden()
         NSApp.windows.first?.orderOut(nil)
     }
 
@@ -172,12 +173,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         if handledMacDL {
-            // In menu-bar-only mode a deep-link activation must not raise the
-            // main window (reopen is suppressed below). Fold back anything that
-            // surfaces while the user hasn't explicitly opened the window.
-            if SettingsStore.shared.hideDockIconOnClose, !MacDLWindowHider.isMainWindowVisible() {
-                MacDLWindowHider.shared.suppress()
-            }
+            // The hider keeps the window folded in menu-bar mode; just make sure
+            // the activation policy matches the setting after the activation.
             DockIconManager.shared.update()
         }
     }

@@ -1,25 +1,29 @@
 import AppKit
 
-// Folds back the main window after a macdl:// deep link wakes the app (e.g.
-// tapping the download-from-clipboard widget). LaunchServices activates the app
-// and would otherwise raise the main window even from a menu-bar-only start;
-// this hides it whenever it surfaces during a short suppression window. Only
-// triggered by macdl:// handling, so normal window control is untouched.
+// In menu-bar-only mode (hideDockIconOnClose) the main window is only shown
+// when the user explicitly asks for it (Show Window). Deep-link activations
+// (e.g. tapping the widget) never raise it: the window is folded back the
+// moment it becomes key. Driven by user intent rather than timing, so it holds
+// no matter how late the window is created or which path surfaces it.
 @MainActor
 final class MacDLWindowHider {
     static let shared = MacDLWindowHider()
 
-    private var suppressUntil: Date = .distantPast
+    /// True after the user asked to show the window; false after hiding or
+    /// closing it, and initially in launch-in-background mode.
+    private var userWantsVisible: Bool
+
+    func markUserWantsVisible() { userWantsVisible = true }
+    func markHidden() { userWantsVisible = false }
 
     private init() {
+        userWantsVisible = !SettingsStore.shared.launchInBackground
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidBecomeKey(_:)),
             name: NSWindow.didBecomeKeyNotification, object: nil)
-    }
-
-    /// Hides surfaced windows for `interval` seconds after a macdl:// open.
-    func suppress(interval: TimeInterval = 5) {
-        suppressUntil = Date().addingTimeInterval(interval)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowWillClose(_:)),
+            name: NSWindow.willCloseNotification, object: nil)
     }
 
     /// The main download window: tagged "main" by SwiftUI, otherwise matched by
@@ -43,12 +47,20 @@ final class MacDLWindowHider {
 
     @objc private func windowDidBecomeKey(_ note: Notification) {
         guard let window = note.object as? NSWindow,
-              Date() < suppressUntil,
+              SettingsStore.shared.hideDockIconOnClose,
+              !userWantsVisible,
               !Self.isSettingsWindow(window),
               window.canBecomeKey,
               window.styleMask.contains(.titled)
         else { return }
         window.orderOut(nil)
         DockIconManager.shared.update()
+    }
+
+    @objc private func windowWillClose(_ note: Notification) {
+        guard let window = note.object as? NSWindow,
+              window === Self.findMainWindow()
+        else { return }
+        markHidden()
     }
 }
