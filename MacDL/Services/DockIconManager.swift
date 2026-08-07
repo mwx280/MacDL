@@ -21,38 +21,29 @@ final class DockIconManager {
             // Let the window actually finish closing before re-checking visibility.
             DispatchQueue.main.async { self?.update() }
         }
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.update()
-        }
+        // No didBecomeKeyNotification observer: reactive window-key → .regular
+        // promotion is what causes the Dock flicker during URL-scheme activation.
+        // Instead, explicit callers (showWindow, reopen) drive the policy change.
     }
 
     func update() {
         guard NSApp != nil else { return }
         let before = NSApp.activationPolicy()
         let policy: NSApplication.ActivationPolicy
-        if isHandlingDeepLink {
-            // Widget taps and other deep links must never surface the Dock
-            // icon — not even a flicker — because system activation for URL
-            // delivery may make a window key before the handler can react.
+        // Only titled windows count: the menu bar's pop-up window also becomes
+        // key while tracking, and treating it as a real window would re-show
+        // the Dock icon just from hovering the menu.
+        let hasRealWindow = NSApp.windows.contains {
+            $0.isVisible && $0.canBecomeKey && $0.styleMask.contains(.titled)
+        }
+        // Launch-in-background hides the Dock icon too, so a background start
+        // with no visible window never leaves one lingering.
+        let hide = SettingsStore.shared.hideDockIconOnClose
+        let background = SettingsStore.shared.launchInBackground
+        if (hide || background), !hasRealWindow {
             policy = .accessory
         } else {
-            // Only titled windows count: the menu bar's pop-up window also becomes
-            // key while tracking, and treating it as a real window would re-show
-            // the Dock icon just from hovering the menu.
-            let hasRealWindow = NSApp.windows.contains {
-                $0.isVisible && $0.canBecomeKey && $0.styleMask.contains(.titled)
-            }
-            // Launch-in-background hides the Dock icon too, so a background start
-            // with no visible window never leaves one lingering.
-            let hide = SettingsStore.shared.hideDockIconOnClose
-            let background = SettingsStore.shared.launchInBackground
-            if (hide || background), !hasRealWindow {
-                policy = .accessory
-            } else {
-                policy = .regular
-            }
+            policy = .regular
         }
         if NSApp.activationPolicy() != policy {
             NSApp.setActivationPolicy(policy)

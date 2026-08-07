@@ -87,6 +87,7 @@ struct MacDLApp: App {
     static func showWindow() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        DockIconManager.shared.update()
     }
 
     @MainActor
@@ -198,7 +199,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // activations (e.g. the widget) from surfacing the window at any time,
     // regardless of when the last link was handled.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        !SettingsStore.shared.hideDockIconOnClose
+        let shouldReopen = !SettingsStore.shared.hideDockIconOnClose
+        if shouldReopen {
+            // The system will bring the main window back; update the policy
+            // so the Dock icon appears for the restored window.
+            DispatchQueue.main.async { DockIconManager.shared.update() }
+        }
+        return shouldReopen
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
