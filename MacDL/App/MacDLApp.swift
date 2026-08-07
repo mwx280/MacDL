@@ -164,6 +164,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // macdl:// deep links (from the widget, bookmarklets, Shortcuts or the
         // terminal) hand a download to the app; non-macdl opens are ignored.
         let handledMacDL = urls.contains { MacDLURL.isClipboardAction($0) || MacDLURL.downloadURL(from: $0) != nil }
+        if handledMacDL {
+            // Immediately lock the activation policy to accessory so the Dock
+            // icon never flickers — the system activation for URL delivery can
+            // make a window key before this handler runs, and DockIconManager
+            // would otherwise promote to .regular.
+            DockIconManager.shared.isHandlingDeepLink = true
+            // Fold any lingering main window: the window‑key event may fire
+            // on the next runloop turn and it must see isHandlingDeepLink=true.
+            if let main = MacDLWindowHider.findMainWindow(), main.isVisible {
+                main.orderOut(nil)
+            }
+        }
+        EngineLog.app.debug("open urls=\(urls.map(\.absoluteString).joined(separator: ",")) handled=\(handledMacDL ? 1 : 0) policy=\(NSApp.activationPolicy().rawValue) windows=\(NSApp.windows.map { $0.isVisible ? "V" : "H" }.joined())")
         for url in urls {
             if MacDLURL.isClipboardAction(url) {
                 ContentViewModel.shared.downloadFromClipboard()
@@ -174,8 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         if handledMacDL {
-            // The hider keeps the window folded in menu-bar mode; just make sure
-            // the activation policy matches the setting after the activation.
+            DockIconManager.shared.isHandlingDeepLink = false
             DockIconManager.shared.update()
         }
     }
@@ -192,6 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidBecomeActive(_ notification: Notification) {
         // Deep-link activation may have pulled the app to the foreground; once
         // it settles, restore the activation policy the settings ask for.
+        EngineLog.app.debug("didBecomeActive policy=\(NSApp.activationPolicy().rawValue) windows=\(NSApp.windows.map { $0.isVisible ? "V" : "H" }.joined())")
         DockIconManager.shared.update()
     }
 

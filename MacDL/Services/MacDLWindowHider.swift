@@ -1,4 +1,5 @@
 import AppKit
+import MacDLCore
 
 // In menu-bar-only mode (hideDockIconOnClose) the main window is only shown
 // when the user explicitly asks for it (Show Window). Deep-link activations
@@ -46,13 +47,15 @@ final class MacDLWindowHider {
     }
 
     @objc private func windowDidBecomeKey(_ note: Notification) {
-        guard let window = note.object as? NSWindow,
-              SettingsStore.shared.hideDockIconOnClose,
-              !userWantsVisible,
-              !Self.isSettingsWindow(window),
-              window.canBecomeKey,
-              window.styleMask.contains(.titled)
-        else { return }
+        guard let window = note.object as? NSWindow else { return }
+        let deepLink = DockIconManager.shared.isHandlingDeepLink
+        let gate = (SettingsStore.shared.hideDockIconOnClose || deepLink)
+            && !userWantsVisible
+            && !Self.isSettingsWindow(window)
+            && window.canBecomeKey
+            && window.styleMask.contains(.titled)
+        EngineLog.app.debug("hider didBecomeKey title=\(window.title) gate=\(gate ? 1 : 0) wants=\(userWantsVisible ? 1 : 0) hide=\(SettingsStore.shared.hideDockIconOnClose ? 1 : 0) dl=\(deepLink ? 1 : 0) visible=\(window.isVisible ? 1 : 0)")
+        guard gate else { return }
         window.orderOut(nil)
         DockIconManager.shared.update()
     }
