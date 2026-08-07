@@ -29,6 +29,7 @@ struct MacDLApp: App {
             performFirstLaunchSetupIfNeeded()
         }
         _ = DockIconManager.shared
+        _ = MacDLWindowHider.shared
     }
 
     var body: some Scene {
