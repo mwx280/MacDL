@@ -73,6 +73,11 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: "launchAtLogin") }
     }
 
+    var hideDockIconOnClose: Bool {
+        get { defaults.bool(forKey: "hideDockIconOnClose") }
+        set { defaults.set(newValue, forKey: "hideDockIconOnClose") }
+    }
+
     /// Launch without showing the main window, keeping only the menu bar icon.
     var launchInBackground: Bool {
         get { defaults.object(forKey: "launchInBackground") as? Bool ?? true }
