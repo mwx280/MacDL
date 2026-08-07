@@ -162,9 +162,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // macdl:// deep links (from the widget, bookmarklets, Shortcuts or the
         // terminal) hand a download to the app; non-macdl opens are ignored.
         let handledMacDL = urls.contains { MacDLURL.isClipboardAction($0) || MacDLURL.downloadURL(from: $0) != nil }
-        if handledMacDL {
-            suppressReopenUntil = Date().addingTimeInterval(5)
-        }
         for url in urls {
             if MacDLURL.isClipboardAction(url) {
                 ContentViewModel.shared.downloadFromClipboard()
@@ -175,32 +172,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         if handledMacDL {
-            // The deep link's activation must not surface the main window; hide
-            // any that slipped in and suppress ones still about to appear.
-            MacDLWindowHider.findMainWindow()?.orderOut(nil)
-            MacDLWindowHider.shared.suppress()
+            // In menu-bar-only mode a deep-link activation must not raise the
+            // main window (reopen is suppressed below). Fold back anything that
+            // surfaces while the user hasn't explicitly opened the window.
+            if SettingsStore.shared.hideDockIconOnClose, !MacDLWindowHider.isMainWindowVisible() {
+                MacDLWindowHider.shared.suppress()
+            }
             DockIconManager.shared.update()
         }
     }
 
     // AppKit asks whether to reopen the main window when the app is activated
-    // with no visible window (e.g. the deep-link activation from the widget).
-    // Returning false here stops the window from being shown in the first
-    // place; the window is only allowed back once the suppression expires.
+    // with no visible window. In menu-bar-only mode there is no Dock icon to
+    // click, so reopen never applies; returning false also keeps deep-link
+    // activations (e.g. the widget) from surfacing the window at any time,
+    // regardless of when the last link was handled.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        !(Date() < suppressReopenUntil)
+        !SettingsStore.shared.hideDockIconOnClose
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        // The deep link's activation brings the app to the foreground (Dock
-        // icon included). Once it settles, fold back to the menu-bar-only
-        // policy so a widget tap behaves like the menu bar's clipboard action.
-        if Date() < suppressReopenUntil {
-            DockIconManager.shared.update()
-        }
+        // Deep-link activation may have pulled the app to the foreground; once
+        // it settles, restore the activation policy the settings ask for.
+        DockIconManager.shared.update()
     }
-
-    private var suppressReopenUntil: Date = .distantPast
 
     func applicationWillTerminate(_ notification: Notification) {
         EngineLog.app.notice("willTerminate")

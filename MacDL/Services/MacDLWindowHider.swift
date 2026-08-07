@@ -30,6 +30,12 @@ final class MacDLWindowHider {
             ?? NSApp.windows.first { $0.canBecomeKey && !isSettingsWindow($0) }
     }
 
+    /// True while the main download window is actually on screen.
+    static func isMainWindowVisible() -> Bool {
+        guard let window = findMainWindow() else { return false }
+        return window.isVisible && window.canBecomeKey && window.styleMask.contains(.titled)
+    }
+
     static func isSettingsWindow(_ window: NSWindow) -> Bool {
         let t = window.title.lowercased()
         return t.contains("settings") || t.contains("preferences") || t.contains("设置")
