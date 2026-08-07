@@ -4,7 +4,6 @@ import AppKit
 struct GeneralPane: View {
     @Environment(LanguageManager.self) var lang
     @AppStorage("appearance") private var appearance: Appearance = .system
-    @AppStorage("hideDockIconOnClose") private var hideDockIconOnClose = false
     @AppStorage("launchInBackground") private var launchInBackground = true
     @State private var launchAtLogin = LaunchAtLoginService.isEnabled
     @State private var launchAtLoginFailed = false
@@ -55,17 +54,6 @@ struct GeneralPane: View {
                     ))
                     .toggleStyle(.switch)
                     .controlSize(.mini)
-                }
-
-                divider
-
-                prefRow("rectangle.dashed", "Hide Dock Icon on Close") {
-                    Toggle("", isOn: $hideDockIconOnClose)
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .onChange(of: hideDockIconOnClose) { _, _ in
-                            DockIconManager.shared.update()
-                        }
                 }
 
                 divider

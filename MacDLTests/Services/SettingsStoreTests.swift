@@ -47,15 +47,6 @@ import Foundation
         store.launchAtLogin = original
     }
 
-    @Test func hideDockIconOnClosePersists() {
-        let original = store.hideDockIconOnClose
-        store.hideDockIconOnClose = true
-        #expect(store.hideDockIconOnClose == true)
-        store.hideDockIconOnClose = false
-        #expect(store.hideDockIconOnClose == false)
-        store.hideDockIconOnClose = original
-    }
-
     @Test func autoUpdateDefaultsOn() {
         let original = store.autoUpdate
         store.autoUpdate = false

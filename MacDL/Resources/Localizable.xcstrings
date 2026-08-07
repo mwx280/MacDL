@@ -1512,23 +1512,6 @@
     "github.com/mwx280" : {
 
     },
-    "Hide Dock Icon on Close" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hide Dock Icon on Close"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭窗口后隐藏 Dock 图标"
-          }
-        }
-      }
-    },
     "Hide Window" : {
       "extractionState" : "manual",
       "localizations" : {
