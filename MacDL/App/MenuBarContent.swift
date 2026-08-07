@@ -13,7 +13,6 @@ struct MenuBarContent: View {
         Divider()
 
         Button {
-            MacDLWindowHider.shared.markUserWantsVisible()
             openWindow(id: "main")
             // openWindow creates the window asynchronously; once it exists, activate
             // the app and bring it to the front (accessory mode doesn't do this itself).
@@ -22,7 +21,7 @@ struct MenuBarContent: View {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 200_000_000)
                 NSApp.activate(ignoringOtherApps: true)
-                MacDLWindowHider.findMainWindow()?.makeKeyAndOrderFront(nil)
+                mainWindow?.makeKeyAndOrderFront(nil)
             }
         } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Show Window")) }, icon: { Image(systemName: "macwindow") })

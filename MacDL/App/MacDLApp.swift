@@ -29,7 +29,6 @@ struct MacDLApp: App {
             performFirstLaunchSetupIfNeeded()
         }
         _ = DockIconManager.shared
-        _ = MacDLWindowHider.shared
     }
 
     var body: some Scene {
@@ -87,12 +86,10 @@ struct MacDLApp: App {
     static func showWindow() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first?.makeKeyAndOrderFront(nil)
-        DockIconManager.shared.update()
     }
 
     @MainActor
     static func hideWindow() {
-        MacDLWindowHider.shared.markHidden()
         NSApp.windows.first?.orderOut(nil)
     }
 
@@ -162,58 +159,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        // macdl:// deep links (from the widget, bookmarklets, Shortcuts or the
-        // terminal) hand a download to the app; non-macdl opens are ignored.
-        let handledMacDL = urls.contains { MacDLURL.isClipboardAction($0) || MacDLURL.downloadURL(from: $0) != nil }
-        if handledMacDL {
-            // Immediately lock the activation policy to accessory so the Dock
-            // icon never flickers — the system activation for URL delivery can
-            // make a window key before this handler runs, and DockIconManager
-            // would otherwise promote to .regular.
-            DockIconManager.shared.isHandlingDeepLink = true
-            // Fold any lingering main window: the window‑key event may fire
-            // on the next runloop turn and it must see isHandlingDeepLink=true.
-            if let main = MacDLWindowHider.findMainWindow(), main.isVisible {
-                main.orderOut(nil)
-            }
-        }
-        EngineLog.app.debug("open urls=\(urls.map(\.absoluteString).joined(separator: ",")) handled=\(handledMacDL ? 1 : 0) policy=\(NSApp.activationPolicy().rawValue) windows=\(NSApp.windows.map { $0.isVisible ? "V" : "H" }.joined())")
+        // macdl:// deep links (from bookmarklets, Shortcuts or the terminal)
+        // hand a download URL to the app; non-macdl opens are ignored.
         for url in urls {
-            if MacDLURL.isClipboardAction(url) {
-                ContentViewModel.shared.downloadFromClipboard()
-                continue
-            }
-            if let target = MacDLURL.downloadURL(from: url) {
-                ContentViewModel.shared.addDownload(url: target)
-            }
+            guard let target = MacDLURL.downloadURL(from: url) else { continue }
+            ContentViewModel.shared.addDownload(url: target)
         }
-        if handledMacDL {
-            DockIconManager.shared.isHandlingDeepLink = false
-            DockIconManager.shared.update()
-        }
-    }
-
-    // AppKit asks whether to reopen the main window when the app is activated
-    // with no visible window. In menu-bar-only mode there is no Dock icon to
-    // click, so reopen never applies; returning false also keeps deep-link
-    // activations (e.g. the widget) from surfacing the window at any time,
-    // regardless of when the last link was handled.
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        let shouldReopen = !SettingsStore.shared.hideDockIconOnClose
-        if shouldReopen {
-            // The system will bring the main window back; update the policy
-            // so the Dock icon appears for the restored window.
-            DispatchQueue.main.async { DockIconManager.shared.update() }
-        }
-        return shouldReopen
-    }
-
-    func applicationDidBecomeActive(_ notification: Notification) {
-        // Policy is driven by explicit calls (showWindow, reopen, willClose,
-        // application(_:open:)) — updating here would race with deep-link
-        // handlers and cause rapid .regular ↔ .accessory flips during quick
-        // widget taps, producing ghost Dock icons.
-        EngineLog.app.debug("didBecomeActive policy=\(NSApp.activationPolicy().rawValue) windows=\(NSApp.windows.map { $0.isVisible ? "V" : "H" }.joined())")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
