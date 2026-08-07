@@ -191,6 +191,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         !(Date() < suppressReopenUntil)
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // The deep link's activation brings the app to the foreground (Dock
+        // icon included). Once it settles, fold back to the menu-bar-only
+        // policy so a widget tap behaves like the menu bar's clipboard action.
+        if Date() < suppressReopenUntil {
+            DockIconManager.shared.update()
+        }
+    }
+
     private var suppressReopenUntil: Date = .distantPast
 
     func applicationWillTerminate(_ notification: Notification) {
