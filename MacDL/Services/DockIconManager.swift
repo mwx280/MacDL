@@ -30,20 +30,26 @@ final class DockIconManager {
         guard NSApp != nil else { return }
         let before = NSApp.activationPolicy()
         let policy: NSApplication.ActivationPolicy
-        // Only titled windows count: the menu bar's pop-up window also becomes
-        // key while tracking, and treating it as a real window would re-show
-        // the Dock icon just from hovering the menu.
-        let hasRealWindow = NSApp.windows.contains {
-            $0.isVisible && $0.canBecomeKey && $0.styleMask.contains(.titled)
-        }
-        // Launch-in-background hides the Dock icon too, so a background start
-        // with no visible window never leaves one lingering.
-        let hide = SettingsStore.shared.hideDockIconOnClose
-        let background = SettingsStore.shared.launchInBackground
-        if (hide || background), !hasRealWindow {
+        if isHandlingDeepLink {
+            // Deep-link handling is in progress: hold accessory no matter what
+            // so rapid widget taps never cause a .regular ↔ .accessory flip.
             policy = .accessory
         } else {
-            policy = .regular
+            // Only titled windows count: the menu bar's pop-up window also becomes
+            // key while tracking, and treating it as a real window would re-show
+            // the Dock icon just from hovering the menu.
+            let hasRealWindow = NSApp.windows.contains {
+                $0.isVisible && $0.canBecomeKey && $0.styleMask.contains(.titled)
+            }
+            // Launch-in-background hides the Dock icon too, so a background start
+            // with no visible window never leaves one lingering.
+            let hide = SettingsStore.shared.hideDockIconOnClose
+            let background = SettingsStore.shared.launchInBackground
+            if (hide || background), !hasRealWindow {
+                policy = .accessory
+            } else {
+                policy = .regular
+            }
         }
         if NSApp.activationPolicy() != policy {
             NSApp.setActivationPolicy(policy)

@@ -209,10 +209,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        // Deep-link activation may have pulled the app to the foreground; once
-        // it settles, restore the activation policy the settings ask for.
+        // Policy is driven by explicit calls (showWindow, reopen, willClose,
+        // application(_:open:)) — updating here would race with deep-link
+        // handlers and cause rapid .regular ↔ .accessory flips during quick
+        // widget taps, producing ghost Dock icons.
         EngineLog.app.debug("didBecomeActive policy=\(NSApp.activationPolicy().rawValue) windows=\(NSApp.windows.map { $0.isVisible ? "V" : "H" }.joined())")
-        DockIconManager.shared.update()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
