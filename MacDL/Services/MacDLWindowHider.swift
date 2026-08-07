@@ -3,7 +3,7 @@ import AppKit
 // Folds back the main window after a macdl:// deep link wakes the app (e.g.
 // tapping the download-from-clipboard widget). LaunchServices activates the app
 // and would otherwise raise the main window even from a menu-bar-only start;
-// this hides it whenever it becomes key during a short suppression window. Only
+// this hides it whenever it surfaces during a short suppression window. Only
 // triggered by macdl:// handling, so normal window control is untouched.
 @MainActor
 final class MacDLWindowHider {
@@ -17,7 +17,7 @@ final class MacDLWindowHider {
             name: NSWindow.didBecomeKeyNotification, object: nil)
     }
 
-    /// Hides the main window for `interval` seconds after a macdl:// open.
+    /// Hides surfaced windows for `interval` seconds after a macdl:// open.
     func suppress(interval: TimeInterval = 5) {
         suppressUntil = Date().addingTimeInterval(interval)
     }
@@ -30,7 +30,7 @@ final class MacDLWindowHider {
             ?? NSApp.windows.first { $0.canBecomeKey && !isSettingsWindow($0) }
     }
 
-    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
+    static func isSettingsWindow(_ window: NSWindow) -> Bool {
         let t = window.title.lowercased()
         return t.contains("settings") || t.contains("preferences") || t.contains("设置")
     }
@@ -38,7 +38,9 @@ final class MacDLWindowHider {
     @objc private func windowDidBecomeKey(_ note: Notification) {
         guard let window = note.object as? NSWindow,
               Date() < suppressUntil,
-              window === Self.findMainWindow()
+              !Self.isSettingsWindow(window),
+              window.canBecomeKey,
+              window.styleMask.contains(.titled)
         else { return }
         window.orderOut(nil)
         DockIconManager.shared.update()

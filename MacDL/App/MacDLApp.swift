@@ -162,6 +162,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // macdl:// deep links (from the widget, bookmarklets, Shortcuts or the
         // terminal) hand a download to the app; non-macdl opens are ignored.
         let handledMacDL = urls.contains { MacDLURL.isClipboardAction($0) || MacDLURL.downloadURL(from: $0) != nil }
+        if handledMacDL {
+            suppressReopenUntil = Date().addingTimeInterval(5)
+        }
         for url in urls {
             if MacDLURL.isClipboardAction(url) {
                 ContentViewModel.shared.downloadFromClipboard()
@@ -179,6 +182,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DockIconManager.shared.update()
         }
     }
+
+    // AppKit asks whether to reopen the main window when the app is activated
+    // with no visible window (e.g. the deep-link activation from the widget).
+    // Returning false here stops the window from being shown in the first
+    // place; the window is only allowed back once the suppression expires.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        !(Date() < suppressReopenUntil)
+    }
+
+    private var suppressReopenUntil: Date = .distantPast
 
     func applicationWillTerminate(_ notification: Notification) {
         EngineLog.app.notice("willTerminate")
