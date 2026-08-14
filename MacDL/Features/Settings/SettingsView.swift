@@ -55,7 +55,7 @@ struct SettingsView: View {
         HStack(spacing: 4) {
             ForEach(Pane.allCases) { p in
                 Button {
-                    withAnimation(.snappy(duration: 0.2)) { pane = p }
+                    pane = p
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: p.icon)
@@ -64,13 +64,14 @@ struct SettingsView: View {
                     .font(.callout)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(
-                        pane == p ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
-                        in: Capsule()
-                    )
                     .foregroundStyle(pane == p ? Color.white : Color.primary)
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .background(
+                    pane == p ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
+                    in: Capsule()
+                )
             }
         }
         .padding(4)
@@ -86,12 +87,12 @@ func card(@ViewBuilder content: () -> some View) -> some View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
 }
 
-func prefRow<C: View>(_ icon: String, _ label: String, description: String? = nil, suffix: String? = nil, @ViewBuilder control: () -> C) -> some View {
+func prefRow<C: View>(_ icon: String, _ label: String, description: String? = nil, suffix: String? = nil, color: Color = .secondary, @ViewBuilder control: () -> C) -> some View {
     HStack(spacing: 10) {
         Image(systemName: icon)
             .font(.body)
             .frame(width: 18)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(color)
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 5) {
                 LocalizedText(key: label)

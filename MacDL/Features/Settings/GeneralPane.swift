@@ -12,7 +12,7 @@ struct GeneralPane: View {
     var body: some View {
         VStack(spacing: 16) {
             card {
-                prefRow("globe", "Language") {
+                prefRow("globe", "Language", color: .blue) {
                     Picker(selection: Bindable(lang).selectedLanguage) {
                         ForEach(Language.allCases, id: \.self) { l in
                             LocalizedText(key: l.displayKey).tag(l)
@@ -27,7 +27,7 @@ struct GeneralPane: View {
 
                 divider
 
-                prefRow("circle.lefthalf.filled", "Appearance") {
+                prefRow("circle.lefthalf.filled", "Appearance", color: .purple) {
                     Picker(selection: $appearance) {
                         ForEach(Appearance.allCases, id: \.self) { a in
                             LocalizedText(key: a.displayKey).tag(a)
@@ -41,7 +41,7 @@ struct GeneralPane: View {
 
                 divider
 
-                prefRow("power", "Launch at Login", description: "Launch at Login description") {
+                prefRow("power", "Launch at Login", description: "Launch at Login description", color: .orange) {
                     Toggle("", isOn: Binding(
                         get: { launchAtLogin },
                         set: { newValue in
@@ -59,7 +59,7 @@ struct GeneralPane: View {
 
                 divider
 
-                prefRow("rectangle.dashed", "Hide Dock Icon on Close") {
+                prefRow("rectangle.dashed", "Hide Dock Icon on Close", color: .gray) {
                     Toggle("", isOn: $hideDockIconOnClose)
                         .toggleStyle(.switch)
                         .controlSize(.mini)
@@ -70,7 +70,7 @@ struct GeneralPane: View {
 
                 divider
 
-                prefRow("eye.slash", "Launch in Background", description: "Launch in Background description") {
+                prefRow("eye.slash", "Launch in Background", description: "Launch in Background description", color: .indigo) {
                     Toggle("", isOn: $launchInBackground)
                         .toggleStyle(.switch)
                         .controlSize(.mini)

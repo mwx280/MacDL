@@ -21,7 +21,7 @@ struct DownloadPane: View {
     var body: some View {
         VStack(spacing: 16) {
             card {
-                prefRow("number", "Default Max Connections", description: "Default Max Connections description") {
+                prefRow("number", "Default Max Connections", description: "Default Max Connections description", color: .teal) {
                     Picker(selection: $maxConnections) {
                         ForEach(connectionOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -38,7 +38,7 @@ struct DownloadPane: View {
 
                 divider
 
-                prefRow("arrow.down.to.line", "Max Downloads", description: "Max Downloads description") {
+                prefRow("arrow.down.to.line", "Max Downloads", description: "Max Downloads description", color: .green) {
                     Picker(selection: $maxConcurrent) {
                         ForEach(concurrentOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -55,7 +55,7 @@ struct DownloadPane: View {
 
                 divider
 
-                prefRow("play.circle", "Resume Downloads on Launch", description: "Resume Downloads on Launch description") {
+                prefRow("play.circle", "Resume Downloads on Launch", description: "Resume Downloads on Launch description", color: .blue) {
                     Toggle("", isOn: $autoResumeOnLaunch)
                         .toggleStyle(.switch)
                         .controlSize(.mini)
@@ -63,7 +63,7 @@ struct DownloadPane: View {
             }
 
             card {
-                prefRow("arrow.down", "Download Limit", description: "Download Limit description") {
+                prefRow("arrow.down", "Download Limit", description: "Download Limit description", color: .red) {
                     Picker(selection: $maxDownloadSpeed) {
                         ForEach(speedOptions, id: \.self) { speed in
                             Text(speedLabel(speed))
@@ -88,7 +88,7 @@ struct DownloadPane: View {
                         Image(systemName: "folder")
                             .font(.body)
                             .frame(width: 18)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.yellow)
                         LocalizedText(key: "Download Location")
                             .font(.body)
                         Spacer()

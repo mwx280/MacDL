@@ -14,7 +14,7 @@ struct NotificationsPane: View {
         VStack(spacing: 16) {
             if notificationsEnabled {
                 card {
-                    prefRow("power", "Launch Notification", description: "Launch Notification description", suffix: "Recommended") {
+                    prefRow("power", "Launch Notification", description: "Launch Notification description", suffix: "Recommended", color: .orange) {
                         Toggle("", isOn: $notifyLaunch)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -22,7 +22,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("play.circle", "Download Started") {
+                    prefRow("play.circle", "Download Started", color: .green) {
                         Toggle("", isOn: $notifyStart)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -30,7 +30,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("checkmark.circle.fill", "Download Completed", suffix: "Recommended") {
+                    prefRow("checkmark.circle.fill", "Download Completed", suffix: "Recommended", color: .green) {
                         Toggle("", isOn: $notifyCompleted)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -38,7 +38,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("xmark.circle.fill", "Download failed", suffix: "Recommended") {
+                    prefRow("xmark.circle.fill", "Download failed", suffix: "Recommended", color: .red) {
                         Toggle("", isOn: $notifyFailed)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -46,7 +46,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("arrow.clockwise.circle", "Redownload Prompt", suffix: "Recommended") {
+                    prefRow("arrow.clockwise.circle", "Redownload Prompt", suffix: "Recommended", color: .blue) {
                         Toggle("", isOn: $notifyRedownload)
                             .toggleStyle(.switch)
                             .controlSize(.mini)

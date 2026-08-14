@@ -8,7 +8,7 @@ struct UpdatePane: View {
     var body: some View {
         VStack(spacing: 16) {
             card {
-                prefRow("info.circle", "Current Version") {
+                prefRow("info.circle", "Current Version", color: .blue) {
                     HStack(spacing: 10) {
                         Text(UpdateService.currentVersion)
                             .font(.callout.monospacedDigit())
@@ -19,7 +19,7 @@ struct UpdatePane: View {
 
                 divider
 
-                prefRow("arrow.triangle.2.circlepath", "Auto check and download updates", description: "Auto check and download updates description") {
+                prefRow("arrow.triangle.2.circlepath", "Auto check and download updates", description: "Auto check and download updates description", color: .indigo) {
                     Toggle("", isOn: $autoUpdate)
                         .toggleStyle(.switch)
                         .controlSize(.mini)
