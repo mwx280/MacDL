@@ -42,29 +42,28 @@ import Foundation
         var p = AutoConnectionPolicy(cooldown: 3)
         settle(&p, speed: 1000)
         #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
-        // +20% throughput -> keep the second connection.
-        settle(&p, speed: 1200)
+        // +10% throughput -> keep the second connection (gain < jump threshold).
+        settle(&p, speed: 1100)
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
         // Next evaluation probes one higher.
-        settle(&p, speed: 1200)
+        settle(&p, speed: 1100)
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(6)) == 3)
     }
 
-    @Test func perConnectionThrottleStepsUpToMax() {
+    @Test func perConnectionThrottleReachesMax() {
         // A server that throttles per connection yields linear aggregate gains,
-        // so the policy keeps stepping up to the cap.
+        // so the policy keeps stepping (with jumps) up to the cap.
         var p = AutoConnectionPolicy(maxConnections: 8, gainThreshold: 0.05, cooldown: 3)
         var t = t0
         var conns = 1
         settle(&p, speed: 1000)
-        for expected in 2...8 {
-            #expect(p.evaluate(currentConnections: conns, hasPending: true, now: t) == expected)
-            conns = expected
+        for _ in 0..<40 {
+            if let next = p.evaluate(currentConnections: conns, hasPending: true, now: t) {
+                conns = next
+            }
             t = t.addingTimeInterval(3)
             settle(&p, speed: Int64(conns) * 1000)
-            #expect(p.evaluate(currentConnections: conns, hasPending: true, now: t) == nil)
-            t = t.addingTimeInterval(3)
-            settle(&p, speed: Int64(conns) * 1000)
+            if conns >= 8 { break }
         }
         #expect(conns == 8)
         #expect(p.evaluate(currentConnections: 8, hasPending: true, now: t) == nil)
@@ -114,5 +113,81 @@ import Foundation
         settle(&p, speed: 1100)
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(1)) == nil)
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
+    }
+
+    // MARK: - Latency-weighted cold start
+
+    @Test func initialCountWeightsRTT() {
+        // 8 MiB file, low latency → 2; moderate RTT → 4; high RTT → 6.
+        #expect(AutoConnectionPolicy.initialConnectionCount(fileSize: 8 * 1_048_576, supportsResume: true, rtt: 0) == 2)
+        #expect(AutoConnectionPolicy.initialConnectionCount(fileSize: 8 * 1_048_576, supportsResume: true, rtt: 0.08) == 4)
+        #expect(AutoConnectionPolicy.initialConnectionCount(fileSize: 8 * 1_048_576, supportsResume: true, rtt: 0.2) == 6)
+        // Non-resumable always wins with a single connection.
+        #expect(AutoConnectionPolicy.initialConnectionCount(fileSize: 8 * 1_048_576, supportsResume: false, rtt: 0.5) == 1)
+    }
+
+    // MARK: - Informed one-shot estimate
+
+    @Test func informedEstimateTracksPerConnectionCap() {
+        // Low measured single-connection rate → many connections.
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 32 * 1_048_576, rtt: 0) == 8)
+        // High rate → the link is fast, few connections.
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 3 * 1_048_576, fileSize: 8 * 1_048_576, rtt: 0) == 2)
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 30 * 1_048_576, fileSize: 8 * 1_048_576, rtt: 0) == 1)
+        // Low rate + high RTT → latency bump applies.
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 800 * 1024, fileSize: 32 * 1_048_576, rtt: 0.2) == 6)
+        // Tiny file never over-allocates even on a slow link.
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 1_000, rtt: 0) == 2)
+    }
+
+    // MARK: - Error freeze
+
+    @Test func errorBurstFreezesProbing() {
+        var p = AutoConnectionPolicy(cooldown: 3, errorFreezeThreshold: 3, errorFreezeWindow: 15, errorFreezeRelease: 30)
+        settle(&p, speed: 1000)
+        // Start probing up, then a failure burst hits.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
+        p.recordFailure(now: t0.addingTimeInterval(1))
+        p.recordFailure(now: t0.addingTimeInterval(2))
+        p.recordFailure(now: t0.addingTimeInterval(3)) // third failure → frozen
+        settle(&p, speed: 1100)
+        // Frozen: drop from 2 back to the best known count (1)...
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(6)) == 1)
+        // ...and stay put while the storm is recent.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0.addingTimeInterval(9)) == nil)
+    }
+
+    @Test func freezeReleasesAfterQuietPeriod() {
+        var p = AutoConnectionPolicy(cooldown: 3, errorFreezeThreshold: 1, errorFreezeWindow: 15, errorFreezeRelease: 30)
+        settle(&p, speed: 1000)
+        p.recordFailure(now: t0.addingTimeInterval(1)) // single failure, threshold 1 → frozen
+        // Frozen with current == best: no change.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0.addingTimeInterval(6)) == nil)
+        // After the release window with no new failures, probing resumes.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0.addingTimeInterval(60)) == 2)
+    }
+
+    // MARK: - Adaptive jump
+
+    @Test func strongGainJumpsMultipleConnections() {
+        var p = AutoConnectionPolicy(cooldown: 3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
+        // 2x gain on the probe → next step is +3.
+        settle(&p, speed: 2000)
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
+        settle(&p, speed: 2000)
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(6)) == 5)
+    }
+
+    @Test func moderateGainJumpsTwoConnections() {
+        var p = AutoConnectionPolicy(cooldown: 3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
+        // 1.2x gain → next step is +2.
+        settle(&p, speed: 1200)
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
+        settle(&p, speed: 1200)
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(6)) == 4)
     }
 }

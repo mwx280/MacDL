@@ -24,6 +24,9 @@ public final class ChunkManager {
     private var isAutoConnections = false
     private var autoPolicy = AutoConnectionPolicy()
     private var adaptWorkItem: DispatchWorkItem?
+    private var probeStartTime: Date?
+    private var measuredRTT: TimeInterval = 0
+    private var rttMeasured = false
     private var speedLimit: Int64 = 0
     private var chunks: [Chunk] = []
     private var activeTasks: [Int: ChunkDownloadTask] = [:]
@@ -132,7 +135,11 @@ public final class ChunkManager {
             self.syncQueue.async {
                 guard total > 0 else { return }
                 self.totalSize = total
-                EngineLog.manager.notice("totalSize=\(total)")
+                if let start = self.probeStartTime {
+                    self.measuredRTT = Date().timeIntervalSince(start)
+                    self.rttMeasured = true
+                }
+                EngineLog.manager.notice("totalSize=\(total) rtt=\(self.measuredRTT)")
                 guard !self.singleStreamMode else { return }
                 let built = self.buildChunks(totalSize: total, chunkSize: self.chunkSize)
                 self.chunks = built
@@ -141,7 +148,7 @@ public final class ChunkManager {
                 self.pendingIndices = Array(1..<built.count)
                 if self.isAutoConnections {
                     self.maxConcurrent = max(1, min(
-                        AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true),
+                        AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: self.measuredRTT),
                         EngineConstants.maxAutoConnections))
                     self.startAdaptTimer()
                     EngineLog.manager.notice("auto initial connections=\(self.maxConcurrent)")
@@ -152,6 +159,7 @@ public final class ChunkManager {
             }
         }
         activeTasks[0] = task
+        probeStartTime = Date()
         task.start(resumeFrom: 0)
     }
 
@@ -209,6 +217,18 @@ public final class ChunkManager {
                         self.chunks[index].downloadedSize = self.chunks[index].size
                         self.retryCounts[index] = nil
                         EngineLog.manager.notice("chunk \(index) completed")
+                        // The probe chunk doubles as a single-connection speed
+                        // sample: refine the initial count from its measured
+                        // throughput instead of climbing one step at a time.
+                        if self.isAutoConnections, index == 0, self.rttMeasured, let start = self.probeStartTime {
+                            let elapsed = Date().timeIntervalSince(start)
+                            let rate = elapsed > 0.01 ? Int64(Double(self.chunks[index].downloadedSize) / elapsed) : 0
+                            self.maxConcurrent = Swift.max(1, Swift.min(
+                                AutoConnectionPolicy.informedInitialConnectionCount(
+                                    singleConnRate: rate, fileSize: self.totalSize, rtt: self.measuredRTT),
+                                EngineConstants.maxAutoConnections))
+                            EngineLog.manager.notice("auto informed connections=\(self.maxConcurrent) probeRate=\(rate)")
+                        }
                         if self.totalSize == 0, self.chunks.count == 1, !self.singleStreamMode {
                             EngineLog.manager.notice("probe completed without file size, falling back to single-stream")
                             self.enterSingleStream()
@@ -236,6 +256,11 @@ public final class ChunkManager {
     @discardableResult
     private func handleChunkFailure(_ index: Int, error: Error) -> Bool {
         guard index < chunks.count else { return false }
+        // Feed retryable failures (429/5xx/network) to the auto policy so a
+        // stressed server stops being probed upward.
+        if isAutoConnections, (error as? DownloadError)?.isRetryable != false {
+            autoPolicy.recordFailure()
+        }
         if let dlError = error as? DownloadError, !dlError.isRetryable {
             lastError = error
             chunks[index].status = .failed

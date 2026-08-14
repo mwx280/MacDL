@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   adapts it to observed throughput — IDM-style. It probes one connection at a
   time, keeps additions only when speed grows, and converges at the best count.
   Available in Settings, the New Download sheet and the per-row thread menu.
+  - The Range probe doubles as a latency and single-connection speed sample:
+    high RTT and a low measured rate raise the starting count immediately,
+    so per-connection-throttled or high-latency servers get a fast head start
+    instead of a slow +1 climb.
+  - A burst of retryable failures (429/5xx/network) freezes upward probing and
+    drops back to the best known count, so rate-limited servers are not made
+    worse.
+  - Strong throughput gains make the probe jump +2/+3 connections instead of
+    one, converging faster on large files.
 
 ### Changed
 

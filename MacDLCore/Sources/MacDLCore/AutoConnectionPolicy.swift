@@ -3,15 +3,23 @@ import Foundation
 /// Pure, stateful decision logic for the "Auto" connection count — a
 /// simplified IDM-style adaptive multi-connection controller.
 ///
-/// Confined to one serial queue by the caller (`ChunkManager`): feed it one
-/// smoothed speed sample per second via ``record(speed:)`` and ask it, at most
-/// once per `evaluationInterval`, for the connection count to switch to via
-/// ``evaluate(currentConnections:hasPending:)``. It probes one connection at a
-/// time, keeps the probe only when throughput actually grew, remembers the best
-/// count, and converges once the best speed is stable.
+/// Confined to one serial queue by the caller (`ChunkManager`). Feed it one
+/// smoothed speed sample per second via ``record(speed:)``, signal server
+/// stress via ``recordFailure(now:)``, and ask it, at most once per
+/// `evaluationInterval`, for the connection count to switch to via
+/// ``evaluate(currentConnections:hasPending:now:)``.
 ///
-/// The policy has no timers or I/O, so its behaviour is fully unit-testable
-/// from synthetic speed samples.
+/// The policy combines four signals:
+/// 1. **Latency (RTT)** and file size pick the cold-start connection count.
+/// 2. A measured **single-connection throughput** (from the probe chunk)
+///    estimates the initial count in one shot, replacing trial-and-error.
+/// 3. **Retryable failures** (429/5xx/network) freeze upward probing so a
+///    rate-limited server is not made worse by adding connections.
+/// 4. **Gain magnitude** decides the probe step (big gains jump +2/+3).
+///
+/// It probes, keeps additions only when throughput actually grew, remembers
+/// the best count, and converges once the best speed is stable. No timers or
+/// I/O, so its behaviour is fully unit-testable from synthetic samples.
 public struct AutoConnectionPolicy: Sendable {
     /// Lowest usable connection count.
     public let minConnections: Int
@@ -25,29 +33,72 @@ public struct AutoConnectionPolicy: Sendable {
     public let evaluationInterval: TimeInterval
     /// Evaluations with no change before the policy declares itself converged.
     public let stableEvaluationsToConverge: Int
+    /// Retryable failures inside `errorFreezeWindow` that freeze probing.
+    public let errorFreezeThreshold: Int
+    /// Window over which failures are counted.
+    public let errorFreezeWindow: TimeInterval
+    /// Time without failures after which the freeze lifts.
+    public let errorFreezeRelease: TimeInterval
 
     public init(minConnections: Int = 1,
                 maxConnections: Int = 8,
                 gainThreshold: Double = 0.05,
                 cooldown: TimeInterval = 3,
                 evaluationInterval: TimeInterval = 3,
-                stableEvaluationsToConverge: Int = 5) {
+                stableEvaluationsToConverge: Int = 5,
+                errorFreezeThreshold: Int = 3,
+                errorFreezeWindow: TimeInterval = 15,
+                errorFreezeRelease: TimeInterval = 30) {
         self.minConnections = max(1, minConnections)
         self.maxConnections = max(self.minConnections, maxConnections)
         self.gainThreshold = max(0, gainThreshold)
         self.cooldown = max(0, cooldown)
         self.evaluationInterval = max(0.1, evaluationInterval)
         self.stableEvaluationsToConverge = max(1, stableEvaluationsToConverge)
+        self.errorFreezeThreshold = max(1, errorFreezeThreshold)
+        self.errorFreezeWindow = max(0, errorFreezeWindow)
+        self.errorFreezeRelease = max(0, errorFreezeRelease)
     }
 
-    /// Recommended starting connection count once the Range probe reveals the
-    /// real file size and resume support. Non-resumable files can only stream
-    /// in a single connection; tiny files do not benefit from parallelism.
-    public static func initialConnectionCount(fileSize: Int64, supportsResume: Bool) -> Int {
+    // MARK: - Cold-start counts
+
+    /// Recommended starting connection count from file size and the probe's
+    /// measured latency. High RTT hints at RTT/window-limited single
+    /// connections, where more connections multiply throughput.
+    public static func initialConnectionCount(fileSize: Int64, supportsResume: Bool, rtt: TimeInterval = 0) -> Int {
         guard supportsResume else { return 1 }
-        if fileSize < 1_048_576 { return 1 }              // < 1 MiB
-        if fileSize < 16 * 1_048_576 { return 2 }         // < 16 MiB
-        return 4                                          // ≥ 16 MiB, ramps up from here
+        let bySize: Int
+        if fileSize < 1_048_576 { bySize = 1 }              // < 1 MiB
+        else if fileSize < 16 * 1_048_576 { bySize = 2 }    // < 16 MiB
+        else { bySize = 4 }                                 // ≥ 16 MiB
+        if rtt >= 0.15 { return max(bySize, 6) }
+        if rtt >= 0.05 { return max(bySize, 4) }
+        return bySize
+    }
+
+    /// One-shot initial count from the probe's measured single-connection
+    /// throughput. A low rate means per-connection caps or window limits, so
+    /// more connections help; a high rate means the link is already fast, so
+    /// few connections are needed. Clamped so tiny files never over-allocate.
+    public static func informedInitialConnectionCount(singleConnRate: Int64, fileSize: Int64, rtt: TimeInterval = 0) -> Int {
+        guard singleConnRate > 0 else {
+            return initialConnectionCount(fileSize: fileSize, supportsResume: true, rtt: rtt)
+        }
+        let byRate: Int
+        if singleConnRate < 512 * 1024 { byRate = 8 }
+        else if singleConnRate < 1_048_576 { byRate = 6 }
+        else if singleConnRate < 2_097_152 { byRate = 4 }
+        else if singleConnRate < 5_242_880 { byRate = 2 }
+        else { byRate = 1 }
+        var count = byRate
+        // Low measured single-connection rate + high latency: window-limited,
+        // more connections multiply throughput.
+        if singleConnRate < 1_048_576, rtt >= 0.15 { count = max(count, 6) }
+        else if singleConnRate < 1_048_576, rtt >= 0.05 { count = max(count, 4) }
+        // Small files have too few chunks to parallelize.
+        if fileSize < 1_048_576 { count = min(count, 2) }
+        else if fileSize < 16 * 1_048_576 { count = min(count, 4) }
+        return min(8, max(1, count))
     }
 
     // MARK: - State
@@ -63,6 +114,10 @@ public struct AutoConnectionPolicy: Sendable {
     private var lastChangeAt: Date?
     private var stableCount = 0
     private var isConverged = false
+    private var lastGainRatio: Double = 0
+    private var failureTimes: [Date] = []
+    private var lastFailureAt: Date?
+    private var isFrozen = false
 
     /// Resets all adaptive state (used when auto mode is re-entered).
     public mutating func reset() {
@@ -77,6 +132,10 @@ public struct AutoConnectionPolicy: Sendable {
         lastChangeAt = nil
         stableCount = 0
         isConverged = false
+        lastGainRatio = 0
+        failureTimes = []
+        lastFailureAt = nil
+        isFrozen = false
     }
 
     /// Smoothes a new aggregate-throughput sample (one per second). Uses an
@@ -91,14 +150,39 @@ public struct AutoConnectionPolicy: Sendable {
         }
     }
 
+    /// Records a retryable failure (429/5xx/network). A burst inside the freeze
+    /// window freezes upward probing so a stressed server is not made worse.
+    public mutating func recordFailure(now: Date = Date()) {
+        let window = errorFreezeWindow
+        failureTimes.append(now)
+        failureTimes.removeAll { now.timeIntervalSince($0) > window }
+        lastFailureAt = now
+        if failureTimes.count >= errorFreezeThreshold {
+            isFrozen = true
+        }
+    }
+
     /// Called at most once per `evaluationInterval`. Returns the connection
     /// count to switch to, or `nil` to keep the current count.
     public mutating func evaluate(currentConnections: Int, hasPending: Bool, now: Date = Date()) -> Int? {
         guard !isConverged, hasSmoothed else { return nil }
-        // Without queued chunks there is nothing new to parallelize; adding
-        // connections can only waste a slot. (A file near completion drains its
-        // queue, so this also stops late pointless ramping.)
+        // Without queued chunks there is nothing new to parallelize.
         guard hasPending else { return nil }
+
+        // Frozen: hold the count (dropping to the best known level) until the
+        // error storm has passed.
+        if isFrozen {
+            if let last = lastFailureAt, now.timeIntervalSince(last) >= errorFreezeRelease {
+                isFrozen = false
+                failureTimes.removeAll()
+            } else {
+                if currentConnections > bestConnections {
+                    return bestConnections
+                }
+                return nil
+            }
+        }
+
         // Respect the cooldown between changes so decisions don't oscillate.
         if let last = lastChangeAt, now.timeIntervalSince(last) < cooldown { return nil }
 
@@ -108,15 +192,17 @@ public struct AutoConnectionPolicy: Sendable {
         }
 
         if isProbing {
-            // Measure the probe: keep the added connection only if it paid off.
+            // Measure the probe: keep the added connection(s) only if they paid off.
             lastChangeAt = now
             stableCount = 0
             if Double(smoothedSpeed) >= Double(probePrevSpeed) * (1 + gainThreshold) {
+                lastGainRatio = Double(smoothedSpeed) / Double(probePrevSpeed)
                 isProbing = false
                 return nil
             } else {
                 // Diminishing returns — revert and remember this level as the ceiling.
                 isProbing = false
+                lastGainRatio = 0
                 ceiling = probePrevConnections
                 return probePrevConnections
             }
@@ -126,10 +212,11 @@ public struct AutoConnectionPolicy: Sendable {
         if bestSpeed > 0, Double(smoothedSpeed) < Double(bestSpeed) * 0.8, currentConnections > bestConnections {
             lastChangeAt = now
             stableCount = 0
+            lastGainRatio = 0
             return bestConnections
         }
 
-        // Otherwise probe one connection higher.
+        // Otherwise probe upward.
         guard smoothedSpeed > 0, currentConnections < maxConnections, currentConnections < ceiling else {
             stableCount += 1
             if stableCount >= stableEvaluationsToConverge {
@@ -137,11 +224,19 @@ public struct AutoConnectionPolicy: Sendable {
             }
             return nil
         }
+
+        // Adaptive step: jump +2/+3 after strong previous gains to converge
+        // faster on per-connection-throttled servers.
+        let step: Int
+        if lastGainRatio >= 1.3 { step = 3 }
+        else if lastGainRatio >= 1.15 { step = 2 }
+        else { step = 1 }
+        let next = Swift.min(currentConnections + step, ceiling)
         probePrevSpeed = smoothedSpeed
         probePrevConnections = currentConnections
         isProbing = true
         lastChangeAt = now
         stableCount = 0
-        return currentConnections + 1
+        return next
     }
 }

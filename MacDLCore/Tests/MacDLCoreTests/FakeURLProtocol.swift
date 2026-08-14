@@ -16,6 +16,8 @@ final class FakeURLProtocol: URLProtocol {
     // When > 0, each request delivers its body in slices at this byte/second
     // rate (independently per connection), so N connections yield ~N× throughput.
     nonisolated(unsafe) static var perConnectionRate: Int64 = 0
+    // Delay (ms) before the response is delivered, simulating round-trip latency.
+    nonisolated(unsafe) static var latencyMs: Int64 = 0
     // Peak number of concurrently in-flight requests observed.
     nonisolated(unsafe) static var peakRequests = 0
     private static let lock = NSLock()
@@ -82,37 +84,47 @@ final class FakeURLProtocol: URLProtocol {
             }
         }
 
-        if let http = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) {
-            client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
-        }
-        guard !data.isEmpty else {
-            Self.finish(self)
-            return
-        }
         for i in data.indices {
             data[i] = UInt8((start + Int64(i)) % 251)
         }
-        if Self.perConnectionRate > 0 {
-            // Deliver the body in slices on a background thread, throttled to
-            // perConnectionRate. Each connection is throttled independently.
+        let latency = Double(Self.latencyMs) / 1000.0
+        let throttled = Self.perConnectionRate > 0
+        if latency > 0 || throttled {
+            // Deliver the response and body asynchronously, optionally delayed
+            // by latency and throttled per connection.
             let slices = data
             let rate = Self.perConnectionRate
             DispatchQueue.global().async {
-                let slice = 64 * 1024
-                var offset = 0
-                while offset < slices.count {
-                    let end = min(offset + slice, slices.count)
-                    self.client?.urlProtocol(self, didLoad: slices[offset..<end])
-                    let bytes = end - offset
-                    offset = end
-                    if bytes > 0 {
-                        Thread.sleep(forTimeInterval: Double(bytes) / Double(rate))
+                if latency > 0 {
+                    Thread.sleep(forTimeInterval: latency)
+                }
+                if let http = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) {
+                    self.client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
+                }
+                if rate > 0 {
+                    let slice = 64 * 1024
+                    var offset = 0
+                    while offset < slices.count {
+                        let end = min(offset + slice, slices.count)
+                        self.client?.urlProtocol(self, didLoad: slices[offset..<end])
+                        let bytes = end - offset
+                        offset = end
+                        if bytes > 0 {
+                            Thread.sleep(forTimeInterval: Double(bytes) / Double(rate))
+                        }
                     }
+                } else if !slices.isEmpty {
+                    self.client?.urlProtocol(self, didLoad: slices)
                 }
                 Self.finish(self)
             }
         } else {
-            client?.urlProtocol(self, didLoad: data)
+            if let http = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) {
+                client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
+            }
+            if !data.isEmpty {
+                client?.urlProtocol(self, didLoad: data)
+            }
             Self.finish(self)
         }
     }
@@ -133,6 +145,7 @@ final class FakeURLProtocol: URLProtocol {
         failWholeFileTimes = 0
         failAllTimes = 0
         perConnectionRate = 0
+        latencyMs = 0
         peakRequests = 0
         lock.lock()
         requests.removeAll()

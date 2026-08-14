@@ -323,6 +323,25 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
     }
 
+    @Test func autoWeightsInitialByLatency() {
+        // A 300 ms RTT server makes a single connection RTT/window limited.
+        // Auto must start with several connections immediately: the probe rate
+        // (~853 KB/s) plus the latency bump lands the informed count at 4 for
+        // this 8 MiB file instead of 1.
+        FakeURLProtocol.virtualFileSize = 8 * 1024 * 1024
+        FakeURLProtocol.latencyMs = 300
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-autolat.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 8 * 1024 * 1024))
+        #expect(FakeURLProtocol.peakRequests >= 3)
+    }
+
     @Test func pauseStopsRetryFromDispatching() {
         // Chunks after the probe return 429; retries are scheduled with backoff.
         // After pause, no retry may fire and no new request may be dispatched.
