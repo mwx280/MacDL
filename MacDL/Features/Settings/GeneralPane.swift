@@ -41,7 +41,7 @@ struct GeneralPane: View {
 
                 divider
 
-                prefRow("power", "Launch at Login") {
+                prefRow("power", "Launch at Login", description: "Launch at Login description") {
                     Toggle("", isOn: Binding(
                         get: { launchAtLogin },
                         set: { newValue in
@@ -70,11 +70,10 @@ struct GeneralPane: View {
 
                 divider
 
-                prefRow("eye.slash", "Launch in Background") {
+                prefRow("eye.slash", "Launch in Background", description: "Launch in Background description") {
                     Toggle("", isOn: $launchInBackground)
                         .toggleStyle(.switch)
                         .controlSize(.mini)
-                        .help(LanguageManager.shared.localized("Launch in Background description"))
                 }
             }
             .alert(LanguageManager.shared.localized("Launch at Login"), isPresented: $launchAtLoginFailed) {

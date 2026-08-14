@@ -14,7 +14,7 @@ struct NotificationsPane: View {
         VStack(spacing: 16) {
             if notificationsEnabled {
                 card {
-                    prefRow("power", "Launch Notification", suffix: "Recommended") {
+                    prefRow("power", "Launch Notification", description: "Launch Notification description", suffix: "Recommended") {
                         Toggle("", isOn: $notifyLaunch)
                             .toggleStyle(.switch)
                             .controlSize(.mini)

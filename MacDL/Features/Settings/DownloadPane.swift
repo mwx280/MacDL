@@ -21,7 +21,7 @@ struct DownloadPane: View {
     var body: some View {
         VStack(spacing: 16) {
             card {
-                prefRow("number", "Default Max Connections") {
+                prefRow("number", "Default Max Connections", description: "Default Max Connections description") {
                     Picker(selection: $maxConnections) {
                         ForEach(connectionOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -38,7 +38,7 @@ struct DownloadPane: View {
 
                 divider
 
-                prefRow("arrow.down.to.line", "Max Downloads") {
+                prefRow("arrow.down.to.line", "Max Downloads", description: "Max Downloads description") {
                     Picker(selection: $maxConcurrent) {
                         ForEach(concurrentOptions, id: \.self) { n in
                             Text("\(n)").tag(n)
@@ -55,16 +55,15 @@ struct DownloadPane: View {
 
                 divider
 
-                prefRow("play.circle", "Resume Downloads on Launch") {
+                prefRow("play.circle", "Resume Downloads on Launch", description: "Resume Downloads on Launch description") {
                     Toggle("", isOn: $autoResumeOnLaunch)
                         .toggleStyle(.switch)
                         .controlSize(.mini)
-                        .help(LanguageManager.shared.localized("Resume Downloads on Launch description"))
                 }
             }
 
             card {
-                prefRow("arrow.down", "Download Limit") {
+                prefRow("arrow.down", "Download Limit", description: "Download Limit description") {
                     Picker(selection: $maxDownloadSpeed) {
                         ForEach(speedOptions, id: \.self) { speed in
                             Text(speedLabel(speed))

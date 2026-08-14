@@ -19,7 +19,7 @@ struct UpdatePane: View {
 
                 divider
 
-                prefRow("arrow.triangle.2.circlepath", "Auto check and download updates") {
+                prefRow("arrow.triangle.2.circlepath", "Auto check and download updates", description: "Auto check and download updates description") {
                     Toggle("", isOn: $autoUpdate)
                         .toggleStyle(.switch)
                         .controlSize(.mini)

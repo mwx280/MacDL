@@ -846,6 +846,23 @@
         }
       }
     },
+    "Default Max Connections description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parallel connections per download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个下载任务的并行连接数"
+          }
+        }
+      }
+    },
     "Delete" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1131,6 +1148,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载限速"
+          }
+        }
+      }
+    },
+    "Download Limit description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Global speed cap"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全局速度上限"
           }
         }
       }
@@ -1801,6 +1835,23 @@
         }
       }
     },
+    "Launch at Login description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start MacDL automatically when you log in"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录时自动启动 MacDL"
+          }
+        }
+      }
+    },
     "Launch at Login requires the app to run from the Applications folder." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1868,6 +1919,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "同时下载"
+          }
+        }
+      }
+    },
+    "Max Downloads description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simultaneous downloads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同时进行的下载任务数"
           }
         }
       }
@@ -3292,6 +3360,23 @@
         }
       }
     },
+    "Auto check and download updates description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check GitHub Releases at launch"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动时检查 GitHub Releases"
+          }
+        }
+      }
+    },
     "Notifications" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3441,6 +3526,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "启动通知"
+          }
+        }
+      }
+    },
+    "Launch Notification description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify when starting in the background"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后台启动时发送通知"
           }
         }
       }
