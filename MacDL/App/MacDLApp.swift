@@ -32,11 +32,6 @@ struct MacDLApp: App {
             ContentViewModel.shared.startAppServices()
             UpdateModel.shared.autoCheckAndDownloadIfNeeded()
             performFirstLaunchSetupIfNeeded()
-            // Launching without a window is easy to miss; tell the user the app
-            // is up and downloads are running.
-            if SettingsStore.shared.launchInBackground {
-                DownloadNotifier.shared.notifyLaunch()
-            }
         }
         _ = DockIconManager.shared
     }

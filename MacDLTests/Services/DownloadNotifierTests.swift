@@ -168,25 +168,4 @@ import MacDLCore
         #expect(requests.count == 1)
     }
 
-    @Test func launchNotifiesWhenEnabled() {
-        var requests: [UNNotificationRequest] = []
-        let notifier = DownloadNotifier(post: { requests.append($0) })
-        notifier.authorized = true
-        notifier.notifyLaunch()
-        #expect(requests.count == 1)
-        #expect(requests[0].identifier.hasSuffix("-launch"))
-        #expect(requests[0].content.body == LanguageManager.shared.localized("MacDL is running in the background"))
-        #expect(requests[0].content.sound == nil)
-    }
-
-    @Test func launchGateOffSkipsPosting() {
-        var requests: [UNNotificationRequest] = []
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
-        settings.notifyLaunch = false
-        let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
-        notifier.authorized = true
-        notifier.notifyLaunch()
-        #expect(requests.isEmpty)
-    }
-
 }

@@ -45,8 +45,8 @@ fast and the app quietly stays out of your way.
 - **Download from clipboard**: grab links straight from the menu bar. Duplicate
   links ask whether to re-download.
 - **Finder progress**: active tasks show live progress in the Dock and Finder.
-- **Notifications**: separate toggles for started / completed / failed / launch,
-  with a "Redownload" action on failures.
+- **Notifications**: separate toggles for started / completed / failed, with a
+  "Redownload" action on failures.
 - **Auto-update**: checks GitHub Releases and can download and install a new
   DMG with one click (installation is never automatic).
 - **Bilingual UI**: English and 简体中文, switchable at runtime.

@@ -9,9 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Launch notification (default on): when the app starts with "Launch in
-  Background" enabled, a notification confirms it is running, so background
-  launches are not silently invisible.
 - Adaptive connection mode (default on): the connection (thread) setting gains
   an "Adaptive" option that picks the starting count from the probed file size
   and adapts it to observed throughput — IDM-style. It probes one connection at
@@ -29,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Notification settings pane gains a "Launch Notification" toggle (default on).
+- The launch notification is no longer posted at startup; the "Launch
+  Notification" settings toggle is kept but currently has no effect.
 - Settings window redesigned: rows gain inline description subtitles, icons get
   per-row colors, and the window auto-sizes to the active pane. Navigation uses
   the native system `TabView` instead of a self-drawn pill tab bar.
