@@ -104,6 +104,16 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: title, body: body, id: UUID(), kind: "message", sound: false)
     }
 
+    // Shown when the app launches in the background so the user knows it is
+    // still running (and downloads keep going) even though no window appears.
+    func notifyLaunch() {
+        guard settings.notifyLaunch else { return }
+        EngineLog.app.debug("DownloadNotifier notifyLaunch authorized=\(self.authorized ? 1 : 0)")
+        send(title: LanguageManager.shared.localized("MacDL is Running"),
+             body: LanguageManager.shared.localized("MacDL is running in the background"),
+             id: UUID(), kind: "launch", sound: false)
+    }
+
     func notifyCompleted(_ download: Download) {
         guard settings.notifyCompleted else { return }
         let dir = download.savePath ?? AppConfig.defaultDownloadDir

@@ -25,3 +25,6 @@ MacDLCore/.swiftpm/
 
 # DMG build scripts and artifacts
 macdl-dmg/
+
+# UI redesign previews (not part of the app)
+preview/

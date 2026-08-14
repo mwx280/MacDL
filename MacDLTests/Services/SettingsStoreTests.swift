@@ -71,6 +71,7 @@ import Foundation
             ("notifyCompleted", { store.notifyCompleted }, { store.notifyCompleted = $0 }),
             ("notifyFailed", { store.notifyFailed }, { store.notifyFailed = $0 }),
             ("notifyRedownload", { store.notifyRedownload }, { store.notifyRedownload = $0 }),
+            ("notifyLaunch", { store.notifyLaunch }, { store.notifyLaunch = $0 }),
         ]
         for (_, get, set) in pairs {
             let original = get()
@@ -89,6 +90,7 @@ import Foundation
         #expect(fresh.notifyCompleted == true)
         #expect(fresh.notifyFailed == true)
         #expect(fresh.notifyRedownload == true)
+        #expect(fresh.notifyLaunch == true)
         #expect(fresh.launchInBackground == true)
     }
 

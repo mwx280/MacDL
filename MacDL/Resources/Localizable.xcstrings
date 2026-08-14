@@ -3428,6 +3428,57 @@
         }
       }
     },
+    "Launch Notification" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch Notification"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动通知"
+          }
+        }
+      }
+    },
+    "MacDL is Running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacDL is Running"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacDL 正在运行"
+          }
+        }
+      }
+    },
+    "MacDL is running in the background" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacDL is running in the background"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacDL 正在后台运行"
+          }
+        }
+      }
+    },
     "Check for Updates" : {
       "extractionState" : "manual",
       "localizations" : {

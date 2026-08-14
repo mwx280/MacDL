@@ -68,6 +68,11 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: "notifyRedownload") }
     }
 
+    var notifyLaunch: Bool {
+        get { defaults.object(forKey: "notifyLaunch") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "notifyLaunch") }
+    }
+
     var launchAtLogin: Bool {
         get { defaults.bool(forKey: "launchAtLogin") }
         set { defaults.set(newValue, forKey: "launchAtLogin") }

@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- Launch notification (default on): when the app starts with "Launch in
+  Background" enabled, a notification confirms it is running, so background
+  launches are not silently invisible.
+
+### Changed
+
+- Notification settings pane gains a "Launch Notification" toggle (default on).
 
 ## [0.2.0] - 2026-08-05
 

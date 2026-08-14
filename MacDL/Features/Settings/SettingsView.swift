@@ -45,7 +45,7 @@ struct SettingsView: View {
         case .general: 225
         case .download: 300
         case .update: 120
-        case .notifications: 190
+        case .notifications: 230
         }
     }
 }

@@ -7,12 +7,21 @@ struct NotificationsPane: View {
     @AppStorage("notifyCompleted") private var notifyCompleted = true
     @AppStorage("notifyFailed") private var notifyFailed = true
     @AppStorage("notifyRedownload") private var notifyRedownload = true
+    @AppStorage("notifyLaunch") private var notifyLaunch = true
     @State private var notificationsEnabled = true
 
     var body: some View {
         VStack(spacing: 16) {
             if notificationsEnabled {
                 card {
+                    prefRow("power", "Launch Notification", suffix: "Recommended") {
+                        Toggle("", isOn: $notifyLaunch)
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                    }
+
+                    divider
+
                     prefRow("play.circle", "Download Started") {
                         Toggle("", isOn: $notifyStart)
                             .toggleStyle(.switch)
