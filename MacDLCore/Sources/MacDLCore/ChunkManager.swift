@@ -6,7 +6,9 @@ import Foundation
 /// splits the file, dispatches chunk tasks up to the connection cap, retries
 /// failures with backoff, and falls back to a single stream when the server
 /// does not honour Range requests.
-public final class ChunkManager {
+/// @unchecked Sendable: all mutable state lives on `syncQueue` and every
+/// callback re-enters through it, so no state is touched from two threads.
+public final class ChunkManager: @unchecked Sendable {
     /// Unique download identifier, also used as the engine registration key.
     public let id: UUID
     /// Remote source URL.

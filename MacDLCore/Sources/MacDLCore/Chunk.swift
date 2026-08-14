@@ -1,7 +1,7 @@
 import Foundation
 
 /// Lifecycle state of a single chunk.
-public enum ChunkStatus: String, Codable {
+public enum ChunkStatus: String, Codable, Sendable {
     case pending
     case downloading
     case completed
@@ -10,7 +10,7 @@ public enum ChunkStatus: String, Codable {
 
 /// A byte range of the file with its current progress. Codable so chunk state
 /// survives restart and resumes exactly where it stopped.
-public struct Chunk: Identifiable, Codable {
+public struct Chunk: Identifiable, Codable, Sendable {
     /// Position in the chunk array.
     public let index: Int
     /// First byte offset of the range, inclusive.

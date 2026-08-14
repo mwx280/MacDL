@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The launch notification is no longer posted at startup; the "Launch
   Notification" settings toggle is kept but currently has no effect.
+- Removed all Swift 6 concurrency-isolation build warnings: the engine classes
+  declare their serial-queue/lock guarantees with `@unchecked Sendable`,
+  `Download`/`Chunk` are now `Sendable`, and main-queue observers/timers use
+  `MainActor.assumeIsolated`. No behavior change.
 - Settings window redesigned: rows gain inline description subtitles, icons get
   per-row colors, and the window auto-sizes to the active pane. Navigation uses
   the native system `TabView` instead of a self-drawn pill tab bar.

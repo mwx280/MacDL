@@ -57,24 +57,34 @@ final class ContentViewModel {
             object: nil,
             queue: .main
         ) { [weak self] note in
-            guard let self, let url = note.object as? String else { return }
-            self.service.addDownload(url: url, allowDuplicate: true)
+            // Extract the Sendable payload before hopping, then run on the main
+            // queue (guaranteed by queue: .main).
+            let url = note.object as? String
+            MainActor.assumeIsolated {
+                guard let self, let url else { return }
+                self.service.addDownload(url: url, allowDuplicate: true)
+            }
         }
         termObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
-            guard !Self.terminationSaved else { return }
-            Self.terminationSaved = true
-            self.fileCheckTimer?.invalidate()
-            self.fileCheckTimer = nil
-            self.service.prepareForTermination()
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                guard !Self.terminationSaved else { return }
+                Self.terminationSaved = true
+                self.fileCheckTimer?.invalidate()
+                self.fileCheckTimer = nil
+                self.service.prepareForTermination()
+            }
         }
         fileCheckTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.service.checkFilesAndPersistIfNeeded()
+            // Timer fires on the main run loop, so isolation is guaranteed.
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.service.checkFilesAndPersistIfNeeded()
+            }
         }
     }
 

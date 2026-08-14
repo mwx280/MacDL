@@ -4,7 +4,8 @@ import Foundation
 // All chunk tasks share ONE URLSession so HTTP/2 can multiplex streams on a
 // single connection (and HTTP/1.1 reuses keep-alive connections) instead of
 // opening a fresh TCP+TLS connection per chunk.
-final class ChunkSessionDelegate: NSObject, URLSessionDataDelegate {
+// @unchecked Sendable: the task registry is guarded by an NSLock.
+final class ChunkSessionDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private var tasks: [Int: ChunkDownloadTask] = [:]
     private let lock = NSLock()
 

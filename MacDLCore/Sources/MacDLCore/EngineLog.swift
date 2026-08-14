@@ -83,9 +83,9 @@ public final class LogCategory: @unchecked Sendable {
 /// Logging entry points, one per engine area, sharing the app's bundle subsystem.
 public enum EngineLog {
     /// Chunk scheduling / lifecycle events.
-    public nonisolated(unsafe) static let manager = LogCategory(category: "engine.manager")
+    public nonisolated static let manager = LogCategory(category: "engine.manager")
     /// Per-chunk request and write events.
-    public nonisolated(unsafe) static let chunk = LogCategory(category: "engine.chunk")
+    public nonisolated static let chunk = LogCategory(category: "engine.chunk")
     /// App-level lifecycle events.
-    public nonisolated(unsafe) static let app = LogCategory(category: "app")
+    public nonisolated static let app = LogCategory(category: "app")
 }

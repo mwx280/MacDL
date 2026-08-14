@@ -16,7 +16,10 @@ final class DockIconManager {
         NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.update()
+            // The observer runs on the main queue, so isolation is guaranteed.
+            MainActor.assumeIsolated {
+                self?.update()
+            }
         }
     }
 

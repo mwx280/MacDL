@@ -13,7 +13,7 @@ public enum DownloadStatus: String, Codable, Sendable {
 /// A merged contiguous run of fully-downloaded bytes. Persisted instead of the
 /// full chunk array so a large file's resume state stays compact (a finished
 /// 100 GB file is one range, not ~400k chunk entries).
-public struct CompletedRange: Codable, Equatable {
+public struct CompletedRange: Codable, Equatable, Sendable {
     public let startOffset: Int64
     /// One past the last byte of the run, exclusive.
     public let endOffset: Int64
@@ -26,7 +26,7 @@ public struct CompletedRange: Codable, Equatable {
 
 /// A not-yet-completed chunk that already has bytes on disk. Pending chunks
 /// (0 bytes) are not persisted.
-public struct PartialChunk: Codable, Equatable {
+public struct PartialChunk: Codable, Equatable, Sendable {
     public let index: Int
     public let downloadedSize: Int64
 
@@ -36,7 +36,7 @@ public struct PartialChunk: Codable, Equatable {
     }
 }
 
-public struct Download: Identifiable, Codable {
+public struct Download: Identifiable, Codable, Sendable {
     public let id: UUID
     public var filename: String
     public let url: String

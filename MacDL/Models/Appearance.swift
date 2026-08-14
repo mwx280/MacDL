@@ -16,6 +16,7 @@ enum Appearance: String, CaseIterable {
         }
     }
 
+    @MainActor
     func apply() {
         switch self {
         case .system:

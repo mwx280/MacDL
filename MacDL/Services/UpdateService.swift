@@ -205,7 +205,10 @@ enum UpdateService {
 
 // URLSessionDownloadDelegate keeps the downloader alive until the session
 // finishes; the caller also holds it in UpdateService.activeDownloaders.
-private final class UpdateDownloader: NSObject, URLSessionDownloadDelegate {
+// @unchecked Sendable: the delegate callbacks run on URLSession's background
+// queue and the closures dispatch their own threading (resume a continuation /
+// hop to main), so the isolation guarantee is upheld by hand.
+private final class UpdateDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private let progress: (Double) -> Void
     private let completion: (Result<URL, Swift.Error>) -> Void
     private var session: URLSession?

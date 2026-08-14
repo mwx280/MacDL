@@ -2,15 +2,17 @@ import Foundation
 
 /// One range request that streams bytes into a file handle at the throttle
 /// rate. All chunk tasks share a single URLSession so HTTP/2 can multiplex.
-public final class ChunkDownloadTask: NSObject {
+/// @unchecked Sendable: mutable state is guarded by NSCondition/NSLock and the
+/// delegate callbacks hop back to the owning queue.
+public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
     /// Returns the per-host connection cap used by the shared URLSession.
     /// Set once at app launch from the user's settings.
     public nonisolated(unsafe) static var maxConnectionsProvider: (() -> Int)?
     /// Test hook replacing the shared URLSession configuration.
     public nonisolated(unsafe) static var sessionConfigurationOverride: URLSessionConfiguration?
 
-    nonisolated(unsafe) static let sharedDelegate = ChunkSessionDelegate()
-    nonisolated(unsafe) static let sharedSession: URLSession = {
+    nonisolated static let sharedDelegate = ChunkSessionDelegate()
+    nonisolated static let sharedSession: URLSession = {
         let config = sessionConfigurationOverride ?? URLSessionConfiguration.default
         config.httpMaximumConnectionsPerHost = max(1, maxConnectionsProvider?() ?? 8)
         config.timeoutIntervalForRequest = EngineConstants.requestTimeout
@@ -154,7 +156,6 @@ public final class ChunkDownloadTask: NSObject {
         dataCondition.broadcast()
         dataCondition.unlock()
         let elapsed = Date().timeIntervalSince(chunkStartTime)
-        let speed = elapsed > 0 ? Int64(Double(bytesWritten) / elapsed) : bytesWritten
         let resultStr = (try? result.get()) != nil ? "success" : "failure"
         EngineLog.chunk.notice("Chunk #\(self.chunkIndex) done size=\(self.bytesWritten) speed=\(self.speed)/s time=\(elapsed)s result=\(resultStr)")
         // Flush the exact final byte count even if the last write's progress
