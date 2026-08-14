@@ -254,6 +254,75 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(ok)
     }
 
+    @Test func autoZeroConnectionsCompletes() {
+        // maxConcurrent == 0 selects auto mode; it must still download fine.
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-auto0.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+    }
+
+    @Test func autoSmallFileUsesOneConnection() {
+        // A sub-1 MiB file resolves to a single connection in auto mode.
+        FakeURLProtocol.virtualFileSize = 100_000
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-autosmall.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(FakeURLProtocol.peakRequests == 1)
+        #expect(verifyPattern(in: dest, size: 100_000))
+    }
+
+    @Test func autoRampsConnectionsOnThrottledServer() {
+        // A server that throttles each connection to 512 KiB/s: a single
+        // connection would take ~16 s for 8 MiB. Auto mode must open several
+        // connections and finish much faster while keeping data intact.
+        FakeURLProtocol.virtualFileSize = 8 * 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 512 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-autothrottle.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        let start = Date()
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        let elapsed = Date().timeIntervalSince(start)
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 8 * 1024 * 1024))
+        // Auto opened more connections than the 2 it started with (8 MiB < 16 MiB
+        // → initial 2), proving the adaptive ramp-up happened.
+        #expect(FakeURLProtocol.peakRequests >= 3)
+        // Well under the ~16 s a single connection would need.
+        #expect(elapsed < 10)
+    }
+
+    @Test func autoToggleMidDownloadCompletes() {
+        // Switching from a fixed cap to auto mid-download must keep working.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-autotoggle.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 2)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        Thread.sleep(forTimeInterval: 0.3) // probe finished, chunks running
+        manager.setMaxConcurrent(0)        // switch into auto mode
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+    }
+
     @Test func pauseStopsRetryFromDispatching() {
         // Chunks after the probe return 429; retries are scheduled with backoff.
         // After pause, no retry may fire and no new request may be dispatched.

@@ -34,6 +34,26 @@ import MacDLCore
         #expect(d != nil && engine.started.contains(d!.id))
     }
 
+    @Test func addDownloadDefaultsToAutoConnections() {
+        // Fresh settings default to Auto (0); a new download must carry the
+        // sentinel through to the model so the engine adapts connections.
+        let engine = FakeEngine()
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "auto-conn-\(UUID().uuidString)")!)
+        settings.maxConnections = 0
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: settings)
+        let url = "https://example.com/auto-conn.bin"
+        vm.addDownload(url: url)
+        #expect(vm.downloads.first { $0.url == url }?.maxConcurrentChunks == 0)
+    }
+
+    @Test func addDownloadWithExplicitConnectionsStoresThem() {
+        let engine = FakeEngine()
+        let vm = makeVM(engine: engine)
+        let url = "https://example.com/fixed-conn.bin"
+        vm.addDownload(url: url, connections: 4)
+        #expect(vm.downloads.first { $0.url == url }?.maxConcurrentChunks == 4)
+    }
+
     @Test func realEngineAddDownloadIsNoopUnderTestHost() {
         // Regression: under the XCTest host the app's real ContentViewModel also
         // observes global paste/redownload notifications. addDownload must be a

@@ -310,14 +310,18 @@ struct NewDownloadView: View {
             get: { model.connections(for: url) },
             set: { model.connectionsByURL[url] = $0 }
         )) {
-            ForEach([1, 2, 4, 8], id: \.self) { n in
-                Text(String(format: lang.localized("%lld Threads"), n)).tag(n)
+            ForEach([0, 1, 2, 4, 8], id: \.self) { n in
+                if n == 0 {
+                    Text(lang.localized("Auto")).tag(n)
+                } else {
+                    Text(String(format: lang.localized("%lld Threads"), n)).tag(n)
+                }
             }
         } label: { }
         .labelsHidden()
         .pickerStyle(.menu)
         .controlSize(.small)
-        .frame(width: 62)
+        .frame(width: 74)
         .disabled(locked)
         .opacity(locked ? 0.55 : 1)
         .help(locked

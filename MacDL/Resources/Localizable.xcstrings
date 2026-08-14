@@ -852,13 +852,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Parallel connections per download"
+            "value" : "Parallel connections per download; Auto tunes it for the best speed"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "每个下载任务的并行连接数"
+            "value" : "每个下载任务的并行连接数；自动模式会智能调节以获得最佳速度"
+          }
+        }
+      }
+    },
+    "Auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动"
           }
         }
       }

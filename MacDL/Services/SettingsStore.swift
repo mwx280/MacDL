@@ -10,11 +10,10 @@ final class SettingsStore {
         self.defaults = defaults
     }
 
+    /// Per-download connection cap. `0` = Auto: the engine picks and adapts
+    /// the connection count for best throughput (IDM-style).
     var maxConnections: Int {
-        get {
-            let v = defaults.integer(forKey: "maxConnections")
-            return v == 0 ? 8 : v
-        }
+        get { defaults.integer(forKey: "maxConnections") }
         set { defaults.set(newValue, forKey: "maxConnections") }
     }
 

@@ -8,7 +8,7 @@ struct DownloadPane: View {
     @State private var maxDownloadSpeed: Int
     @AppStorage("autoResumeOnLaunch") private var autoResumeOnLaunch = false
 
-    private let connectionOptions = [1, 2, 4, 8]
+    private let connectionOptions = [0, 1, 2, 4, 8] // 0 = Auto
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
 
     init() {
@@ -24,13 +24,17 @@ struct DownloadPane: View {
                 prefRow("number", "Default Max Connections", description: "Default Max Connections description", color: .teal) {
                     Picker(selection: $maxConnections) {
                         ForEach(connectionOptions, id: \.self) { n in
-                            Text("\(n)").tag(n)
+                            if n == 0 {
+                                LocalizedText(key: "Auto").tag(n)
+                            } else {
+                                Text("\(n)").tag(n)
+                            }
                         }
                     } label: { }
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .fixedSize()
-                    .frame(minWidth: 72, alignment: .trailing)
+                    .frame(minWidth: 88, alignment: .trailing)
                     .onChange(of: maxConnections) { _, v in
                         SettingsStore.shared.maxConnections = v
                     }

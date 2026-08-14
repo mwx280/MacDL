@@ -6,11 +6,17 @@ import Foundation
 @Suite(.serialized) struct SettingsStoreTests {
     let store = SettingsStore.shared
 
-    @Test func defaultMaxConnections() {
+    @Test func maxConnectionsZeroMeansAuto() {
         let original = store.maxConnections
         store.maxConnections = 0
-        #expect(store.maxConnections == 8)
+        // 0 is the "Auto" sentinel (adaptive connection tuning), not "unlimited".
+        #expect(store.maxConnections == 0)
         store.maxConnections = original
+    }
+
+    @Test func freshDefaultsUseAutoConnections() {
+        let fresh = SettingsStore(defaults: UserDefaults(suiteName: "test-conn-\(UUID().uuidString)")!)
+        #expect(fresh.maxConnections == 0)
     }
 
     @Test func defaultMaxConcurrentDownloads() {

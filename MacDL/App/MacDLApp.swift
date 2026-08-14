@@ -16,7 +16,12 @@ struct MacDLApp: App {
         if let logsDir {
             FileLogWriter.setLogFile(logsDir.appendingPathComponent("MacDL.log"))
         }
-        ChunkDownloadTask.maxConnectionsProvider = { SettingsStore.shared.maxConnections }
+        // 0 means "Auto" connections; the shared session must still allow the
+        // per-host cap up to the maximum the auto policy may reach.
+        ChunkDownloadTask.maxConnectionsProvider = {
+            let connections = SettingsStore.shared.maxConnections
+            return connections > 0 ? connections : 8
+        }
         EngineLog.app.notice("didFinishLaunching (log file: \(FileLogWriter.logFileURL?.path ?? "nil"))")
         // Ask up front so the first download's "started" banner isn't dropped
         // while the permission prompt is still pending. No-op if already decided.

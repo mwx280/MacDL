@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Launch notification (default on): when the app starts with "Launch in
   Background" enabled, a notification confirms it is running, so background
   launches are not silently invisible.
+- Auto connection mode (default on): the connection (thread) setting gains an
+  "Auto" option that picks the starting count from the probed file size and
+  adapts it to observed throughput — IDM-style. It probes one connection at a
+  time, keeps additions only when speed grows, and converges at the best count.
+  Available in Settings, the New Download sheet and the per-row thread menu.
 
 ### Changed
 

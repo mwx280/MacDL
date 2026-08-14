@@ -234,21 +234,23 @@ struct DownloadRow: View {
 
     @ViewBuilder
     private func chunkMenu(_ action: ((UUID, Int) -> Void)?, _ current: Int) -> some View {
-        let options = [1, 2, 4, 8]
+        let options = [0, 1, 2, 4, 8] // 0 = Auto
         Menu {
             ForEach(options, id: \.self) { count in
                 Button { action?(download.id, count) } label: {
                     if count == current {
-                        Label("\(count)", systemImage: "checkmark")
+                        Label(count == 0 ? LanguageManager.shared.localized("Auto") : "\(count)", systemImage: "checkmark")
                     } else {
-                        Text("\(count)")
+                        Text(count == 0 ? LanguageManager.shared.localized("Auto") : "\(count)")
                     }
                 }
             }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "square.grid.3x2")
-                Text(String(format: LanguageManager.shared.localized("%lld Threads"), Int64(current)))
+                Text(current == 0
+                     ? LanguageManager.shared.localized("Auto")
+                     : String(format: LanguageManager.shared.localized("%lld Threads"), Int64(current)))
             }
         }
     }

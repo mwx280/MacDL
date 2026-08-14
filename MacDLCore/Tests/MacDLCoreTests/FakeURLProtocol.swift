@@ -13,15 +13,22 @@ final class FakeURLProtocol: URLProtocol {
     // Fail the next N requests of any kind with a transport error and no HTTP
     // response (simulates an unreachable server), for probe-failure tests.
     nonisolated(unsafe) static var failAllTimes = 0
+    // When > 0, each request delivers its body in slices at this byte/second
+    // rate (independently per connection), so N connections yield ~N× throughput.
+    nonisolated(unsafe) static var perConnectionRate: Int64 = 0
+    // Peak number of concurrently in-flight requests observed.
+    nonisolated(unsafe) static var peakRequests = 0
     private static let lock = NSLock()
     nonisolated(unsafe) static var requests: [URLRequest] = []
-
+    private nonisolated(unsafe) static var activeRequests = 0
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         Self.lock.lock()
         Self.requests.append(request)
+        Self.activeRequests += 1
+        Self.peakRequests = max(Self.peakRequests, Self.activeRequests)
         Self.lock.unlock()
 
         guard let url = request.url else { return }
@@ -78,13 +85,43 @@ final class FakeURLProtocol: URLProtocol {
         if let http = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) {
             client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
         }
-        if !data.isEmpty {
-            for i in data.indices {
-                data[i] = UInt8((start + Int64(i)) % 251)
-            }
-            client?.urlProtocol(self, didLoad: data)
+        guard !data.isEmpty else {
+            Self.finish(self)
+            return
         }
-        client?.urlProtocolDidFinishLoading(self)
+        for i in data.indices {
+            data[i] = UInt8((start + Int64(i)) % 251)
+        }
+        if Self.perConnectionRate > 0 {
+            // Deliver the body in slices on a background thread, throttled to
+            // perConnectionRate. Each connection is throttled independently.
+            let slices = data
+            let rate = Self.perConnectionRate
+            DispatchQueue.global().async {
+                let slice = 64 * 1024
+                var offset = 0
+                while offset < slices.count {
+                    let end = min(offset + slice, slices.count)
+                    self.client?.urlProtocol(self, didLoad: slices[offset..<end])
+                    let bytes = end - offset
+                    offset = end
+                    if bytes > 0 {
+                        Thread.sleep(forTimeInterval: Double(bytes) / Double(rate))
+                    }
+                }
+                Self.finish(self)
+            }
+        } else {
+            client?.urlProtocol(self, didLoad: data)
+            Self.finish(self)
+        }
+    }
+
+    private static func finish(_ proto: FakeURLProtocol) {
+        proto.client?.urlProtocolDidFinishLoading(proto)
+        lock.lock()
+        activeRequests = max(0, activeRequests - 1)
+        lock.unlock()
     }
 
     override func stopLoading() {}
@@ -95,8 +132,11 @@ final class FakeURLProtocol: URLProtocol {
         statusOverrideAfterStart = nil
         failWholeFileTimes = 0
         failAllTimes = 0
+        perConnectionRate = 0
+        peakRequests = 0
         lock.lock()
         requests.removeAll()
+        activeRequests = 0
         lock.unlock()
     }
 }

@@ -21,6 +21,9 @@ public final class ChunkManager {
     public private(set) var downloadSpeed: Int64 = 0
 
     private var maxConcurrent: Int
+    private var isAutoConnections = false
+    private var autoPolicy = AutoConnectionPolicy()
+    private var adaptWorkItem: DispatchWorkItem?
     private var speedLimit: Int64 = 0
     private var chunks: [Chunk] = []
     private var activeTasks: [Int: ChunkDownloadTask] = [:]
@@ -60,13 +63,16 @@ public final class ChunkManager {
     /// built or single-stream begins.
     public var onPhaseChanged: ((Bool) -> Void)?
 
-    /// Creates a manager for one download.
+    /// Creates a manager for one download. `maxConcurrent <= 0` selects auto
+    /// mode: the engine picks the connection count from the probed file size
+    /// and adapts it to observed throughput.
     public init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
         self.id = id
         self.url = url
         self.destinationURL = destinationURL
         self.chunkSize = chunkSize
-        self.maxConcurrent = maxConcurrent
+        self.isAutoConnections = maxConcurrent <= 0
+        self.maxConcurrent = self.isAutoConnections ? 1 : maxConcurrent
     }
 
     // MARK: - Public control
@@ -95,6 +101,13 @@ public final class ChunkManager {
                 self.chunks[i].status = .pending
             }
             self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
+            if self.isAutoConnections {
+                self.maxConcurrent = max(1, min(
+                    AutoConnectionPolicy.initialConnectionCount(fileSize: totalSize, supportsResume: true),
+                    EngineConstants.maxAutoConnections))
+                self.startAdaptTimer()
+                EngineLog.manager.notice("auto resume initial connections=\(self.maxConcurrent)")
+            }
             self.updateBucket()
             self.dispatchNext()
             // A resumed download whose persisted chunks are already complete
@@ -126,6 +139,13 @@ public final class ChunkManager {
                 self.chunks[0].status = .downloading
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
+                if self.isAutoConnections {
+                    self.maxConcurrent = max(1, min(
+                        AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true),
+                        EngineConstants.maxAutoConnections))
+                    self.startAdaptTimer()
+                    EngineLog.manager.notice("auto initial connections=\(self.maxConcurrent)")
+                }
                 self.notifyChunksChanged(force: true)
                 self.onPhaseChanged?(false)
                 self.dispatchNext()
@@ -258,10 +278,30 @@ public final class ChunkManager {
     }
 
     /// Updates the parallel-connection cap and re-dispatches pending chunks.
-    public func setMaxConcurrent(_ max: Int) {
-        maxConcurrent = max
-        EngineLog.manager.notice("maxConcurrent=\(max)")
-        syncQueue.async { self.dispatchNext() }
+    /// A non-positive value switches the download into auto mode (adaptive
+    /// connection tuning); a positive value switches back to a fixed cap.
+    public func setMaxConcurrent(_ maxConcurrent: Int) {
+        EngineLog.manager.notice("setMaxConcurrent=\(maxConcurrent)")
+        syncQueue.async {
+            if maxConcurrent <= 0 {
+                if !self.isAutoConnections {
+                    self.isAutoConnections = true
+                    self.autoPolicy.reset()
+                    self.maxConcurrent = Swift.max(1, Swift.min(
+                        AutoConnectionPolicy.initialConnectionCount(fileSize: self.totalSize, supportsResume: true),
+                        EngineConstants.maxAutoConnections))
+                    self.startAdaptTimer()
+                    EngineLog.manager.notice("auto connections enabled, initial=\(self.maxConcurrent)")
+                }
+            } else {
+                if self.isAutoConnections {
+                    self.isAutoConnections = false
+                    self.stopAdaptTimer()
+                }
+                self.maxConcurrent = Swift.max(1, maxConcurrent)
+            }
+            self.dispatchNext()
+        }
     }
 
     /// Pauses the download: freezes scheduling, cancels retry timers and stops
@@ -273,6 +313,7 @@ public final class ChunkManager {
             self.isPaused = true
             self.logTimer?.invalidate()
             self.logTimer = nil
+            self.stopAdaptTimer()
             self.bucket.stop()
             // Freeze scheduling: cancel pending retries and clear the queue so
             // nothing can start new chunk tasks while paused.
@@ -298,6 +339,7 @@ public final class ChunkManager {
             self.singleStreamRetries = 0
             self.singleStreamRetryItem?.cancel()
             self.singleStreamRetryItem = nil
+            if self.isAutoConnections { self.startAdaptTimer() }
             self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
             if self.singleStreamMode {
                 self.enterSingleStream()
@@ -322,6 +364,7 @@ public final class ChunkManager {
             self.isPaused = false
             self.logTimer?.invalidate()
             self.logTimer = nil
+            self.stopAdaptTimer()
             self.bucket.stop()
             for (_, item) in self.retryWorkItems { item.cancel() }
             self.retryWorkItems.removeAll()
@@ -350,6 +393,7 @@ public final class ChunkManager {
     private func enterSingleStream() {
         guard singleStreamTask == nil else { return }
         singleStreamMode = true
+        stopAdaptTimer()
         onPhaseChanged?(false)
         EngineLog.manager.notice("server does not support Range, switch to single-stream from scratch")
         for (_, task) in activeTasks { task.cancel() }
@@ -444,6 +488,7 @@ public final class ChunkManager {
             downloadSpeed = Int64(Double(singleStreamBytes - lastLogBytes) / elapsed)
             lastLogTime = now
             lastLogBytes = singleStreamBytes
+            if isAutoConnections { autoPolicy.record(speed: downloadSpeed) }
         }
         let total = singleStreamTotal > 0 ? singleStreamTotal : 0
         onProgress?(singleStreamBytes, total, downloadSpeed)
@@ -485,6 +530,7 @@ public final class ChunkManager {
         guard done + failed >= chunks.count, !chunks.isEmpty else { return }
         logTimer?.invalidate()
         logTimer = nil
+        stopAdaptTimer()
         // Flush the final chunk state before reporting done so the app
         // persists/displayed chunks are never stale from throttling.
         notifyChunksChanged(force: true)
@@ -546,6 +592,7 @@ public final class ChunkManager {
             downloadSpeed = Int64(Double(written - lastLogBytes) / elapsed)
             lastLogTime = now
             lastLogBytes = written
+            if isAutoConnections { autoPolicy.record(speed: downloadSpeed) }
         }
         let total = chunks.last?.endOffset ?? totalSize
         onProgress?(written, total, downloadSpeed)
@@ -559,6 +606,50 @@ public final class ChunkManager {
                 EngineLog.manager.debug("status active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(self.chunks.filter { $0.status == .completed }.count)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
             }
         }
+    }
+
+    // MARK: - Auto connection adaptation
+
+    private func startAdaptTimer() {
+        stopAdaptTimer()
+        scheduleAdaptTick()
+    }
+
+    /// Self-rearming tick on the sync queue (no RunLoop dependency). Called on
+    /// syncQueue; stops when auto mode is off, the download pauses or finishes.
+    private func scheduleAdaptTick() {
+        guard isAutoConnections, !isPaused else { return }
+        adaptWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.syncQueue.async {
+                self.evaluateAutoConnections()
+                if self.isAutoConnections, !self.isPaused {
+                    self.scheduleAdaptTick()
+                }
+            }
+        }
+        adaptWorkItem = item
+        syncQueue.asyncAfter(deadline: .now() + EngineConstants.autoEvaluationInterval, execute: item)
+    }
+
+    private func stopAdaptTimer() {
+        adaptWorkItem?.cancel()
+        adaptWorkItem = nil
+    }
+
+    /// Applies the auto-connection policy once per evaluation tick.
+    /// Call on syncQueue.
+    private func evaluateAutoConnections() {
+        guard isAutoConnections, !isPaused, !singleStreamMode else { return }
+        let current = maxConcurrent
+        let hasPending = !pendingIndices.isEmpty
+        guard let next = autoPolicy.evaluate(currentConnections: current, hasPending: hasPending) else { return }
+        let clamped = Swift.max(1, Swift.min(next, EngineConstants.maxAutoConnections))
+        guard clamped != current else { return }
+        EngineLog.manager.notice("auto connections \(current) -> \(clamped)")
+        maxConcurrent = clamped
+        dispatchNext()
     }
 
     // MARK: - Helpers
