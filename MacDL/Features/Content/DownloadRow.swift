@@ -239,9 +239,9 @@ struct DownloadRow: View {
             ForEach(options, id: \.self) { count in
                 Button { action?(download.id, count) } label: {
                     if count == current {
-                        Label(count == 0 ? LanguageManager.shared.localized("Auto") : "\(count)", systemImage: "checkmark")
+                        Label(count == 0 ? LanguageManager.shared.localized("Adaptive") : "\(count)", systemImage: "checkmark")
                     } else {
-                        Text(count == 0 ? LanguageManager.shared.localized("Auto") : "\(count)")
+                        Text(count == 0 ? LanguageManager.shared.localized("Adaptive") : "\(count)")
                     }
                 }
             }
@@ -249,7 +249,7 @@ struct DownloadRow: View {
             HStack(spacing: 4) {
                 Image(systemName: "square.grid.3x2")
                 Text(current == 0
-                     ? LanguageManager.shared.localized("Auto")
+                     ? LanguageManager.shared.localized("Adaptive")
                      : String(format: LanguageManager.shared.localized("%lld Threads"), Int64(current)))
             }
         }

@@ -25,7 +25,7 @@ struct DownloadPane: View {
                     Picker(selection: $maxConnections) {
                         ForEach(connectionOptions, id: \.self) { n in
                             if n == 0 {
-                                LocalizedText(key: "Auto").tag(n)
+                                LocalizedText(key: "Adaptive").tag(n)
                             } else {
                                 Text("\(n)").tag(n)
                             }

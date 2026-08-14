@@ -16,8 +16,8 @@ struct MacDLApp: App {
         if let logsDir {
             FileLogWriter.setLogFile(logsDir.appendingPathComponent("MacDL.log"))
         }
-        // 0 means "Auto" connections; the shared session must still allow the
-        // per-host cap up to the maximum the auto policy may reach.
+        // 0 means "Adaptive" connections; the shared session must still allow
+        // the per-host cap up to the maximum the adaptive policy may reach.
         ChunkDownloadTask.maxConnectionsProvider = {
             let connections = SettingsStore.shared.maxConnections
             return connections > 0 ? connections : 8

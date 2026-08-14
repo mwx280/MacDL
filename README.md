@@ -27,9 +27,9 @@ fast and the app quietly stays out of your way.
   downloads going. Optionally hides the Dock icon when the window closes.
 - **Multi-threaded chunked downloads**: up to 8 parallel connections per
   download; all chunks share a single `URLSession`, so HTTP/2 can reuse one
-  connection. An "Auto" connection mode (default) picks the starting count from
-  the file size and adapts it to observed throughput — it adds connections only
-  while they keep making the transfer faster and converges at the best count.
+  connection. An "Adaptive" connection mode (default) picks the starting count
+  from the file size and adapts it to observed throughput — it adds connections
+  only while they keep making the transfer faster and converges at the best count.
 - **Automatic resume detection**: a `Range` probe at start discovers the real
   file size and whether the server answers `206`. Servers without Range support
   automatically fall back to a single-threaded download.

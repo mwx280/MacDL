@@ -312,7 +312,7 @@ struct NewDownloadView: View {
         )) {
             ForEach([0, 1, 2, 4, 8], id: \.self) { n in
                 if n == 0 {
-                    Text(lang.localized("Auto")).tag(n)
+                    Text(lang.localized("Adaptive")).tag(n)
                 } else {
                     Text(String(format: lang.localized("%lld Threads"), n)).tag(n)
                 }
