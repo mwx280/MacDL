@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TabView`, rows gain inline description subtitles, and the window auto-sizes
   to the active pane instead of using fixed per-pane heights.
 
+### Fixed
+
+- Engine no longer hangs in the probing phase when a download fails with a pure
+  network error (no HTTP response): after retries are exhausted the failure is
+  reported instead of leaving the task stuck at "Preparing" forever.
+- Engine now completes a resumed download whose persisted chunks are already
+  all complete, so a crash between the last chunk write and the rename does not
+  strand the task at 100%.
+
 ## [0.2.0] - 2026-08-05
 
 Second preview release.

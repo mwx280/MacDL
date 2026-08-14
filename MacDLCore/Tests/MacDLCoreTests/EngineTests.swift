@@ -221,6 +221,39 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(verifyPattern(in: dest, size: 262144))
     }
 
+    @Test func probePermanentFailureReportsError() {
+        // Server unreachable from the start: the Range probe exhausts its
+        // retries without ever receiving a response. The engine must still
+        // report failure instead of hanging forever in the probing phase.
+        FakeURLProtocol.failAllTimes = 1000
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-probefail.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var failed = false
+        manager.onCompletion = { r in if case .failure = r { failed = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(failed)
+    }
+
+    @Test func resumeAllChunksCompletedReportsDone() {
+        // A download whose persisted chunks are all complete must still fire
+        // the completion callback, or a crash between the last chunk write and
+        // the rename would leave the task stuck at 100% forever.
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-alldone.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let completed = Chunk.chunks(totalSize: 1024 * 1024, chunkSize: 262144).map { c in
+            Chunk(index: c.index, startOffset: c.startOffset, endOffset: c.endOffset, downloadedSize: c.size, status: .completed)
+        }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start(withChunks: completed, totalSize: 1024 * 1024)
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+    }
+
     @Test func pauseStopsRetryFromDispatching() {
         // Chunks after the probe return 429; retries are scheduled with backoff.
         // After pause, no retry may fire and no new request may be dispatched.

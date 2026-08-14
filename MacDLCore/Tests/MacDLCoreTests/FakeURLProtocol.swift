@@ -10,6 +10,9 @@ final class FakeURLProtocol: URLProtocol {
     // Fail the first N whole-file (no Range) requests with a transport error,
     // to exercise single-stream retry.
     nonisolated(unsafe) static var failWholeFileTimes = 0
+    // Fail the next N requests of any kind with a transport error and no HTTP
+    // response (simulates an unreachable server), for probe-failure tests.
+    nonisolated(unsafe) static var failAllTimes = 0
     private static let lock = NSLock()
     nonisolated(unsafe) static var requests: [URLRequest] = []
 
@@ -29,6 +32,14 @@ final class FakeURLProtocol: URLProtocol {
         if rangeHeader == nil, Self.failWholeFileTimes > 0 {
             Self.failWholeFileTimes -= 1
             client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+            return
+        }
+
+        // Simulate an unreachable server: every request fails with a transport
+        // error and no HTTP response ever arrives.
+        if Self.failAllTimes > 0 {
+            Self.failAllTimes -= 1
+            client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
             return
         }
 
@@ -83,6 +94,7 @@ final class FakeURLProtocol: URLProtocol {
         serverTotalOverride = nil
         statusOverrideAfterStart = nil
         failWholeFileTimes = 0
+        failAllTimes = 0
         lock.lock()
         requests.removeAll()
         lock.unlock()

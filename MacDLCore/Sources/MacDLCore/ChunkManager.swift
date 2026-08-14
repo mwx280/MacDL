@@ -97,6 +97,10 @@ public final class ChunkManager {
             self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
             self.updateBucket()
             self.dispatchNext()
+            // A resumed download whose persisted chunks are already complete
+            // must still fire completion, or a crash between the last chunk
+            // write and the rename would leave the task stuck at 100%.
+            self.checkDone()
         }
     }
 
@@ -305,6 +309,7 @@ public final class ChunkManager {
                 }
                 self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
                 self.dispatchNext()
+                self.checkDone()
             }
         }
     }
@@ -477,21 +482,22 @@ public final class ChunkManager {
     private func checkDone() {
         let done = chunks.filter { $0.status == .completed }.count
         let failed = chunks.filter { $0.status == .failed }.count
-        guard totalSize > 0 || singleStreamMode else { return }
-        if done + failed >= chunks.count, !chunks.isEmpty {
-            logTimer?.invalidate()
-            logTimer = nil
-            // Flush the final chunk state before reporting done so the app
-            // persists/displayed chunks are never stale from throttling.
-            notifyChunksChanged(force: true)
-            if failed > 0 {
-                for (_, task) in activeTasks { task.cancel() }
-                activeTasks.removeAll()
-                pendingIndices.removeAll()
-                onCompletion?(.failure(lastError ?? DownloadError.cancelled))
-            } else {
-                onCompletion?(.success(()))
-            }
+        guard done + failed >= chunks.count, !chunks.isEmpty else { return }
+        logTimer?.invalidate()
+        logTimer = nil
+        // Flush the final chunk state before reporting done so the app
+        // persists/displayed chunks are never stale from throttling.
+        notifyChunksChanged(force: true)
+        if failed > 0 {
+            // A failed download reports its error even when the total size is
+            // still unknown (e.g. the Range probe exhausted its retries on a
+            // pure network failure) — otherwise the task would hang forever.
+            for (_, task) in activeTasks { task.cancel() }
+            activeTasks.removeAll()
+            pendingIndices.removeAll()
+            onCompletion?(.failure(lastError ?? DownloadError.cancelled))
+        } else if totalSize > 0 || singleStreamMode {
+            onCompletion?(.success(()))
         }
     }
 
