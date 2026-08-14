@@ -2,80 +2,51 @@ import SwiftUI
 import AppKit
 
 struct SettingsView: View {
-    private enum Pane: String, CaseIterable, Identifiable {
+    private enum Pane: String {
         case general
         case download
         case update
         case notifications
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .general: "General"
-            case .download: "Download"
-            case .update: "Update"
-            case .notifications: "Notifications"
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .general: "gearshape"
-            case .download: "arrow.down.circle"
-            case .update: "arrow.triangle.2.circlepath"
-            case .notifications: "bell"
-            }
-        }
     }
 
     @State private var pane: Pane = .general
 
     var body: some View {
-        VStack(spacing: 0) {
-            pillBar
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-
-            Divider()
-
-            Group {
-                switch pane {
-                case .general: GeneralPane()
-                case .download: DownloadPane()
-                case .update: UpdatePane()
-                case .notifications: NotificationsPane()
+        TabView(selection: $pane) {
+            GeneralPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "General") }, icon: { Image(systemName: "gearshape") })
                 }
-            }
+                .tag(Pane.general)
+
+            DownloadPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Download") }, icon: { Image(systemName: "arrow.down.circle") })
+                }
+                .tag(Pane.download)
+
+            UpdatePane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Update") }, icon: { Image(systemName: "arrow.triangle.2.circlepath") })
+                }
+                .tag(Pane.update)
+
+            NotificationsPane()
+                .tabItem {
+                    Label(title: { LocalizedText(key: "Notifications") }, icon: { Image(systemName: "bell") })
+                }
+                .tag(Pane.notifications)
         }
-        .frame(width: 520)
+        .frame(width: 520, height: height(for: pane))
     }
 
-    private var pillBar: some View {
-        HStack(spacing: 4) {
-            ForEach(Pane.allCases) { p in
-                Button {
-                    pane = p
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: p.icon)
-                        LocalizedText(key: p.title)
-                    }
-                    .font(.callout)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .foregroundStyle(pane == p ? Color.white : Color.primary)
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .background(
-                    pane == p ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear),
-                    in: Capsule()
-                )
-            }
+    private func height(for pane: Pane) -> CGFloat {
+        switch pane {
+        case .general: 290
+        case .download: 390
+        case .update: 170
+        case .notifications: 285
         }
-        .padding(4)
-        .background(.quaternary.opacity(0.5), in: Capsule())
     }
 }
 

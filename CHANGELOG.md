@@ -16,9 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Notification settings pane gains a "Launch Notification" toggle (default on).
-- Settings window redesigned: a capsule pill tab bar replaces the system
-  `TabView`, rows gain inline description subtitles, and the window auto-sizes
-  to the active pane instead of using fixed per-pane heights.
+- Settings window redesigned: rows gain inline description subtitles, icons get
+  per-row colors, and the window auto-sizes to the active pane. Navigation uses
+  the native system `TabView` instead of a self-drawn pill tab bar.
 
 ### Fixed
 
