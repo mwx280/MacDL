@@ -23,8 +23,10 @@ public protocol DownloadEngineProtocol {
     func setProgressHandler(for id: UUID, handler: @escaping (Int64, Int64, Int64) -> Void)
     /// Registers the completion callback.
     func setCompletionHandler(for id: UUID, handler: @escaping (Result<Void, Error>) -> Void)
-    /// Registers the chunk-array callback.
+    /// Registers the chunk-array callback (full array, structural changes).
     func setChunksChangeHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void)
+    /// Registers the incremental chunk callback (only chunks that changed).
+    func setChunksUpdateHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void)
     /// Registers the server-resume-support callback.
     func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void)
     /// Registers the probe-phase callback (`true` while probing).

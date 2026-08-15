@@ -37,6 +37,7 @@ public final class ChunkManager: @unchecked Sendable {
     private var activeTasks: [Int: ChunkDownloadTask] = [:]
     private var pendingIndices: [Int] = []
     private var pendingHead = 0
+    private var dirtyIndices = Set<Int>()
     private var retryCounts: [Int: Int] = [:]
     private var lastError: Error?
     private var serverSupportsResume: Bool?
@@ -63,6 +64,9 @@ public final class ChunkManager: @unchecked Sendable {
     public var onProgress: ((Int64, Int64, Int64) -> Void)?
     /// Chunk-array callback, delivered at a throttled cadence.
     public var onChunksChanged: (([Chunk]) -> Void)?
+    /// Incremental chunk callback: only the chunks that changed since the last
+    /// delivery, avoiding a full-array copy on every progress tick.
+    public var onChunksUpdated: (([Chunk]) -> Void)?
     /// Completion callback with the overall `Result<Void, Error>`.
     public var onCompletion: ((Result<Void, Error>) -> Void)?
     /// Server resume-support callback.
@@ -195,6 +199,7 @@ public final class ChunkManager: @unchecked Sendable {
                 guard index < self.chunks.count else { return }
                 self.writtenBytes += bytes - self.chunks[index].downloadedSize
                 self.chunks[index].downloadedSize = bytes
+                self.markChunkDirty(index)
                 self.updateProgress()
             }
         }
@@ -243,6 +248,7 @@ public final class ChunkManager: @unchecked Sendable {
                         self.chunks[index].status = .completed
                         self.chunks[index].downloadedSize = self.chunks[index].size
                         self.completedCount += 1
+                        self.markChunkDirty(index)
                         self.retryCounts[index] = nil
                         EngineLog.manager.notice("chunk \(index) completed")
                         // The probe chunk doubles as a single-connection speed
@@ -294,6 +300,7 @@ public final class ChunkManager: @unchecked Sendable {
             writtenBytes -= chunks[index].downloadedSize
             chunks[index].status = .failed
             failedCount += 1
+            markChunkDirty(index)
             EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
             return false
         }
@@ -303,12 +310,14 @@ public final class ChunkManager: @unchecked Sendable {
             writtenBytes -= chunks[index].downloadedSize
             chunks[index].status = .failed
             failedCount += 1
+            markChunkDirty(index)
             EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
             return false
         }
         retryCounts[index] = attempt
         writtenBytes -= chunks[index].downloadedSize
         chunks[index].status = .pending
+        markChunkDirty(index)
         enqueuePending(index)
         // Exponential backoff: 1s, 2s, 4s... capped at 10s.
         let delay = min(EngineConstants.retryBackoffBase * pow(2.0, Double(attempt - 1)), EngineConstants.retryBackoffCap)
@@ -406,6 +415,7 @@ public final class ChunkManager: @unchecked Sendable {
                 for i in self.chunks.indices where self.chunks[i].status == .downloading {
                     self.writtenBytes -= self.chunks[i].downloadedSize
                     self.chunks[i].status = .pending
+                    self.markChunkDirty(i)
                 }
                 self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
                 self.pendingHead = 0
@@ -480,6 +490,7 @@ public final class ChunkManager: @unchecked Sendable {
         activeTasks.removeAll()
         clearPending()
         chunks = []
+        dirtyIndices.removeAll()
         completedCount = 0
         failedCount = 0
         writtenBytes = 0
@@ -589,6 +600,7 @@ public final class ChunkManager: @unchecked Sendable {
                 guard idx < chunks.count, chunks[idx].status != .completed else { continue }
                 writtenBytes += chunks[idx].downloadedSize
                 chunks[idx].status = .downloading
+                markChunkDirty(idx)
 
                 let chunk = chunks[idx]
                 let task = ChunkDownloadTask(
@@ -634,16 +646,39 @@ public final class ChunkManager: @unchecked Sendable {
 
     // MARK: - Progress
 
-    /// Delivers the chunk array to the app at most once per interval. Per-chunk
-    /// completions coalesce (a 5863-chunk file would otherwise fire 5863 full
-    /// array copies); structural changes use `force` to deliver immediately.
+    /// Marks a chunk as changed so the next flush delivers only that chunk
+    /// instead of the whole array (avoids full-array copy-on-write churn).
+    private func markChunkDirty(_ index: Int) {
+        dirtyIndices.insert(index)
+    }
+
+    /// Sends the chunks that changed since the last delivery. Call on syncQueue.
+    private func flushDirtyChunks() {
+        guard !dirtyIndices.isEmpty else { return }
+        let updates = dirtyIndices.compactMap { idx -> Chunk? in
+            idx < chunks.count ? chunks[idx] : nil
+        }
+        dirtyIndices.removeAll()
+        onChunksUpdated?(updates)
+    }
+
+    /// Delivers chunk state to the app at most once per interval. Structural
+    /// changes use `force` to deliver the full array; incremental changes flush
+    /// only the dirty chunks so large files avoid a full-array copy per tick.
     /// Call on syncQueue.
     private func notifyChunksChanged(force: Bool = false) {
+        if force {
+            lastChunksChangedTime = Date()
+            pendingChunksChanged = false
+            dirtyIndices.removeAll()
+            onChunksChanged?(chunks)
+            return
+        }
         let now = Date()
-        if force || now.timeIntervalSince(lastChunksChangedTime) >= EngineConstants.chunksChangedInterval {
+        if now.timeIntervalSince(lastChunksChangedTime) >= EngineConstants.chunksChangedInterval {
             lastChunksChangedTime = now
             pendingChunksChanged = false
-            onChunksChanged?(chunks)
+            flushDirtyChunks()
         } else if !pendingChunksChanged {
             pendingChunksChanged = true
             syncQueue.asyncAfter(deadline: .now() + EngineConstants.chunksChangedInterval) { [weak self] in
@@ -651,7 +686,7 @@ public final class ChunkManager: @unchecked Sendable {
                 if self.pendingChunksChanged {
                     self.lastChunksChangedTime = Date()
                     self.pendingChunksChanged = false
-                    self.onChunksChanged?(self.chunks)
+                    self.flushDirtyChunks()
                 }
             }
         }

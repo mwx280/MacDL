@@ -171,7 +171,19 @@ final class DownloadEngineCoordinator {
 
         engine.setChunksChangeHandler(for: id) { [weak self] chunks in
             Task { @MainActor [weak self] in
-                self?.store.update(id) { $0.chunks = chunks }
+                // Copy into a fresh buffer so the engine's own writes never share
+                // this array (sharing triggers a full-array copy-on-write).
+                self?.store.update(id) { $0.chunks = chunks.map { $0 } }
+            }
+        }
+
+        engine.setChunksUpdateHandler(for: id) { [weak self] updates in
+            Task { @MainActor [weak self] in
+                self?.store.update(id) { download in
+                    for update in updates where update.index < download.chunks.count {
+                        download.chunks[update.index] = update
+                    }
+                }
             }
         }
 

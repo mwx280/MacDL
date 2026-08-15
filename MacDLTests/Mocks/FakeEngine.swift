@@ -16,6 +16,7 @@ final class FakeEngine: DownloadEngineProtocol {
     private var progressHandlers: [UUID: (Int64, Int64, Int64) -> Void] = [:]
     private var completionHandlers: [UUID: (Result<Void, Error>) -> Void] = [:]
     private var chunksChangeHandlers: [UUID: ([Chunk]) -> Void] = [:]
+    private var chunksUpdateHandlers: [UUID: ([Chunk]) -> Void] = [:]
     private var resumeSupportHandlers: [UUID: (Bool) -> Void] = [:]
     private var phaseHandlers: [UUID: (Bool) -> Void] = [:]
 
@@ -45,6 +46,10 @@ final class FakeEngine: DownloadEngineProtocol {
 
     func setChunksChangeHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void) {
         chunksChangeHandlers[id] = handler
+    }
+
+    func setChunksUpdateHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void) {
+        chunksUpdateHandlers[id] = handler
     }
 
     func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void) {

@@ -94,6 +94,12 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
         syncQueue.sync { managers[id]?.onChunksChanged = handler }
     }
 
+    /// Registers the incremental chunk callback (only chunks that changed since
+    /// the last delivery, avoiding a full-array copy on every progress tick).
+    public func setChunksUpdateHandler(for id: UUID, handler: @escaping ([Chunk]) -> Void) {
+        syncQueue.sync { managers[id]?.onChunksUpdated = handler }
+    }
+
     /// Registers the resume-support callback; `false` means the server ignores
     /// Range requests and the download falls back to a single stream.
     public func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
