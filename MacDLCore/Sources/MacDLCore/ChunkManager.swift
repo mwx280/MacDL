@@ -37,6 +37,8 @@ public final class ChunkManager: @unchecked Sendable {
     private var chunks: [Chunk] = []
     private var sources: [Source] = []
     private var chunkSource: [Int: Int] = [:]
+    private var chunkDispatchTime: [Int: Date] = [:]
+    private var sourceScheduler: SourceScheduler
     private var completedCount = 0
     private var failedCount = 0
     private var writtenBytes: Int64 = 0
@@ -96,6 +98,7 @@ public final class ChunkManager: @unchecked Sendable {
         self.isAutoConnections = maxConcurrent <= 0
         self.maxConcurrent = self.isAutoConnections ? 1 : maxConcurrent
         self.sources = [Source(url: url)] + mirrors.map { Source(url: $0) }
+        self.sourceScheduler = SourceScheduler(sourceCount: self.sources.count)
         // Seed cold-start decisions from past sessions for this host, so a
         // repeated source starts near its optimal settings instead of probing
         // from a size-only guess.
@@ -308,9 +311,17 @@ public final class ChunkManager: @unchecked Sendable {
                         self.completedCount += 1
                         self.markChunkDirty(index)
                         self.retryCounts[index] = nil
-                        // A successful chunk clears its source's failure streak.
+                        // A successful chunk clears its source's failure streak
+                        // and folds its throughput into the source's EWMA weight.
                         if let si = self.chunkSource.removeValue(forKey: index) {
                             self.sources[si].recordSuccess()
+                            if let start = self.chunkDispatchTime.removeValue(forKey: index) {
+                                let elapsed = Date().timeIntervalSince(start)
+                                if elapsed > 0.05 {
+                                    self.sources[si].recordThroughput(
+                                        Int64(Double(self.chunks[index].size) / elapsed))
+                                }
+                            }
                         }
                         EngineLog.manager.notice("chunk \(index) completed")
                         // The probe chunk doubles as a single-connection speed
@@ -693,15 +704,19 @@ public final class ChunkManager: @unchecked Sendable {
                 let idx = pendingIndices[pendingHead]
                 pendingHead += 1
                 guard idx < chunks.count, chunks[idx].status != .completed else { continue }
-                // Pick the first healthy source; when the primary is cooling
-                // down, chunks fail over to a mirror.
-                guard let si = firstAvailableSourceIndex() else {
+                // Weighted round-robin across healthy sources: faster sources
+                // (higher EWMA throughput) serve more chunks, and cooling-down
+                // sources get none.
+                let throughputs = sources.map(\.avgThroughput)
+                let available = sources.map { $0.isAvailable() }
+                guard let si = sourceScheduler.pick(throughputs: throughputs, available: available) else {
                     // No source is usable right now: stop dispatching and let
                     // the cooldown timer re-enter dispatch when one recovers.
                     scheduleSourceRecovery()
                     break
                 }
                 chunkSource[idx] = si
+                chunkDispatchTime[idx] = Date()
                 writtenBytes += chunks[idx].downloadedSize
                 chunks[idx].status = .downloading
                 markChunkDirty(idx)
@@ -723,11 +738,6 @@ public final class ChunkManager: @unchecked Sendable {
         }
         let completed = completedCount
         EngineLog.manager.debug("dispatch active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingCount) done=\(completed)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
-    }
-
-    /// Returns the index of the first source not currently in cooldown.
-    private func firstAvailableSourceIndex(at now: Date = Date()) -> Int? {
-        sources.firstIndex { $0.isAvailable(at: now) }
     }
 
     /// Schedules a re-dispatch when the earliest cooldown expires, so chunks do

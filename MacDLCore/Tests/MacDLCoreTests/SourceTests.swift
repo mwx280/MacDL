@@ -39,4 +39,15 @@ import Foundation
         s.recordSuccess()
         #expect(s.isAvailable(at: t0.addingTimeInterval(1)))
     }
+
+    @Test func throughputMergesEWMA() {
+        var s = Source(url: URL(string: "https://a.example/f")!)
+        s.recordThroughput(1000)
+        #expect(s.avgThroughput == 1000)
+        s.recordThroughput(2000)
+        // 0.7 * 1000 + 0.3 * 2000 = 1300
+        #expect(s.avgThroughput == 1300)
+        s.recordThroughput(-5)
+        #expect(s.avgThroughput > 0)
+    }
 }

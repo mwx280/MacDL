@@ -480,4 +480,26 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         let mirrorRequests = FakeURLProtocol.requests.filter { $0.url?.host == "mirror.example" }
         #expect(!mirrorRequests.isEmpty)
     }
+
+    @Test func fastMirrorServesMoreChunks() {
+        // The slow primary and a fast mirror: the throughput-weighted scheduler
+        // must steer most chunks to the fast mirror once its throughput is known.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.perHostRates = ["slow.example": 100 * 1024, "fast.example": 2 * 1024 * 1024]
+        defer { FakeURLProtocol.perHostRates.removeAll() }
+        let slow = URL(string: "https://slow.example/f.bin")!
+        let fast = URL(string: "https://fast.example/f.bin")!
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-quota.bin")
+        let manager = makeChunkManager(url: slow, dest: dest, mirrors: [fast])
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+        let fastRequests = FakeURLProtocol.requests.filter { $0.url?.host == "fast.example" }.count
+        let slowRequests = FakeURLProtocol.requests.filter { $0.url?.host == "slow.example" }.count
+        #expect(fastRequests > slowRequests)
+    }
 }

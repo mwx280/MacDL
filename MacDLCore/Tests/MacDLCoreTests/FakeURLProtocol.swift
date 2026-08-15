@@ -16,6 +16,9 @@ final class FakeURLProtocol: URLProtocol {
     // When > 0, each request delivers its body in slices at this byte/second
     // rate (independently per connection), so N connections yield ~N× throughput.
     nonisolated(unsafe) static var perConnectionRate: Int64 = 0
+    // Per-host delivery rate (bytes/second), overriding the global
+    // perConnectionRate, to simulate a slow vs fast mirror in multi-source tests.
+    nonisolated(unsafe) static var perHostRates: [String: Int64] = [:]
     // Requests to these hosts fail with a transport error (simulates a down
     // source), used by multi-source failover tests.
     nonisolated(unsafe) static var failingHosts = Set<String>()
@@ -97,12 +100,13 @@ final class FakeURLProtocol: URLProtocol {
             data[i] = UInt8((start + Int64(i)) % 251)
         }
         let latency = Double(Self.latencyMs) / 1000.0
-        let throttled = Self.perConnectionRate > 0
+        let hostRate = url.host.flatMap { Self.perHostRates[$0] }
+        let throttled = Self.perConnectionRate > 0 || (hostRate ?? 0) > 0
         if latency > 0 || throttled {
             // Deliver the response and body asynchronously, optionally delayed
             // by latency and throttled per connection.
             let slices = data
-            let rate = Self.perConnectionRate
+            let rate = hostRate ?? Self.perConnectionRate
             DispatchQueue.global().async {
                 if latency > 0 {
                     Thread.sleep(forTimeInterval: latency)
@@ -154,6 +158,7 @@ final class FakeURLProtocol: URLProtocol {
         failWholeFileTimes = 0
         failAllTimes = 0
         perConnectionRate = 0
+        perHostRates.removeAll()
         failingHosts.removeAll()
         latencyMs = 0
         peakRequests = 0
