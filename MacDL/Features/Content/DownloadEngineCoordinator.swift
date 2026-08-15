@@ -162,15 +162,25 @@ final class DownloadEngineCoordinator {
 
     // MARK: - Engine handlers
 
+    /// Dispatches a `@MainActor` block to the main queue without allocating a
+    /// `Task` per callback. Engine callbacks fire from background queues, so the
+    /// explicit main-queue hop is equivalent to `Task { @MainActor ... }` but
+    /// cheaper at the progress-callback cadence.
+    private nonisolated func hopToMain(_ work: @escaping @MainActor () -> Void) {
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated(work)
+        }
+    }
+
     private func installHandlers(for id: UUID) {
         engine.setProgressHandler(for: id) { [weak self] bytes, total, speed in
-            Task { @MainActor [weak self] in
+            self?.hopToMain {
                 self?.handleProgress(id: id, bytes: bytes, total: total, speed: speed)
             }
         }
 
         engine.setChunksChangeHandler(for: id) { [weak self] chunks in
-            Task { @MainActor [weak self] in
+            self?.hopToMain {
                 // Copy into a fresh buffer so the engine's own writes never share
                 // this array (sharing triggers a full-array copy-on-write).
                 self?.store.update(id) { $0.chunks = chunks.map { $0 } }
@@ -178,7 +188,7 @@ final class DownloadEngineCoordinator {
         }
 
         engine.setChunksUpdateHandler(for: id) { [weak self] updates in
-            Task { @MainActor [weak self] in
+            self?.hopToMain {
                 self?.store.update(id) { download in
                     for update in updates where update.index < download.chunks.count {
                         download.chunks[update.index] = update
@@ -188,19 +198,19 @@ final class DownloadEngineCoordinator {
         }
 
         engine.setResumeSupportHandler(for: id) { [weak self] supports in
-            Task { @MainActor [weak self] in
+            self?.hopToMain {
                 self?.handleResumeSupport(id: id, supports: supports)
             }
         }
 
         engine.setPhaseHandler(for: id) { [weak self] isProbing in
-            Task { @MainActor [weak self] in
+            self?.hopToMain {
                 self?.onPhaseChange?(id, isProbing)
             }
         }
 
         engine.setCompletionHandler(for: id) { [weak self] result in
-            Task { @MainActor [weak self] in
+            self?.hopToMain {
                 guard let self else { return }
                 self.engineTrackedDownloads.remove(id)
                 self.engine.cleanup(id: id)
