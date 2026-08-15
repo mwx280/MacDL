@@ -130,12 +130,12 @@ import Foundation
 
     @Test func informedEstimateTracksPerConnectionCap() {
         // Low measured single-connection rate → many connections.
-        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 32 * 1_048_576, rtt: 0) == 8)
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 32 * 1_048_576, rtt: 0) == 16)
         // High rate → the link is fast, few connections.
-        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 3 * 1_048_576, fileSize: 8 * 1_048_576, rtt: 0) == 2)
-        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 30 * 1_048_576, fileSize: 8 * 1_048_576, rtt: 0) == 1)
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 3 * 1_048_576, fileSize: 8 * 1_048_576, rtt: 0) == 4)
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 30 * 1_048_576, fileSize: 8 * 1_048_576, rtt: 0) == 2)
         // Low rate + high RTT → latency bump applies.
-        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 800 * 1024, fileSize: 32 * 1_048_576, rtt: 0.2) == 6)
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 800 * 1024, fileSize: 32 * 1_048_576, rtt: 0.2) == 12)
         // Tiny file never over-allocates even on a slow link.
         #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 1_000, rtt: 0) == 2)
     }

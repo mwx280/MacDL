@@ -234,7 +234,7 @@ struct DownloadRow: View {
 
     @ViewBuilder
     private func chunkMenu(_ action: ((UUID, Int) -> Void)?, _ current: Int) -> some View {
-        let options = [0, 1, 2, 4, 8] // 0 = Auto
+        let options = [0, 1, 2, 4, 8, 16] // 0 = Auto
         Menu {
             ForEach(options, id: \.self) { count in
                 Button { action?(download.id, count) } label: {

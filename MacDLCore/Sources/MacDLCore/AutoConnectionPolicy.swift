@@ -56,7 +56,7 @@ public struct AutoConnectionPolicy: Sendable {
     public let reprobeInterval: TimeInterval
 
     public init(minConnections: Int = 1,
-                maxConnections: Int = 8,
+                maxConnections: Int = 16,
                 gainThreshold: Double = 0.05,
                 cooldown: TimeInterval = 3,
                 evaluationInterval: TimeInterval = 3,
@@ -110,11 +110,11 @@ public struct AutoConnectionPolicy: Sendable {
             return initialConnectionCount(fileSize: fileSize, supportsResume: true, rtt: rtt)
         }
         let byRate: Int
-        if singleConnRate < 512 * 1024 { byRate = 8 }
-        else if singleConnRate < 1_048_576 { byRate = 6 }
-        else if singleConnRate < 2_097_152 { byRate = 4 }
-        else if singleConnRate < 5_242_880 { byRate = 2 }
-        else { byRate = 1 }
+        if singleConnRate < 512 * 1024 { byRate = 16 }
+        else if singleConnRate < 1_048_576 { byRate = 12 }
+        else if singleConnRate < 2_097_152 { byRate = 8 }
+        else if singleConnRate < 5_242_880 { byRate = 4 }
+        else { byRate = 2 }
         var count = byRate
         // Low measured single-connection rate + high latency: window-limited,
         // more connections multiply throughput.
@@ -123,7 +123,7 @@ public struct AutoConnectionPolicy: Sendable {
         // Small files have too few chunks to parallelize.
         if fileSize < 1_048_576 { count = min(count, 2) }
         else if fileSize < 16 * 1_048_576 { count = min(count, 4) }
-        return min(8, max(1, count))
+        return min(16, max(1, count))
     }
 
     // MARK: - State

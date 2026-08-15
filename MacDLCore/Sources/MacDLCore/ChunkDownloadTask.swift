@@ -14,7 +14,7 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
     nonisolated static let sharedDelegate = ChunkSessionDelegate()
     nonisolated static let sharedSession: URLSession = {
         let config = sessionConfigurationOverride ?? URLSessionConfiguration.default
-        config.httpMaximumConnectionsPerHost = max(1, maxConnectionsProvider?() ?? 8)
+        config.httpMaximumConnectionsPerHost = max(1, maxConnectionsProvider?() ?? 16)
         config.timeoutIntervalForRequest = EngineConstants.requestTimeout
         config.timeoutIntervalForResource = EngineConstants.resourceTimeout
         return URLSession(configuration: config, delegate: sharedDelegate, delegateQueue: nil)

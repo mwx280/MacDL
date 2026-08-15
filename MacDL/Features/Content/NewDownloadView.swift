@@ -310,7 +310,7 @@ struct NewDownloadView: View {
             get: { model.connections(for: url) },
             set: { model.connectionsByURL[url] = $0 }
         )) {
-            ForEach([0, 1, 2, 4, 8], id: \.self) { n in
+            ForEach([0, 1, 2, 4, 8, 16], id: \.self) { n in
                 if n == 0 {
                     Text(lang.localized("Adaptive")).tag(n)
                 } else {

@@ -8,7 +8,7 @@ struct DownloadPane: View {
     @State private var maxDownloadSpeed: Int
     @AppStorage("autoResumeOnLaunch") private var autoResumeOnLaunch = false
 
-    private let connectionOptions = [0, 1, 2, 4, 8] // 0 = Auto
+    private let connectionOptions = [0, 1, 2, 4, 8, 16] // 0 = Auto
     private let concurrentOptions = [1, 2, 3, 5, 10, 20]
 
     init() {

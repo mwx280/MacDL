@@ -20,7 +20,7 @@ struct MacDLApp: App {
         // the per-host cap up to the maximum the adaptive policy may reach.
         ChunkDownloadTask.maxConnectionsProvider = {
             let connections = SettingsStore.shared.maxConnections
-            return connections > 0 ? connections : 8
+            return connections > 0 ? connections : EngineConstants.maxAutoConnections
         }
         EngineLog.app.notice("didFinishLaunching (log file: \(FileLogWriter.logFileURL?.path ?? "nil"))")
         // Ask up front so the first download's "started" banner isn't dropped

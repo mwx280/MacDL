@@ -20,7 +20,7 @@ final class NewDownloadModel {
     var defaultSpeedLimit: Int
     private let probe: (URL, @escaping @MainActor (Bool?) -> Void) -> Void
 
-    init(defaultConnections: Int = 8,
+    init(defaultConnections: Int = 16,
          defaultSpeedLimit: Int = 0,
          probe: @escaping (URL, @escaping @MainActor (Bool?) -> Void) -> Void = { url, completion in
              ResumeProbeService.detectResumeSupport(url: url, completion: completion)

@@ -54,7 +54,7 @@ public struct Download: Identifiable, Codable, Sendable {
     public var errorKey: String?
     public var errorMessage: String?
     public var chunkSize: Int64 = 262144
-    public var maxConcurrentChunks: Int = 8
+    public var maxConcurrentChunks: Int = 16
     /// Chunk progress, kept in sync with the engine during a session. Not
     /// persisted directly; on disk it is compacted into `completedRanges` and
     /// `partialChunks` and rebuilt here when the app restarts.
@@ -105,7 +105,7 @@ public struct Download: Identifiable, Codable, Sendable {
         }
     }
 
-    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, saveBookmark: Data? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, errorKey: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 8, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil) {
+    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, saveBookmark: Data? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, errorKey: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 16, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil) {
         self.id = id
         self.filename = filename
         self.url = url
@@ -231,7 +231,7 @@ public struct Download: Identifiable, Codable, Sendable {
         errorMessage = try c.decodeIfPresent(String.self, forKey: .errorMessage)
         errorKey = try c.decodeIfPresent(String.self, forKey: .errorKey)
         chunkSize = try c.decodeIfPresent(Int64.self, forKey: .chunkSize) ?? 262144
-        maxConcurrentChunks = try c.decodeIfPresent(Int.self, forKey: .maxConcurrentChunks) ?? 8
+        maxConcurrentChunks = try c.decodeIfPresent(Int.self, forKey: .maxConcurrentChunks) ?? 16
         supportsResume = try c.decodeIfPresent(Bool.self, forKey: .supportsResume)
         isPriorityDownload = try c.decodeIfPresent(Bool.self, forKey: .isPriorityDownload)
         pausedForPriority = try c.decodeIfPresent(Bool.self, forKey: .pausedForPriority)

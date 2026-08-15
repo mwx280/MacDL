@@ -10,7 +10,7 @@ public enum EngineConstants {
     public static let retryBackoffCap: TimeInterval = 10.0
 
     // Auto connection adaptation
-    public static let maxAutoConnections = 8
+    public static let maxAutoConnections = 16
     public static let autoEvaluationInterval: TimeInterval = 3.0
 
     // Token bucket

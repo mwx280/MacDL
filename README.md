@@ -25,7 +25,7 @@ fast and the app quietly stays out of your way.
 
 - **Menu bar resident**: closing the main window keeps the app running and
   downloads going. Optionally hides the Dock icon when the window closes.
-- **Multi-threaded chunked downloads**: up to 8 parallel connections per
+- **Multi-threaded chunked downloads**: up to 16 parallel connections per
   download; all chunks share a single `URLSession`, so HTTP/2 can reuse one
   connection. An "Adaptive" connection mode (default) picks the starting count
   from the file size and adapts it to observed throughput — it adds connections
