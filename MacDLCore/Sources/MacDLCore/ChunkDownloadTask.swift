@@ -132,7 +132,10 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
     }
 
     private func cleanup() {
-        DispatchQueue.main.async { [weak self] in
+        // Run on the writer queue (not the main thread): synchronize() is an
+        // fsync that can block for tens of milliseconds on a large write buffer,
+        // and it must be serialized with the writer's file writes.
+        writerQueue.async { [weak self] in
             guard let self else { return }
             if let fh = self.fileHandle {
                 // The file may have been removed (user deleted it, test teardown)
