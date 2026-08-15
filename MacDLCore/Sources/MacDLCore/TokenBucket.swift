@@ -6,7 +6,8 @@ import Foundation
 /// Byte-level throttle shared by all chunks of a download. Waiters sleep on an
 /// `NSCondition` until enough tokens accrue, and are woken early by
 /// `stop()`/`reset()` instead of polling.
-public final class TokenBucket {
+/// @unchecked Sendable: all mutable state is guarded by `NSCondition`.
+public final class TokenBucket: @unchecked Sendable {
     private let condition = NSCondition()
     private var rate: Double
     private var tokens: Double = 0

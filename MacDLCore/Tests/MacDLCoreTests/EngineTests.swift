@@ -441,4 +441,21 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(after == before)
         #expect(!manager.hasActiveTasks)
     }
+
+    @Test func globalBucketThrottlesButStillCompletes() {
+        // A global speed cap must slow the download but never deadlock or corrupt
+        // the assembled file.
+        ChunkDownloadTask.globalBucket.setRate(256 * 1024)
+        defer { ChunkDownloadTask.globalBucket.setRate(0) }
+        FakeURLProtocol.virtualFileSize = 512 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-global.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 512 * 1024))
+    }
 }

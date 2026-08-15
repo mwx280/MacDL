@@ -10,6 +10,10 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
     public nonisolated(unsafe) static var maxConnectionsProvider: (() -> Int)?
     /// Test hook replacing the shared URLSession configuration.
     public nonisolated(unsafe) static var sessionConfigurationOverride: URLSessionConfiguration?
+    /// Global token bucket shared by every download, capping the aggregate
+    /// throughput across all tasks. Rate 0 = unlimited; the app sets it from the
+    /// user's global speed-limit setting.
+    public nonisolated static let globalBucket = TokenBucket(rate: 0)
 
     nonisolated static let sharedDelegate = ChunkSessionDelegate()
     nonisolated static let sharedSession: URLSession = {
@@ -276,6 +280,10 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
 
             if let c = chunk {
                 if bucket?.take(Double(c.count)) == false { return }
+                // The global bucket caps the aggregate throughput across all
+                // downloads; it is shared and only throttles when a global limit
+                // is set (rate > 0).
+                if Self.globalBucket.take(Double(c.count)) == false { return }
                 if isCancelled || isPaused || isCompleted { return }
                 guard let fh = fileHandle else { return }
                 fh.write(c)

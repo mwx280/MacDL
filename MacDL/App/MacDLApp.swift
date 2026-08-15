@@ -27,6 +27,8 @@ struct MacDLApp: App {
             let connections = SettingsStore.shared.maxConnections
             return connections > 0 ? connections : EngineConstants.maxAutoConnections
         }
+        // Seed the shared bandwidth bucket with the persisted global cap.
+        ChunkDownloadTask.globalBucket.setRate(Double(SettingsStore.shared.maxDownloadSpeed))
         EngineLog.app.notice("didFinishLaunching (log file: \(FileLogWriter.logFileURL?.path ?? "nil"))")
         // Ask up front so the first download's "started" banner isn't dropped
         // while the permission prompt is still pending. No-op if already decided.

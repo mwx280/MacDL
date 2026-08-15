@@ -1,4 +1,5 @@
 import Foundation
+import MacDLCore
 
 @MainActor
 final class SettingsStore {
@@ -37,9 +38,15 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: "downloadPathBookmark") }
     }
 
+    /// Global download speed cap shared by all tasks (bytes/second; 0 = unlimited).
     var maxDownloadSpeed: Int {
         get { defaults.integer(forKey: "maxDownloadSpeed") }
-        set { defaults.set(newValue, forKey: "maxDownloadSpeed") }
+        set {
+            defaults.set(newValue, forKey: "maxDownloadSpeed")
+            // Keep the engine's shared bucket in sync so the aggregate throughput
+            // across all downloads stays under the cap.
+            ChunkDownloadTask.globalBucket.setRate(Double(newValue))
+        }
     }
 
     var autoUpdate: Bool {
