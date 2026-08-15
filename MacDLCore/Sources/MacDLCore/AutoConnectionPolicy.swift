@@ -27,7 +27,9 @@ public struct AutoConnectionPolicy: Sendable {
     public let maxConnections: Int
     /// A probe is kept only when steady speed grows by at least this fraction.
     public let gainThreshold: Double
-    /// Minimum time between two connection changes.
+    /// Minimum time between two connection changes. Defensive: with the default
+    /// evaluation cadence (equal interval) it never actually blocks, but it
+    /// keeps future, faster callers from oscillating.
     public let cooldown: TimeInterval
     /// How often ``evaluate`` may be called (the caller's timer cadence).
     public let evaluationInterval: TimeInterval
@@ -39,6 +41,19 @@ public struct AutoConnectionPolicy: Sendable {
     public let errorFreezeWindow: TimeInterval
     /// Time without failures after which the freeze lifts.
     public let errorFreezeRelease: TimeInterval
+    /// Weight of the newest speed sample in the EMA (0..1). Higher = faster to
+    /// react, lower = smoother.
+    public let emaCoefficient: Double
+    /// A connection count is reverted only when speed falls below this fraction
+    /// of the best seen (regression detection).
+    public let regressThreshold: Double
+    /// Gain ratio at/above which the next probe jumps +3 connections.
+    public let jumpThresholdHigh: Double
+    /// Gain ratio at/above which the next probe jumps +2 connections.
+    public let jumpThresholdLow: Double
+    /// After converging, the policy re-probes upward this often, so it can pick
+    /// up network improvements that arrived mid-download.
+    public let reprobeInterval: TimeInterval
 
     public init(minConnections: Int = 1,
                 maxConnections: Int = 8,
@@ -48,7 +63,12 @@ public struct AutoConnectionPolicy: Sendable {
                 stableEvaluationsToConverge: Int = 5,
                 errorFreezeThreshold: Int = 3,
                 errorFreezeWindow: TimeInterval = 15,
-                errorFreezeRelease: TimeInterval = 30) {
+                errorFreezeRelease: TimeInterval = 30,
+                emaCoefficient: Double = 0.5,
+                regressThreshold: Double = 0.8,
+                jumpThresholdHigh: Double = 1.3,
+                jumpThresholdLow: Double = 1.15,
+                reprobeInterval: TimeInterval = 30) {
         self.minConnections = max(1, minConnections)
         self.maxConnections = max(self.minConnections, maxConnections)
         self.gainThreshold = max(0, gainThreshold)
@@ -58,6 +78,11 @@ public struct AutoConnectionPolicy: Sendable {
         self.errorFreezeThreshold = max(1, errorFreezeThreshold)
         self.errorFreezeWindow = max(0, errorFreezeWindow)
         self.errorFreezeRelease = max(0, errorFreezeRelease)
+        self.emaCoefficient = min(1, max(0, emaCoefficient))
+        self.regressThreshold = min(1, max(0, regressThreshold))
+        self.jumpThresholdHigh = max(1, jumpThresholdHigh)
+        self.jumpThresholdLow = max(1, jumpThresholdLow)
+        self.reprobeInterval = max(0, reprobeInterval)
     }
 
     // MARK: - Cold-start counts
@@ -114,6 +139,7 @@ public struct AutoConnectionPolicy: Sendable {
     private var lastChangeAt: Date?
     private var stableCount = 0
     private var isConverged = false
+    private var convergedAt: Date?
     private var lastGainRatio: Double = 0
     private var failureTimes: [Date] = []
     private var lastFailureAt: Date?
@@ -132,6 +158,7 @@ public struct AutoConnectionPolicy: Sendable {
         lastChangeAt = nil
         stableCount = 0
         isConverged = false
+        convergedAt = nil
         lastGainRatio = 0
         failureTimes = []
         lastFailureAt = nil
@@ -146,7 +173,7 @@ public struct AutoConnectionPolicy: Sendable {
             smoothedSpeed = sample
             hasSmoothed = true
         } else {
-            smoothedSpeed = Int64((Double(smoothedSpeed) * 0.5) + (Double(sample) * 0.5))
+            smoothedSpeed = Int64((Double(smoothedSpeed) * (1 - emaCoefficient)) + (Double(sample) * emaCoefficient))
         }
     }
 
@@ -162,10 +189,27 @@ public struct AutoConnectionPolicy: Sendable {
         }
     }
 
+    /// Treats an informed one-shot jump (from the probe's measured rate) as a
+    /// probe, so the next evaluation confirms it against the gain threshold
+    /// instead of trusting the estimate blindly.
+    public mutating func noteInformedProbe(from prevConnections: Int) {
+        guard hasSmoothed else { return }
+        // The current sample still reflects `prevConnections` (the jump has not
+        // been measured yet), so record it as the best before the jump.
+        if smoothedSpeed > bestSpeed {
+            bestSpeed = smoothedSpeed
+            bestConnections = max(1, prevConnections)
+        }
+        probePrevConnections = max(1, prevConnections)
+        probePrevSpeed = smoothedSpeed
+        isProbing = true
+        stableCount = 0
+    }
+
     /// Called at most once per `evaluationInterval`. Returns the connection
     /// count to switch to, or `nil` to keep the current count.
     public mutating func evaluate(currentConnections: Int, hasPending: Bool, now: Date = Date()) -> Int? {
-        guard !isConverged, hasSmoothed else { return nil }
+        guard hasSmoothed else { return nil }
         // Without queued chunks there is nothing new to parallelize.
         guard hasPending else { return nil }
 
@@ -179,6 +223,35 @@ public struct AutoConnectionPolicy: Sendable {
                 if currentConnections > bestConnections {
                     return bestConnections
                 }
+                return nil
+            }
+        }
+
+        // Revert to the best count if the current one is doing clearly worse.
+        // Checked before the convergence guard so a mid-download slowdown is
+        // still corrected after the policy has converged.
+        if bestSpeed > 0, Double(smoothedSpeed) < Double(bestSpeed) * regressThreshold,
+           currentConnections > bestConnections {
+            lastChangeAt = now
+            stableCount = 0
+            lastGainRatio = 0
+            isConverged = false
+            convergedAt = nil
+            return bestConnections
+        }
+
+        // Once converged, re-probe upward on a slow cadence so a network that
+        // improved mid-download is picked up instead of locking the count.
+        if isConverged {
+            if let at = convergedAt, now.timeIntervalSince(at) >= reprobeInterval {
+                isConverged = false
+                convergedAt = nil
+                stableCount = 0
+                // Nudge the ceiling up one so the re-probe may climb past it.
+                if ceiling != Int.max {
+                    ceiling = Swift.min(ceiling + 1, maxConnections)
+                }
+            } else {
                 return nil
             }
         }
@@ -208,19 +281,12 @@ public struct AutoConnectionPolicy: Sendable {
             }
         }
 
-        // Revert to the best count if the current one is doing clearly worse.
-        if bestSpeed > 0, Double(smoothedSpeed) < Double(bestSpeed) * 0.8, currentConnections > bestConnections {
-            lastChangeAt = now
-            stableCount = 0
-            lastGainRatio = 0
-            return bestConnections
-        }
-
         // Otherwise probe upward.
         guard smoothedSpeed > 0, currentConnections < maxConnections, currentConnections < ceiling else {
             stableCount += 1
             if stableCount >= stableEvaluationsToConverge {
                 isConverged = true
+                convergedAt = now
             }
             return nil
         }
@@ -228,8 +294,8 @@ public struct AutoConnectionPolicy: Sendable {
         // Adaptive step: jump +2/+3 after strong previous gains to converge
         // faster on per-connection-throttled servers.
         let step: Int
-        if lastGainRatio >= 1.3 { step = 3 }
-        else if lastGainRatio >= 1.15 { step = 2 }
+        if lastGainRatio >= jumpThresholdHigh { step = 3 }
+        else if lastGainRatio >= jumpThresholdLow { step = 2 }
         else { step = 1 }
         let next = Swift.min(currentConnections + step, ceiling)
         probePrevSpeed = smoothedSpeed

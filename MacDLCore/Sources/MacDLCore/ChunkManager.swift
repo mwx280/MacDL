@@ -27,6 +27,7 @@ public final class ChunkManager: @unchecked Sendable {
     private var autoPolicy = AutoConnectionPolicy()
     private var adaptWorkItem: DispatchWorkItem?
     private var probeStartTime: Date?
+    private var probeDataStartTime: Date?
     private var measuredRTT: TimeInterval = 0
     private var rttMeasured = false
     private var speedLimit: Int64 = 0
@@ -163,6 +164,10 @@ public final class ChunkManager: @unchecked Sendable {
                 if let start = self.probeStartTime {
                     self.measuredRTT = Date().timeIntervalSince(start)
                     self.rttMeasured = true
+                    // Rate sampling starts at the response, excluding connection
+                    // setup so the single-connection estimate isn't dragged down
+                    // by high RTT.
+                    self.probeDataStartTime = Date()
                 }
                 EngineLog.manager.notice("totalSize=\(total) rtt=\(self.measuredRTT)")
                 guard !self.singleStreamMode else { return }
@@ -189,6 +194,7 @@ public final class ChunkManager: @unchecked Sendable {
         }
         activeTasks[0] = task
         probeStartTime = Date()
+        probeDataStartTime = nil
         task.start(resumeFrom: 0)
     }
 
@@ -254,14 +260,24 @@ public final class ChunkManager: @unchecked Sendable {
                         // The probe chunk doubles as a single-connection speed
                         // sample: refine the initial count from its measured
                         // throughput instead of climbing one step at a time.
-                        if self.isAutoConnections, index == 0, self.rttMeasured, let start = self.probeStartTime {
-                            let elapsed = Date().timeIntervalSince(start)
-                            let rate = elapsed > 0.01 ? Int64(Double(self.chunks[index].downloadedSize) / elapsed) : 0
-                            self.maxConcurrent = Swift.max(1, Swift.min(
-                                AutoConnectionPolicy.informedInitialConnectionCount(
-                                    singleConnRate: rate, fileSize: self.totalSize, rtt: self.measuredRTT),
-                                EngineConstants.maxAutoConnections))
-                            EngineLog.manager.notice("auto informed connections=\(self.maxConcurrent) probeRate=\(rate)")
+                        if self.isAutoConnections, index == 0, self.rttMeasured {
+                            let rateStart = self.probeDataStartTime ?? self.probeStartTime
+                            if let rateStart {
+                                let elapsed = Date().timeIntervalSince(rateStart)
+                                let rate = elapsed > 0.01 ? Int64(Double(self.chunks[index].downloadedSize) / elapsed) : 0
+                                let prev = self.maxConcurrent
+                                self.maxConcurrent = Swift.max(1, Swift.min(
+                                    AutoConnectionPolicy.informedInitialConnectionCount(
+                                        singleConnRate: rate, fileSize: self.totalSize, rtt: self.measuredRTT),
+                                    EngineConstants.maxAutoConnections))
+                                // Treat an upward informed jump as a probe so the
+                                // next evaluation confirms it against the gain
+                                // threshold instead of trusting the estimate.
+                                if self.maxConcurrent > prev {
+                                    self.autoPolicy.noteInformedProbe(from: prev)
+                                }
+                                EngineLog.manager.notice("auto informed connections=\(self.maxConcurrent) probeRate=\(rate)")
+                            }
                         }
                         if self.totalSize == 0, self.chunks.count == 1, !self.singleStreamMode {
                             EngineLog.manager.notice("probe completed without file size, falling back to single-stream")

@@ -190,4 +190,49 @@ import Foundation
         settle(&p, speed: 1200)
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(6)) == 4)
     }
+
+    // MARK: - Convergence re-probe
+
+    @Test func reprobesAfterConvergence() {
+        var p = AutoConnectionPolicy(cooldown: 3, stableEvaluationsToConverge: 2, reprobeInterval: 30)
+        var t = t0
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == 2) // probe up
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000) // no gain
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t) == 1) // revert, ceiling = 1
+        // Stable at 1 → converge after two quiet evaluations.
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil)
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil) // converged
+        // Within the re-probe window the count stays put.
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil)
+        // After the re-probe interval the policy climbs past the old ceiling.
+        t = t.addingTimeInterval(30)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == 2)
+    }
+
+    // MARK: - Informed probe confirmation
+
+    @Test func informedProbeRevertsWithoutGain() {
+        var p = AutoConnectionPolicy(cooldown: 3)
+        settle(&p, speed: 1000)
+        p.noteInformedProbe(from: 1) // informed jump to 2
+        settle(&p, speed: 1000) // 2 connections but no gain
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 1)
+    }
+
+    @Test func informedProbeKeepsOnGain() {
+        var p = AutoConnectionPolicy(cooldown: 3)
+        settle(&p, speed: 1000)
+        p.noteInformedProbe(from: 1) // informed jump to 2
+        settle(&p, speed: 1200) // 20% gain → keep
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
+    }
 }
