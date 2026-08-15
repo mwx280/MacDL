@@ -21,7 +21,7 @@ final class FakeEngine: DownloadEngineProtocol {
     private var phaseHandlers: [UUID: (Bool) -> Void] = [:]
     private var chunkSizeHandlers: [UUID: (Int64) -> Void] = [:]
 
-    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) {
+    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL]) {
         started.append(id)
     }
 

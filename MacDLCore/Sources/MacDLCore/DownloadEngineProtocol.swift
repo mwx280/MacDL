@@ -4,7 +4,7 @@ import Foundation
 /// depending on the concrete ``DownloadEngine`` implementation.
 public protocol DownloadEngineProtocol {
     /// Starts a download, resuming persisted chunks when provided.
-    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk])
+    func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL])
     /// Resumes a paused download; false when nothing is tracked for the id.
     func resume(id: UUID) -> Bool
     /// Pauses the download.

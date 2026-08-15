@@ -16,6 +16,9 @@ final class FakeURLProtocol: URLProtocol {
     // When > 0, each request delivers its body in slices at this byte/second
     // rate (independently per connection), so N connections yield ~N× throughput.
     nonisolated(unsafe) static var perConnectionRate: Int64 = 0
+    // Requests to these hosts fail with a transport error (simulates a down
+    // source), used by multi-source failover tests.
+    nonisolated(unsafe) static var failingHosts = Set<String>()
     // Delay (ms) before the response is delivered, simulating round-trip latency.
     nonisolated(unsafe) static var latencyMs: Int64 = 0
     // Peak number of concurrently in-flight requests observed.
@@ -48,6 +51,12 @@ final class FakeURLProtocol: URLProtocol {
         // error and no HTTP response ever arrives.
         if Self.failAllTimes > 0 {
             Self.failAllTimes -= 1
+            client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+            return
+        }
+
+        // Simulate a specific down host (multi-source failover tests).
+        if let host = url.host, Self.failingHosts.contains(host) {
             client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
             return
         }
@@ -145,6 +154,7 @@ final class FakeURLProtocol: URLProtocol {
         failWholeFileTimes = 0
         failAllTimes = 0
         perConnectionRate = 0
+        failingHosts.removeAll()
         latencyMs = 0
         peakRequests = 0
         lock.lock()

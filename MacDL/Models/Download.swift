@@ -58,6 +58,9 @@ public struct Download: Identifiable, Codable, Sendable {
     /// Expected SHA-256 of the final file; when set, the completed download is
     /// verified against it before the staging file is renamed.
     public var expectedChecksum: String?
+    /// Mirror URLs the download fails over to when the primary source is cooling
+    /// down. Empty means a single source.
+    public var mirrors: [String] = []
     /// Chunk progress, kept in sync with the engine during a session. Not
     /// persisted directly; on disk it is compacted into `completedRanges` and
     /// `partialChunks` and rebuilt here when the app restarts.
@@ -108,7 +111,7 @@ public struct Download: Identifiable, Codable, Sendable {
         }
     }
 
-    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, saveBookmark: Data? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, errorKey: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 16, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil, expectedChecksum: String? = nil) {
+    public init(id: UUID = UUID(), filename: String, url: String, totalSize: Int64 = 0, downloadedSize: Int64 = 0, downloadSpeed: Int64 = 0, status: DownloadStatus = .waiting, addedAt: Date = Date(), savePath: String? = nil, saveBookmark: Data? = nil, downloadLimit: Int? = nil, errorMessage: String? = nil, errorKey: String? = nil, chunkSize: Int64 = 262144, maxConcurrentChunks: Int = 16, chunks: [Chunk] = [], supportsResume: Bool? = nil, isPriorityDownload: Bool? = nil, pausedForPriority: Bool? = nil, expectedChecksum: String? = nil, mirrors: [String] = []) {
         self.id = id
         self.filename = filename
         self.url = url
@@ -129,6 +132,7 @@ public struct Download: Identifiable, Codable, Sendable {
         self.isPriorityDownload = isPriorityDownload
         self.pausedForPriority = pausedForPriority
         self.expectedChecksum = expectedChecksum
+        self.mirrors = mirrors
     }
 
     public func buildChunks() -> [Chunk] {
@@ -191,7 +195,7 @@ public struct Download: Identifiable, Codable, Sendable {
         case id, filename, url, totalSize, downloadedSize, downloadSpeed, status, addedAt
         case savePath, saveBookmark, downloadLimit, errorMessage, errorKey
         case chunkSize, maxConcurrentChunks, supportsResume, isPriorityDownload, pausedForPriority
-        case expectedChecksum
+        case expectedChecksum, mirrors
         case completedRanges, partialChunks
         case chunks
     }
@@ -217,6 +221,7 @@ public struct Download: Identifiable, Codable, Sendable {
         try c.encodeIfPresent(isPriorityDownload, forKey: .isPriorityDownload)
         try c.encodeIfPresent(pausedForPriority, forKey: .pausedForPriority)
         try c.encodeIfPresent(expectedChecksum, forKey: .expectedChecksum)
+        try c.encode(mirrors, forKey: .mirrors)
         try c.encode(completedRanges, forKey: .completedRanges)
         try c.encode(partialChunks, forKey: .partialChunks)
     }
@@ -242,6 +247,7 @@ public struct Download: Identifiable, Codable, Sendable {
         isPriorityDownload = try c.decodeIfPresent(Bool.self, forKey: .isPriorityDownload)
         pausedForPriority = try c.decodeIfPresent(Bool.self, forKey: .pausedForPriority)
         expectedChecksum = try c.decodeIfPresent(String.self, forKey: .expectedChecksum)
+        mirrors = try c.decodeIfPresent([String].self, forKey: .mirrors) ?? []
 
         // Legacy files stored the full chunk array; newer ones store the compact
         // resume state. A fresh/zero-progress download has neither, so it stays

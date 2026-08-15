@@ -16,10 +16,12 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
 
     /// Starts a download, or restarts it with fresh state.
     /// - Parameters:
+    ///   - mirrors: Additional source URLs the download fails over to when the
+    ///     primary source is cooling down.
     ///   - chunks: Persisted chunks to resume from. Empty starts a Range probe
     ///     and builds the chunk list from the server's reported size.
-    public func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64 = 262144, maxConcurrent: Int = 4, chunks: [Chunk] = []) {
-        let manager = ChunkManager(id: id, url: url, destinationURL: destinationURL, chunkSize: chunkSize, maxConcurrent: maxConcurrent)
+    public func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64 = 262144, maxConcurrent: Int = 4, chunks: [Chunk] = [], mirrors: [URL] = []) {
+        let manager = ChunkManager(id: id, url: url, destinationURL: destinationURL, chunkSize: chunkSize, maxConcurrent: maxConcurrent, mirrors: mirrors)
         manager.setSpeedLimit(speedLimit)
         syncQueue.sync {
             managers[id]?.cancel()

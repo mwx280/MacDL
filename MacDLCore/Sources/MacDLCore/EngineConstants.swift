@@ -13,6 +13,10 @@ public enum EngineConstants {
     public static let maxAutoConnections = 16
     public static let autoEvaluationInterval: TimeInterval = 3.0
 
+    // Source failover / cooldown
+    public static let sourceFailureThreshold = 3
+    public static let sourceCooldownInterval: TimeInterval = 30.0
+
     // Token bucket
     public static let bucketTokenCapMultiplier = 2.0
     public static let bucketTokenMinCap: Double = 1_048_576 // 1 MiB

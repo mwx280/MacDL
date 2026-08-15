@@ -46,10 +46,12 @@ final class DownloadEngineCoordinator {
             notifyStartedIfNeeded(id, download: d)
         }
         let cfg = store.downloads.first { $0.id == id }
+        let mirrors = (cfg?.mirrors ?? []).compactMap { URL(string: $0) }
         engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
                      chunkSize: cfg?.chunkSize ?? chunkSize,
                      maxConcurrent: cfg?.maxConcurrentChunks ?? maxConcurrent,
-                     chunks: cfg?.chunks ?? chunks)
+                     chunks: cfg?.chunks ?? chunks,
+                     mirrors: mirrors)
         installHandlers(for: id)
     }
 

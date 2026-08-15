@@ -17,9 +17,9 @@ func installFakeTransport() {
     ChunkDownloadTask.sessionConfigurationOverride = config
 }
 
-func makeChunkManager(url: URL, dest: URL, chunkSize: Int64 = 262144, maxConcurrent: Int = 4) -> ChunkManager {
+func makeChunkManager(url: URL, dest: URL, chunkSize: Int64 = 262144, maxConcurrent: Int = 4, mirrors: [URL] = []) -> ChunkManager {
     try? FileManager.default.removeItem(at: dest)
-    return ChunkManager(id: UUID(), url: url, destinationURL: dest, chunkSize: chunkSize, maxConcurrent: maxConcurrent)
+    return ChunkManager(id: UUID(), url: url, destinationURL: dest, chunkSize: chunkSize, maxConcurrent: maxConcurrent, mirrors: mirrors)
 }
 
 func verifyPattern(in dest: URL, size: Int64) -> Bool {
@@ -457,5 +457,27 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(waitSemaphore(sem, timeout: 60))
         #expect(ok)
         #expect(verifyPattern(in: dest, size: 512 * 1024))
+    }
+
+    @Test func failsOverToMirrorWhenPrimaryFails() {
+        // The primary host is down; after its cooldown the download must fail over
+        // to the mirror and complete byte-correct.
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.failingHosts = ["primary.example"]
+        defer { FakeURLProtocol.failingHosts.removeAll() }
+        let primary = URL(string: "https://primary.example/f.bin")!
+        let mirror = URL(string: "https://mirror.example/f.bin")!
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-failover.bin")
+        let manager = makeChunkManager(url: primary, dest: dest, mirrors: [mirror])
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+        // The mirror (not the primary) must have served the bulk of the requests.
+        let mirrorRequests = FakeURLProtocol.requests.filter { $0.url?.host == "mirror.example" }
+        #expect(!mirrorRequests.isEmpty)
     }
 }

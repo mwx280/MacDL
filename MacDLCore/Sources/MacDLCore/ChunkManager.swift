@@ -35,6 +35,8 @@ public final class ChunkManager: @unchecked Sendable {
     private var downloadStartTime: Date?
     private var speedLimit: Int64 = 0
     private var chunks: [Chunk] = []
+    private var sources: [Source] = []
+    private var chunkSource: [Int: Int] = [:]
     private var completedCount = 0
     private var failedCount = 0
     private var writtenBytes: Int64 = 0
@@ -86,13 +88,14 @@ public final class ChunkManager: @unchecked Sendable {
     /// Creates a manager for one download. `maxConcurrent <= 0` selects auto
     /// mode: the engine picks the connection count from the probed file size
     /// and adapts it to observed throughput.
-    public init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int) {
+    public init(id: UUID, url: URL, destinationURL: URL, chunkSize: Int64, maxConcurrent: Int, mirrors: [URL] = []) {
         self.id = id
         self.url = url
         self.destinationURL = destinationURL
         self.chunkSize = chunkSize
         self.isAutoConnections = maxConcurrent <= 0
         self.maxConcurrent = self.isAutoConnections ? 1 : maxConcurrent
+        self.sources = [Source(url: url)] + mirrors.map { Source(url: $0) }
         // Seed cold-start decisions from past sessions for this host, so a
         // repeated source starts near its optimal settings instead of probing
         // from a size-only guess.
@@ -170,67 +173,73 @@ public final class ChunkManager: @unchecked Sendable {
         writtenBytes = 0
         let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: chunkSize)
         task.bucket = bucket
+        chunkSource[0] = 0
         setupTask(task, index: 0)
         task.onTotalSizeKnown = { [weak self] total in
             guard let self else { return }
             self.syncQueue.async {
-                guard total > 0 else { return }
-                self.totalSize = total
-                if let start = self.probeStartTime {
-                    self.measuredRTT = Date().timeIntervalSince(start)
-                    self.rttMeasured = true
-                    // Rate sampling starts at the response, excluding connection
-                    // setup so the single-connection estimate isn't dragged down
-                    // by high RTT.
-                    self.probeDataStartTime = Date()
-                }
-                EngineLog.manager.notice("totalSize=\(total) rtt=\(self.measuredRTT)")
-                guard !self.singleStreamMode else { return }
-                // Pick a chunk size suited to this file's size and latency before
-                // splitting, so large files are not chopped into hundreds of
-                // thousands of tiny chunks.
-                let dynamicChunkSize = ChunkingPolicy.chunkSize(
-                    totalSize: total, rtt: self.historyRTT ?? self.measuredRTT,
-                    singleConnRate: self.historyBandwidth ?? 0)
-                if dynamicChunkSize != self.chunkSize {
-                    self.chunkSize = dynamicChunkSize
-                    self.onChunkSizeChanged?(dynamicChunkSize)
-                }
-                let built = self.buildChunks(totalSize: total, chunkSize: self.chunkSize)
-                self.chunks = built
-                self.completedCount = 0
-                self.failedCount = 0
-                self.writtenBytes = 0
-                self.chunks[0].status = .downloading
-                self.chunks[0].downloadedSize = 0
-                self.pendingIndices = Array(1..<built.count)
-                self.pendingHead = 0
-                if self.isAutoConnections {
-                    if let bw = self.historyBandwidth {
-                        // Past sessions already learned this host's throughput:
-                        // start at that count directly instead of a size-only guess.
-                        self.maxConcurrent = max(1, min(
-                            AutoConnectionPolicy.informedInitialConnectionCount(
-                                singleConnRate: bw, fileSize: total, rtt: self.historyRTT ?? self.measuredRTT),
-                            EngineConstants.maxAutoConnections))
-                        EngineLog.manager.notice("auto historical connections=\(self.maxConcurrent) bw=\(bw)")
-                    } else {
-                        self.maxConcurrent = max(1, min(
-                            AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: self.measuredRTT),
-                            EngineConstants.maxAutoConnections))
-                        EngineLog.manager.notice("auto initial connections=\(self.maxConcurrent)")
-                    }
-                    self.startAdaptTimer()
-                }
-                self.notifyChunksChanged(force: true)
-                self.onPhaseChanged?(false)
-                self.dispatchNext()
+                self.handleProbeTotalSize(total)
             }
         }
         activeTasks[0] = task
         probeStartTime = Date()
         probeDataStartTime = nil
         task.start(resumeFrom: 0)
+    }
+
+    /// Handles the probe's total-size discovery: measures RTT, picks a dynamic
+    /// chunk size, splits the file and starts dispatching. Called on syncQueue.
+    /// Shared by the initial probe and any failover re-probe (which goes through
+    /// `setupTask` rather than the startProbe closure).
+    private func handleProbeTotalSize(_ total: Int64) {
+        guard total > 0 else { return }
+        totalSize = total
+        if let start = probeStartTime {
+            measuredRTT = Date().timeIntervalSince(start)
+            rttMeasured = true
+            // Rate sampling starts at the response, excluding connection setup
+            // so the single-connection estimate isn't dragged down by high RTT.
+            probeDataStartTime = Date()
+        }
+        EngineLog.manager.notice("totalSize=\(total) rtt=\(measuredRTT)")
+        guard !singleStreamMode else { return }
+        // Pick a chunk size suited to this file's size and latency before
+        // splitting, so large files are not chopped into hundreds of thousands
+        // of tiny chunks.
+        let dynamicChunkSize = ChunkingPolicy.chunkSize(
+            totalSize: total, rtt: historyRTT ?? measuredRTT,
+            singleConnRate: historyBandwidth ?? 0)
+        if dynamicChunkSize != chunkSize {
+            chunkSize = dynamicChunkSize
+            onChunkSizeChanged?(dynamicChunkSize)
+        }
+        let built = buildChunks(totalSize: total, chunkSize: chunkSize)
+        chunks = built
+        completedCount = 0
+        failedCount = 0
+        writtenBytes = 0
+        chunks[0].status = .downloading
+        chunks[0].downloadedSize = 0
+        pendingIndices = Array(1..<built.count)
+        pendingHead = 0
+        if isAutoConnections {
+            if let bw = historyBandwidth {
+                maxConcurrent = max(1, min(
+                    AutoConnectionPolicy.informedInitialConnectionCount(
+                        singleConnRate: bw, fileSize: total, rtt: historyRTT ?? measuredRTT),
+                    EngineConstants.maxAutoConnections))
+                EngineLog.manager.notice("auto historical connections=\(maxConcurrent) bw=\(bw)")
+            } else {
+                maxConcurrent = max(1, min(
+                    AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: measuredRTT),
+                    EngineConstants.maxAutoConnections))
+                EngineLog.manager.notice("auto initial connections=\(maxConcurrent)")
+            }
+            startAdaptTimer()
+        }
+        notifyChunksChanged(force: true)
+        onPhaseChanged?(false)
+        dispatchNext()
     }
 
     private func setupTask(_ task: ChunkDownloadTask, index: Int) {
@@ -258,8 +267,16 @@ public final class ChunkManager: @unchecked Sendable {
         task.onTotalSizeKnown = { [weak self] total in
             guard let self else { return }
             self.syncQueue.async {
-                // Resume: the server file size doesn't match the persisted total, so safe resume isn't possible
-                guard total > 0, self.totalSize > 0, total != self.totalSize else { return }
+                guard total > 0 else { return }
+                // A failover re-probe runs the probe chunk through setupTask, so
+                // split the file here the same way the initial probe does.
+                if self.totalSize == 0 {
+                    self.handleProbeTotalSize(total)
+                    return
+                }
+                // Resume: the server file size doesn't match the persisted total,
+                // so safe resume isn't possible.
+                guard total != self.totalSize else { return }
                 EngineLog.manager.error("server total=\(total) differs from \(self.totalSize), abort resume")
                 self.lastError = DownloadError.fileChanged
                 for (_, t) in self.activeTasks { t.cancel() }
@@ -291,6 +308,10 @@ public final class ChunkManager: @unchecked Sendable {
                         self.completedCount += 1
                         self.markChunkDirty(index)
                         self.retryCounts[index] = nil
+                        // A successful chunk clears its source's failure streak.
+                        if let si = self.chunkSource.removeValue(forKey: index) {
+                            self.sources[si].recordSuccess()
+                        }
                         EngineLog.manager.notice("chunk \(index) completed")
                         // The probe chunk doubles as a single-connection speed
                         // sample: refine the initial count from its measured
@@ -354,6 +375,29 @@ public final class ChunkManager: @unchecked Sendable {
             markChunkDirty(index)
             EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
             return false
+        }
+        // Failover: when the chunk's source goes into cooldown and another source
+        // is available, requeue the chunk so the next dispatch picks the healthy
+        // source instead of the failing one. Returns false (no backoff timer) so
+        // the caller re-dispatches now. Without an alternative source the chunk
+        // keeps the normal retry path (and fails once retries are exhausted).
+        if sources.count > 1, let si = chunkSource[index] {
+            sources[si].recordFailure(now: Date(),
+                                      threshold: EngineConstants.sourceFailureThreshold,
+                                      cooldown: EngineConstants.sourceCooldownInterval)
+            if !sources[si].isAvailable() {
+                let hasAlternative = sources.enumerated().contains { $0.offset != si && $0.element.isAvailable() }
+                if hasAlternative {
+                    EngineLog.manager.warning("source \(si) cooled down, failing chunk \(index) over")
+                    chunkSource[index] = nil
+                    retryCounts[index] = 0
+                    writtenBytes -= chunks[index].downloadedSize
+                    chunks[index].status = .pending
+                    markChunkDirty(index)
+                    enqueuePending(index)
+                    return false
+                }
+            }
         }
         let attempt = (retryCounts[index] ?? 0) + 1
         guard attempt <= maxRetries else {
@@ -649,6 +693,15 @@ public final class ChunkManager: @unchecked Sendable {
                 let idx = pendingIndices[pendingHead]
                 pendingHead += 1
                 guard idx < chunks.count, chunks[idx].status != .completed else { continue }
+                // Pick the first healthy source; when the primary is cooling
+                // down, chunks fail over to a mirror.
+                guard let si = firstAvailableSourceIndex() else {
+                    // No source is usable right now: stop dispatching and let
+                    // the cooldown timer re-enter dispatch when one recovers.
+                    scheduleSourceRecovery()
+                    break
+                }
+                chunkSource[idx] = si
                 writtenBytes += chunks[idx].downloadedSize
                 chunks[idx].status = .downloading
                 markChunkDirty(idx)
@@ -656,7 +709,7 @@ public final class ChunkManager: @unchecked Sendable {
                 let chunk = chunks[idx]
                 let task = ChunkDownloadTask(
                     chunkIndex: idx,
-                    url: url,
+                    url: sources[si].url,
                     fileURL: destinationURL,
                     startOffset: chunk.startOffset,
                     endOffset: chunk.endOffset
@@ -670,6 +723,24 @@ public final class ChunkManager: @unchecked Sendable {
         }
         let completed = completedCount
         EngineLog.manager.debug("dispatch active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingCount) done=\(completed)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
+    }
+
+    /// Returns the index of the first source not currently in cooldown.
+    private func firstAvailableSourceIndex(at now: Date = Date()) -> Int? {
+        sources.firstIndex { $0.isAvailable(at: now) }
+    }
+
+    /// Schedules a re-dispatch when the earliest cooldown expires, so chunks do
+    /// not sit pending forever while every source is cooling down.
+    private func scheduleSourceRecovery() {
+        let earliest = sources.compactMap(\.cooldownUntil).min()
+        guard let earliest else { return }
+        let delay = max(0.1, earliest.timeIntervalSinceNow)
+        syncQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            guard !self.isPaused else { return }
+            self.dispatchNext()
+        }
     }
 
     private func checkDone() {
