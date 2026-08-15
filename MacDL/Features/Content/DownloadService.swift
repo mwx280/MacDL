@@ -446,10 +446,23 @@ final class DownloadService {
             coordinator.progress.unpublish(for: id)
             let staging = DownloadPath.staging(for: store.downloads[idx])
             let final = DownloadPath.destination(for: store.downloads[idx])
+            if let expected = store.downloads[idx].expectedChecksum, !expected.isEmpty {
+                // Verify off the main thread: SHA-256 over a large file would
+                // otherwise stall the UI.
+                let normalized = ChecksumVerifier.normalize(expected)
+                Task.detached {
+                    let actual = (try? ChecksumVerifier.sha256Hex(ofFile: staging)) ?? ""
+                    await MainActor.run { [weak self] in
+                        self?.finalizeVerifiedDownload(id: id, matches: actual == normalized && !actual.isEmpty, staging: staging, final: final)
+                    }
+                }
+                return
+            }
             try? FileManager.default.moveItem(at: staging, to: final)
             let dir = store.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
             NSWorkspace.shared.noteFileSystemChanged(dir)
             notifier.notifyCompleted(store.downloads[idx])
+            finishDownload(id: id)
         case .failure(let error):
             store.downloads[idx].status = .error
             if let key = coordinator.errorKey(for: error) {
@@ -469,7 +482,31 @@ final class DownloadService {
             } else {
                 notifier.notifyFailed(store.downloads[idx])
             }
+            finishDownload(id: id)
         }
+    }
+
+    /// Completes the success path after an optional checksum verification.
+    /// On a mismatch the staging file is discarded and the download is marked
+    /// failed instead of being handed over as a finished file.
+    private func finalizeVerifiedDownload(id: UUID, matches: Bool, staging: URL, final: URL) {
+        guard let idx = store.index(of: id) else { return }
+        if matches {
+            try? FileManager.default.moveItem(at: staging, to: final)
+            let dir = store.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
+            NSWorkspace.shared.noteFileSystemChanged(dir)
+            notifier.notifyCompleted(store.downloads[idx])
+        } else {
+            store.downloads[idx].status = .error
+            recordError(id: id, key: "Checksum mismatch")
+            try? FileManager.default.removeItem(at: staging)
+            notifier.notifyFailed(store.downloads[idx])
+        }
+        finishDownload(id: id)
+    }
+
+    /// Shared post-completion bookkeeping for both success and failure.
+    private func finishDownload(id: UUID) {
         coordinator.endAccess(for: id)
         store.save()
         if id == priority.priorityDownloadID {

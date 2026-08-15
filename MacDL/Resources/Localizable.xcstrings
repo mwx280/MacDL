@@ -503,6 +503,23 @@
         }
       }
     },
+    "Checksum mismatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checksum mismatch"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "校验和不匹配"
+          }
+        }
+      }
+    },
     "Cannot create folder" : {
       "extractionState" : "manual",
       "localizations" : {
