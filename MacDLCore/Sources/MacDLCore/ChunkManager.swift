@@ -36,6 +36,7 @@ public final class ChunkManager: @unchecked Sendable {
     private var writtenBytes: Int64 = 0
     private var activeTasks: [Int: ChunkDownloadTask] = [:]
     private var pendingIndices: [Int] = []
+    private var pendingHead = 0
     private var retryCounts: [Int: Int] = [:]
     private var lastError: Error?
     private var serverSupportsResume: Bool?
@@ -120,6 +121,7 @@ public final class ChunkManager: @unchecked Sendable {
             self.failedCount = 0
             self.writtenBytes = written
             self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
+            self.pendingHead = 0
             if self.isAutoConnections {
                 self.maxConcurrent = max(1, min(
                     AutoConnectionPolicy.initialConnectionCount(fileSize: totalSize, supportsResume: true),
@@ -168,6 +170,7 @@ public final class ChunkManager: @unchecked Sendable {
                 self.chunks[0].status = .downloading
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
+                self.pendingHead = 0
                 if self.isAutoConnections {
                     self.maxConcurrent = max(1, min(
                         AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: self.measuredRTT),
@@ -215,7 +218,7 @@ public final class ChunkManager: @unchecked Sendable {
                 self.lastError = DownloadError.fileChanged
                 for (_, t) in self.activeTasks { t.cancel() }
                 self.activeTasks.removeAll()
-                self.pendingIndices.removeAll()
+                self.clearPending()
                 self.logTimer?.invalidate()
                 self.logTimer = nil
                 self.onCompletion?(.failure(DownloadError.fileChanged))
@@ -306,8 +309,7 @@ public final class ChunkManager: @unchecked Sendable {
         retryCounts[index] = attempt
         writtenBytes -= chunks[index].downloadedSize
         chunks[index].status = .pending
-        pendingIndices.append(index)
-        pendingIndices.sort()
+        enqueuePending(index)
         // Exponential backoff: 1s, 2s, 4s... capped at 10s.
         let delay = min(EngineConstants.retryBackoffBase * pow(2.0, Double(attempt - 1)), EngineConstants.retryBackoffCap)
         EngineLog.manager.warning("chunk \(index) failed, retry \(attempt)/\(self.maxRetries) in \(delay)s")
@@ -376,7 +378,7 @@ public final class ChunkManager: @unchecked Sendable {
             self.retryWorkItems.removeAll()
             self.singleStreamRetryItem?.cancel()
             self.singleStreamRetryItem = nil
-            self.pendingIndices.removeAll()
+            self.clearPending()
             for (_, task) in self.activeTasks { task.pause() }
             self.activeTasks.removeAll()
             self.singleStreamTask?.pause()
@@ -406,6 +408,7 @@ public final class ChunkManager: @unchecked Sendable {
                     self.chunks[i].status = .pending
                 }
                 self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
+                self.pendingHead = 0
                 self.dispatchNext()
                 self.checkDone()
             }
@@ -430,7 +433,7 @@ public final class ChunkManager: @unchecked Sendable {
             self.activeTasks.removeAll()
             self.singleStreamTask?.cancel()
             self.singleStreamTask = nil
-            self.pendingIndices.removeAll()
+            self.clearPending()
         }
     }
 
@@ -439,6 +442,27 @@ public final class ChunkManager: @unchecked Sendable {
         syncQueue.sync { !activeTasks.isEmpty || singleStreamTask != nil }
     }
     // MARK: - Scheduling
+
+    /// Number of chunks still waiting to be dispatched (not yet consumed by the
+    /// `pendingHead` cursor).
+    private var pendingCount: Int { pendingIndices.count - pendingHead }
+
+    /// Appends a chunk index to the pending queue. The array is consumed by a
+    /// cursor instead of `removeFirst()`, so appends are O(1) amortized; the
+    /// array is compacted once every element before the cursor has been spent.
+    private func enqueuePending(_ index: Int) {
+        if pendingHead > 0, pendingHead == pendingIndices.count {
+            pendingIndices.removeAll(keepingCapacity: true)
+            pendingHead = 0
+        }
+        pendingIndices.append(index)
+    }
+
+    /// Empties the pending queue and resets the cursor.
+    private func clearPending() {
+        pendingIndices.removeAll(keepingCapacity: true)
+        pendingHead = 0
+    }
 
     private func updateBucket() {
         bucket.setRate(speedLimit > 0 ? Double(speedLimit) : 0)
@@ -454,7 +478,7 @@ public final class ChunkManager: @unchecked Sendable {
         EngineLog.manager.notice("server does not support Range, switch to single-stream from scratch")
         for (_, task) in activeTasks { task.cancel() }
         activeTasks.removeAll()
-        pendingIndices.removeAll()
+        clearPending()
         chunks = []
         completedCount = 0
         failedCount = 0
@@ -557,10 +581,11 @@ public final class ChunkManager: @unchecked Sendable {
         guard !isPaused else { return }
         let activeCount = activeTasks.count
         let canStart = max(0, maxConcurrent - activeCount)
-        if canStart > 0, !pendingIndices.isEmpty {
+        if canStart > 0, pendingHead < pendingIndices.count {
             var started = 0
-            while started < canStart, !pendingIndices.isEmpty {
-                let idx = pendingIndices.removeFirst()
+            while started < canStart, pendingHead < pendingIndices.count {
+                let idx = pendingIndices[pendingHead]
+                pendingHead += 1
                 guard idx < chunks.count, chunks[idx].status != .completed else { continue }
                 writtenBytes += chunks[idx].downloadedSize
                 chunks[idx].status = .downloading
@@ -581,7 +606,7 @@ public final class ChunkManager: @unchecked Sendable {
             }
         }
         let completed = completedCount
-        EngineLog.manager.debug("dispatch active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(completed)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
+        EngineLog.manager.debug("dispatch active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingCount) done=\(completed)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
     }
 
     private func checkDone() {
@@ -600,7 +625,7 @@ public final class ChunkManager: @unchecked Sendable {
             // pure network failure) — otherwise the task would hang forever.
             for (_, task) in activeTasks { task.cancel() }
             activeTasks.removeAll()
-            pendingIndices.removeAll()
+            clearPending()
             onCompletion?(.failure(lastError ?? DownloadError.cancelled))
         } else if totalSize > 0 || singleStreamMode {
             onCompletion?(.success(()))
@@ -655,7 +680,7 @@ public final class ChunkManager: @unchecked Sendable {
         logTimer = Timer.scheduledTimer(withTimeInterval: EngineConstants.statusLogInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.syncQueue.async {
-                EngineLog.manager.debug("status active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(self.completedCount)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
+                EngineLog.manager.debug("status active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingCount) done=\(self.completedCount)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
             }
         }
     }
@@ -695,7 +720,7 @@ public final class ChunkManager: @unchecked Sendable {
     private func evaluateAutoConnections() {
         guard isAutoConnections, !isPaused, !singleStreamMode else { return }
         let current = maxConcurrent
-        let hasPending = !pendingIndices.isEmpty
+        let hasPending = pendingCount > 0
         guard let next = autoPolicy.evaluate(currentConnections: current, hasPending: hasPending) else { return }
         let clamped = Swift.max(1, Swift.min(next, EngineConstants.maxAutoConnections))
         guard clamped != current else { return }
