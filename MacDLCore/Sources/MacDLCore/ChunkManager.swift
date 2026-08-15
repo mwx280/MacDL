@@ -31,6 +31,9 @@ public final class ChunkManager: @unchecked Sendable {
     private var rttMeasured = false
     private var speedLimit: Int64 = 0
     private var chunks: [Chunk] = []
+    private var completedCount = 0
+    private var failedCount = 0
+    private var writtenBytes: Int64 = 0
     private var activeTasks: [Int: ChunkDownloadTask] = [:]
     private var pendingIndices: [Int] = []
     private var retryCounts: [Int: Int] = [:]
@@ -102,9 +105,20 @@ public final class ChunkManager: @unchecked Sendable {
             self.onPhaseChanged?(false)
             self.totalSize = totalSize
             self.chunks = existing
-            for i in self.chunks.indices where self.chunks[i].status != .completed {
-                self.chunks[i].status = .pending
+            var completed = 0
+            var written: Int64 = 0
+            for i in self.chunks.indices {
+                if self.chunks[i].status == .completed {
+                    completed += 1
+                    written += self.chunks[i].size
+                } else {
+                    self.chunks[i].status = .pending
+                    written += self.chunks[i].downloadedSize
+                }
             }
+            self.completedCount = completed
+            self.failedCount = 0
+            self.writtenBytes = written
             self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
             if self.isAutoConnections {
                 self.maxConcurrent = max(1, min(
@@ -129,6 +143,9 @@ public final class ChunkManager: @unchecked Sendable {
         // the rest of the file gets chunked only after that.
         let probe = Chunk(index: 0, startOffset: 0, endOffset: chunkSize, downloadedSize: 0, status: .downloading)
         chunks = [probe]
+        completedCount = 0
+        failedCount = 0
+        writtenBytes = 0
         let task = ChunkDownloadTask(chunkIndex: 0, url: url, fileURL: destinationURL, startOffset: 0, endOffset: chunkSize)
         task.bucket = bucket
         setupTask(task, index: 0)
@@ -145,6 +162,9 @@ public final class ChunkManager: @unchecked Sendable {
                 guard !self.singleStreamMode else { return }
                 let built = self.buildChunks(totalSize: total, chunkSize: self.chunkSize)
                 self.chunks = built
+                self.completedCount = 0
+                self.failedCount = 0
+                self.writtenBytes = 0
                 self.chunks[0].status = .downloading
                 self.chunks[0].downloadedSize = 0
                 self.pendingIndices = Array(1..<built.count)
@@ -170,6 +190,7 @@ public final class ChunkManager: @unchecked Sendable {
             guard let self else { return }
             self.syncQueue.async {
                 guard index < self.chunks.count else { return }
+                self.writtenBytes += bytes - self.chunks[index].downloadedSize
                 self.chunks[index].downloadedSize = bytes
                 self.updateProgress()
             }
@@ -215,8 +236,10 @@ public final class ChunkManager: @unchecked Sendable {
                         EngineLog.manager.warning("chunk \(index) short read \(self.chunks[index].downloadedSize)/\(self.chunks[index].size), retrying")
                         willRetry = self.handleChunkFailure(index, error: DownloadError.network(URLError(.resourceUnavailable)))
                     } else {
+                        self.writtenBytes += self.chunks[index].size - self.chunks[index].downloadedSize
                         self.chunks[index].status = .completed
                         self.chunks[index].downloadedSize = self.chunks[index].size
+                        self.completedCount += 1
                         self.retryCounts[index] = nil
                         EngineLog.manager.notice("chunk \(index) completed")
                         // The probe chunk doubles as a single-connection speed
@@ -265,18 +288,23 @@ public final class ChunkManager: @unchecked Sendable {
         }
         if let dlError = error as? DownloadError, !dlError.isRetryable {
             lastError = error
+            writtenBytes -= chunks[index].downloadedSize
             chunks[index].status = .failed
+            failedCount += 1
             EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
             return false
         }
         let attempt = (retryCounts[index] ?? 0) + 1
         guard attempt <= maxRetries else {
             lastError = error
+            writtenBytes -= chunks[index].downloadedSize
             chunks[index].status = .failed
+            failedCount += 1
             EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
             return false
         }
         retryCounts[index] = attempt
+        writtenBytes -= chunks[index].downloadedSize
         chunks[index].status = .pending
         pendingIndices.append(index)
         pendingIndices.sort()
@@ -374,6 +402,7 @@ public final class ChunkManager: @unchecked Sendable {
                 // pause() clears activeTasks, orphaning in-flight (.downloading) chunks;
                 // reset them to pending and rebuild the schedule so resume can't hang
                 for i in self.chunks.indices where self.chunks[i].status == .downloading {
+                    self.writtenBytes -= self.chunks[i].downloadedSize
                     self.chunks[i].status = .pending
                 }
                 self.pendingIndices = self.chunks.filter { $0.status == .pending }.map(\.index)
@@ -427,6 +456,9 @@ public final class ChunkManager: @unchecked Sendable {
         activeTasks.removeAll()
         pendingIndices.removeAll()
         chunks = []
+        completedCount = 0
+        failedCount = 0
+        writtenBytes = 0
         totalSize = 0
         lastLogTime = .distantPast
         lastLogBytes = 0
@@ -530,6 +562,7 @@ public final class ChunkManager: @unchecked Sendable {
             while started < canStart, !pendingIndices.isEmpty {
                 let idx = pendingIndices.removeFirst()
                 guard idx < chunks.count, chunks[idx].status != .completed else { continue }
+                writtenBytes += chunks[idx].downloadedSize
                 chunks[idx].status = .downloading
 
                 let chunk = chunks[idx]
@@ -547,13 +580,13 @@ public final class ChunkManager: @unchecked Sendable {
                 started += 1
             }
         }
-        let completed = chunks.filter { $0.status == .completed }.count
+        let completed = completedCount
         EngineLog.manager.debug("dispatch active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(completed)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
     }
 
     private func checkDone() {
-        let done = chunks.filter { $0.status == .completed }.count
-        let failed = chunks.filter { $0.status == .failed }.count
+        let done = completedCount
+        let failed = failedCount
         guard done + failed >= chunks.count, !chunks.isEmpty else { return }
         logTimer?.invalidate()
         logTimer = nil
@@ -600,29 +633,21 @@ public final class ChunkManager: @unchecked Sendable {
     }
 
     private func updateProgress() {
-        var written: Int64 = 0
-        for c in chunks {
-            switch c.status {
-            case .completed: written += c.size
-            case .downloading: written += c.downloadedSize
-            default: break
-            }
-        }
         let now = Date()
         if lastLogTime == .distantPast {
             lastLogTime = now
-            lastLogBytes = written
+            lastLogBytes = writtenBytes
         }
         let elapsed = now.timeIntervalSince(lastLogTime)
         // Average speed over the last full second; recompute at most once a second.
         if elapsed >= EngineConstants.speedReportInterval {
-            downloadSpeed = Int64(Double(written - lastLogBytes) / elapsed)
+            downloadSpeed = Int64(Double(writtenBytes - lastLogBytes) / elapsed)
             lastLogTime = now
-            lastLogBytes = written
+            lastLogBytes = writtenBytes
             if isAutoConnections { autoPolicy.record(speed: downloadSpeed) }
         }
         let total = chunks.last?.endOffset ?? totalSize
-        onProgress?(written, total, downloadSpeed)
+        onProgress?(writtenBytes, total, downloadSpeed)
     }
 
     private func startLogTimer() {
@@ -630,7 +655,7 @@ public final class ChunkManager: @unchecked Sendable {
         logTimer = Timer.scheduledTimer(withTimeInterval: EngineConstants.statusLogInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.syncQueue.async {
-                EngineLog.manager.debug("status active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(self.chunks.filter { $0.status == .completed }.count)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
+                EngineLog.manager.debug("status active=\(self.activeTasks.count)/\(self.maxConcurrent) pending=\(self.pendingIndices.count) done=\(self.completedCount)/\(self.chunks.count) speed=\(self.downloadSpeed)/s")
             }
         }
     }
