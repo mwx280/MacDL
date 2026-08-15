@@ -502,4 +502,30 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         let slowRequests = FakeURLProtocol.requests.filter { $0.url?.host == "slow.example" }.count
         #expect(fastRequests > slowRequests)
     }
+
+    @Test func rateLimitDegradesToSingleConnectionAndCompletes() {
+        // A server that 429s any request beyond the first concurrent one: the
+        // engine must degrade to one connection and still finish byte-correct.
+        // A small latency keeps the two initial chunks in flight together so the
+        // second one actually trips the rate limit.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.maxConcurrentRequests = 1
+        FakeURLProtocol.latencyMs = 50
+        defer {
+            FakeURLProtocol.maxConcurrentRequests = 0
+            FakeURLProtocol.latencyMs = 0
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-ratelimit.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+        // The server must actually have rejected at least one request (so the
+        // test genuinely exercises the 429 → single-connection degradation).
+        #expect(FakeURLProtocol.rateLimit429Count > 0)
+    }
 }

@@ -373,6 +373,12 @@ public final class ChunkManager: @unchecked Sendable {
     @discardableResult
     private func handleChunkFailure(_ index: Int, error: Error) -> Bool {
         guard index < chunks.count else { return false }
+        // A 429 means the server rate-limits concurrent requests. Degrade to a
+        // single connection immediately instead of letting the adaptive policy
+        // thrash between retries and more 429s.
+        if (error as? DownloadError) == .httpStatus(429) {
+            handleRateLimit()
+        }
         // Feed retryable failures (429/5xx/network) to the auto policy so a
         // stressed server stops being probed upward.
         if isAutoConnections, (error as? DownloadError)?.isRetryable != false {
@@ -438,6 +444,18 @@ public final class ChunkManager: @unchecked Sendable {
         retryWorkItems[index] = item
         syncQueue.asyncAfter(deadline: .now() + delay, execute: item)
         return true
+    }
+
+    /// Degrades to a single connection when the server signals hard rate-limiting
+    /// (HTTP 429), and stops the adaptive timer so it stays there for this
+    /// session. The adaptive policy's "try more connections" assumption is wrong
+    /// for such servers — the second concurrent request is rejected outright.
+    private func handleRateLimit() {
+        guard isAutoConnections, maxConcurrent > 1 else { return }
+        EngineLog.manager.warning("server rate-limited (429), degrading to a single connection")
+        maxConcurrent = 1
+        stopAdaptTimer()
+        autoPolicy.forceConcurrencyCeiling(1)
     }
 
     /// Updates the byte/second throttle shared by all chunks of this download.

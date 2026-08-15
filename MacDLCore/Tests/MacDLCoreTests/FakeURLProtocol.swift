@@ -22,6 +22,11 @@ final class FakeURLProtocol: URLProtocol {
     // Requests to these hosts fail with a transport error (simulates a down
     // source), used by multi-source failover tests.
     nonisolated(unsafe) static var failingHosts = Set<String>()
+    // Simulates a server that rate-limits concurrent requests: when more than
+    // this many requests are in flight, the next one gets HTTP 429. 0 = unlimited.
+    nonisolated(unsafe) static var maxConcurrentRequests = 0
+    // Counts how many 429 responses have been sent (for assertions).
+    nonisolated(unsafe) static var rateLimit429Count = 0
     // Delay (ms) before the response is delivered, simulating round-trip latency.
     nonisolated(unsafe) static var latencyMs: Int64 = 0
     // Peak number of concurrently in-flight requests observed.
@@ -61,6 +66,16 @@ final class FakeURLProtocol: URLProtocol {
         // Simulate a specific down host (multi-source failover tests).
         if let host = url.host, Self.failingHosts.contains(host) {
             client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+            return
+        }
+
+        // Simulate a concurrent-request rate limit: requests beyond the cap get 429.
+        if Self.maxConcurrentRequests > 0, Self.activeRequests > Self.maxConcurrentRequests {
+            Self.rateLimit429Count += 1
+            let http = HTTPURLResponse(url: url, statusCode: 429, httpVersion: "HTTP/1.1",
+                                       headerFields: ["Content-Length": "0"])
+            client?.urlProtocol(self, didReceive: http!, cacheStoragePolicy: .notAllowed)
+            Self.finish(self)
             return
         }
 
@@ -160,6 +175,8 @@ final class FakeURLProtocol: URLProtocol {
         perConnectionRate = 0
         perHostRates.removeAll()
         failingHosts.removeAll()
+        maxConcurrentRequests = 0
+        rateLimit429Count = 0
         latencyMs = 0
         peakRequests = 0
         lock.lock()

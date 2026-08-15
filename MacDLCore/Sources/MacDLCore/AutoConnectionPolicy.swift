@@ -206,6 +206,20 @@ public struct AutoConnectionPolicy: Sendable {
         stableCount = 0
     }
 
+    /// Hard-caps the connection count at `count`, used when the server signals
+    /// rate-limiting (HTTP 429) — a "one request at a time" constraint where the
+    /// adaptive "more connections = more throughput" assumption is wrong. Also
+    /// lowers `bestConnections` so a later freeze/regression never climbs back.
+    public mutating func forceConcurrencyCeiling(_ count: Int) {
+        let c = max(1, count)
+        ceiling = c
+        bestConnections = min(bestConnections, c)
+        isProbing = false
+        stableCount = 0
+        isConverged = false
+        convergedAt = nil
+    }
+
     /// Called at most once per `evaluationInterval`. Returns the connection
     /// count to switch to, or `nil` to keep the current count.
     public mutating func evaluate(currentConnections: Int, hasPending: Bool, now: Date = Date()) -> Int? {
