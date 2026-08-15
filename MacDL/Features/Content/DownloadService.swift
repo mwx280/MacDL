@@ -499,13 +499,13 @@ final class DownloadService {
         guard let idx = store.index(of: id) else { return }
         switch result {
         case .success:
-            store.downloads[idx].status = .completed
             coordinator.progress.unpublish(for: id)
             let staging = DownloadPath.staging(for: store.downloads[idx])
             let final = DownloadPath.destination(for: store.downloads[idx])
             if let expected = store.downloads[idx].expectedChecksum, !expected.isEmpty {
                 // Verify off the main thread: SHA-256 over a large file would
-                // otherwise stall the UI.
+                // otherwise stall the UI. Status stays non-completed until the
+                // checksum passes, so the UI never flashes "done" then "error".
                 let normalized = ChecksumVerifier.normalize(expected)
                 Task.detached {
                     let actual = (try? ChecksumVerifier.sha256Hex(ofFile: staging)) ?? ""
@@ -515,6 +515,7 @@ final class DownloadService {
                 }
                 return
             }
+            store.downloads[idx].status = .completed
             try? FileManager.default.moveItem(at: staging, to: final)
             let dir = store.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
             NSWorkspace.shared.noteFileSystemChanged(dir)
@@ -549,6 +550,7 @@ final class DownloadService {
     private func finalizeVerifiedDownload(id: UUID, matches: Bool, staging: URL, final: URL) {
         guard let idx = store.index(of: id) else { return }
         if matches {
+            store.downloads[idx].status = .completed
             try? FileManager.default.moveItem(at: staging, to: final)
             let dir = store.downloads[idx].savePath ?? AppConfig.defaultDownloadDir
             NSWorkspace.shared.noteFileSystemChanged(dir)

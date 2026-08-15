@@ -577,4 +577,29 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(verifyPattern(in: dest, size: 16 * 1024 * 1024))
         #expect(FakeURLProtocol.rateLimit429Count >= 2)
     }
+
+    @Test func allSourcesDownFailsInsteadOfHanging() {
+        // Both the primary and the mirror are unreachable. After cooldown and
+        // failover, retries must be exhausted and the download must fail instead
+        // of hanging forever (the old bug dropped the pending head when every
+        // source was cooling down, and resetting retryCounts on failover let two
+        // failing sources hand a chunk back and forth indefinitely).
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.failingHosts = ["primary.example", "mirror.example"]
+        ChunkManager.sourceCooldownOverride = 0.5
+        defer {
+            FakeURLProtocol.failingHosts.removeAll()
+            ChunkManager.sourceCooldownOverride = nil
+        }
+        let primary = URL(string: "https://primary.example/f.bin")!
+        let mirror = URL(string: "https://mirror.example/f.bin")!
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-alldown.bin")
+        let manager = makeChunkManager(url: primary, dest: dest, mirrors: [mirror])
+        let sem = DispatchSemaphore(value: 0)
+        var failed = false
+        manager.onCompletion = { r in if case .failure = r { failed = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(failed)
+    }
 }

@@ -32,7 +32,6 @@ public final class ChunkManager: @unchecked Sendable {
     private var rttMeasured = false
     private var historyRTT: TimeInterval?
     private var historyBandwidth: Int64?
-    private var downloadStartTime: Date?
     private var speedLimit: Int64 = 0
     private var chunks: [Chunk] = []
     private var sources: [Source] = []
@@ -65,6 +64,8 @@ public final class ChunkManager: @unchecked Sendable {
     private static let chunkSpeedWindowSize = 8
     /// Test hook overriding the rate-limit recovery-probe base delay.
     nonisolated(unsafe) static var recoveryProbeBaseOverride: TimeInterval?
+    /// Test hook overriding the source cooldown interval.
+    nonisolated(unsafe) static var sourceCooldownOverride: TimeInterval?
 
     private let syncQueue = DispatchQueue(label: "com.xiaowu.chunkmanager.sync")
     private var logTimer: Timer?
@@ -123,7 +124,6 @@ public final class ChunkManager: @unchecked Sendable {
         startLogTimer()
         syncQueue.async {
             self.singleStreamRetries = 0
-            self.downloadStartTime = Date()
             self.onPhaseChanged?(true)
             self.startProbe()
         }
@@ -135,7 +135,6 @@ public final class ChunkManager: @unchecked Sendable {
         startLogTimer()
         syncQueue.async {
             self.singleStreamRetries = 0
-            self.downloadStartTime = Date()
             self.onPhaseChanged?(false)
             self.totalSize = totalSize
             self.chunks = existing
@@ -421,16 +420,20 @@ public final class ChunkManager: @unchecked Sendable {
         // the caller re-dispatches now. Without an alternative source the chunk
         // keeps the normal retry path (and fails once retries are exhausted).
         if sources.count > 1, let si = chunkSource[index] {
+            let cooldown = Self.sourceCooldownOverride ?? EngineConstants.sourceCooldownInterval
             sources[si].recordFailure(now: Date(),
                                       threshold: EngineConstants.sourceFailureThreshold,
-                                      cooldown: EngineConstants.sourceCooldownInterval)
+                                      cooldown: cooldown)
             if !sources[si].isAvailable() {
                 let hasAlternative = sources.enumerated().contains { $0.offset != si && $0.element.isAvailable() }
                 if hasAlternative {
                     EngineLog.manager.warning("source \(si) cooled down, failing chunk \(index) over")
                     chunkSource[index] = nil
                     chunkDispatchTime[index] = nil
-                    retryCounts[index] = 0
+                    // Do NOT reset retryCounts here: keep the count across sources
+                    // so two failing sources can't hand the chunk back and forth
+                    // forever. A failover is just another attempt, and the chunk
+                    // must still give up once retries are exhausted.
                     writtenBytes -= chunks[index].downloadedSize
                     chunks[index].status = .pending
                     markChunkDirty(index)
@@ -539,6 +542,9 @@ public final class ChunkManager: @unchecked Sendable {
     public func setMaxConcurrent(_ maxConcurrent: Int) {
         EngineLog.manager.notice("setMaxConcurrent=\(maxConcurrent)")
         syncQueue.async {
+            // The speed window reflects the previous connection count; clear it
+            // so stale rates don't trigger a spurious soft rate-limit.
+            self.recentChunkSpeeds.removeAll()
             if maxConcurrent <= 0 {
                 if !self.isAutoConnections {
                     self.isAutoConnections = true
@@ -571,6 +577,7 @@ public final class ChunkManager: @unchecked Sendable {
             self.logTimer = nil
             self.stopAdaptTimer()
             self.bucket.stop()
+            self.recentChunkSpeeds.removeAll()
             // Freeze scheduling: cancel pending retries and clear the queue so
             // nothing can start new chunk tasks while paused.
             for (_, item) in self.retryWorkItems { item.cancel() }
@@ -790,21 +797,31 @@ public final class ChunkManager: @unchecked Sendable {
             var started = 0
             while started < canStart, pendingHead < pendingIndices.count {
                 let idx = pendingIndices[pendingHead]
-                pendingHead += 1
-                guard idx < chunks.count, chunks[idx].status != .completed else { continue }
+                guard idx < chunks.count, chunks[idx].status != .completed else {
+                    pendingHead += 1
+                    continue
+                }
                 // Weighted round-robin across healthy sources: faster sources
                 // (higher EWMA throughput) serve more chunks, and cooling-down
                 // sources get none.
                 let throughputs = sources.map(\.avgThroughput)
                 let available = sources.map { $0.isAvailable() }
                 guard let si = sourceScheduler.pick(throughputs: throughputs, available: available) else {
-                    // No source is usable right now: stop dispatching and let
-                    // the cooldown timer re-enter dispatch when one recovers.
+                    // No source is usable right now: leave the head in place and
+                    // let the cooldown timer re-enter dispatch when one recovers.
                     scheduleSourceRecovery()
                     break
                 }
+                pendingHead += 1
                 chunkSource[idx] = si
                 chunkDispatchTime[idx] = Date()
+                // A failover re-probe (chunk 0 dispatched while the size is still
+                // unknown) must restart the RTT clock, otherwise the measured RTT
+                // includes the failed attempts on the previous source.
+                if idx == 0, totalSize == 0 {
+                    probeStartTime = Date()
+                    probeDataStartTime = nil
+                }
                 writtenBytes += chunks[idx].downloadedSize
                 chunks[idx].status = .downloading
                 markChunkDirty(idx)
@@ -848,6 +865,8 @@ public final class ChunkManager: @unchecked Sendable {
         logTimer?.invalidate()
         logTimer = nil
         stopAdaptTimer()
+        recoveryWorkItem?.cancel()
+        recoveryWorkItem = nil
         // Flush the final chunk state before reporting done so the app
         // persists/displayed chunks are never stale from throttling.
         notifyChunksChanged(force: true)
@@ -869,15 +888,24 @@ public final class ChunkManager: @unchecked Sendable {
     /// Folds this download's measured bandwidth and latency into the per-host
     /// history so a repeated source starts near its learned optimum.
     private func recordHistory(success: Bool) {
-        guard totalSize > 0, let start = downloadStartTime else { return }
+        guard totalSize > 0 else { return }
         let host = url.host ?? ""
         guard !host.isEmpty else { return }
-        let elapsed = Date().timeIntervalSince(start)
-        let bandwidth = elapsed > 0.1 ? Int64(Double(totalSize) / elapsed) : 0
+        // Use the recent throughput (not totalSize/elapsed, which overstates a
+        // resumed download that only fetched the remaining bytes this session).
+        let bandwidth = downloadSpeed
         guard bandwidth > 0 else { return }
-        SourceHistoryStore.shared.record(host: host, bandwidth: bandwidth,
-                                         rtt: measuredRTT, success: success,
-                                         supportsRange: serverSupportsResume)
+        // Only update RTT when a probe actually measured one; a resumed download
+        // has no probe, and writing 0 would drag the host's EWMA down.
+        if measuredRTT > 0 {
+            SourceHistoryStore.shared.record(host: host, bandwidth: bandwidth,
+                                             rtt: measuredRTT, success: success,
+                                             supportsRange: serverSupportsResume)
+        } else if let existing = SourceHistoryStore.shared.history(for: host), existing.sampleCount > 0 {
+            SourceHistoryStore.shared.record(host: host, bandwidth: bandwidth,
+                                             rtt: existing.avgRTT, success: success,
+                                             supportsRange: serverSupportsResume)
+        }
     }
 
     // MARK: - Progress
