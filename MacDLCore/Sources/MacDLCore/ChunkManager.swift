@@ -30,6 +30,9 @@ public final class ChunkManager: @unchecked Sendable {
     private var probeDataStartTime: Date?
     private var measuredRTT: TimeInterval = 0
     private var rttMeasured = false
+    private var historyRTT: TimeInterval?
+    private var historyBandwidth: Int64?
+    private var downloadStartTime: Date?
     private var speedLimit: Int64 = 0
     private var chunks: [Chunk] = []
     private var completedCount = 0
@@ -90,6 +93,13 @@ public final class ChunkManager: @unchecked Sendable {
         self.chunkSize = chunkSize
         self.isAutoConnections = maxConcurrent <= 0
         self.maxConcurrent = self.isAutoConnections ? 1 : maxConcurrent
+        // Seed cold-start decisions from past sessions for this host, so a
+        // repeated source starts near its optimal settings instead of probing
+        // from a size-only guess.
+        if let h = SourceHistoryStore.shared.history(for: url.host ?? ""), h.sampleCount > 0 {
+            self.historyRTT = h.avgRTT
+            self.historyBandwidth = h.avgBandwidth
+        }
     }
 
     // MARK: - Public control
@@ -100,6 +110,7 @@ public final class ChunkManager: @unchecked Sendable {
         startLogTimer()
         syncQueue.async {
             self.singleStreamRetries = 0
+            self.downloadStartTime = Date()
             self.onPhaseChanged?(true)
             self.startProbe()
         }
@@ -111,6 +122,7 @@ public final class ChunkManager: @unchecked Sendable {
         startLogTimer()
         syncQueue.async {
             self.singleStreamRetries = 0
+            self.downloadStartTime = Date()
             self.onPhaseChanged?(false)
             self.totalSize = totalSize
             self.chunks = existing
@@ -178,7 +190,8 @@ public final class ChunkManager: @unchecked Sendable {
                 // splitting, so large files are not chopped into hundreds of
                 // thousands of tiny chunks.
                 let dynamicChunkSize = ChunkingPolicy.chunkSize(
-                    totalSize: total, rtt: self.measuredRTT, singleConnRate: 0)
+                    totalSize: total, rtt: self.historyRTT ?? self.measuredRTT,
+                    singleConnRate: self.historyBandwidth ?? 0)
                 if dynamicChunkSize != self.chunkSize {
                     self.chunkSize = dynamicChunkSize
                     self.onChunkSizeChanged?(dynamicChunkSize)
@@ -193,11 +206,21 @@ public final class ChunkManager: @unchecked Sendable {
                 self.pendingIndices = Array(1..<built.count)
                 self.pendingHead = 0
                 if self.isAutoConnections {
-                    self.maxConcurrent = max(1, min(
-                        AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: self.measuredRTT),
-                        EngineConstants.maxAutoConnections))
+                    if let bw = self.historyBandwidth {
+                        // Past sessions already learned this host's throughput:
+                        // start at that count directly instead of a size-only guess.
+                        self.maxConcurrent = max(1, min(
+                            AutoConnectionPolicy.informedInitialConnectionCount(
+                                singleConnRate: bw, fileSize: total, rtt: self.historyRTT ?? self.measuredRTT),
+                            EngineConstants.maxAutoConnections))
+                        EngineLog.manager.notice("auto historical connections=\(self.maxConcurrent) bw=\(bw)")
+                    } else {
+                        self.maxConcurrent = max(1, min(
+                            AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: self.measuredRTT),
+                            EngineConstants.maxAutoConnections))
+                        EngineLog.manager.notice("auto initial connections=\(self.maxConcurrent)")
+                    }
                     self.startAdaptTimer()
-                    EngineLog.manager.notice("auto initial connections=\(self.maxConcurrent)")
                 }
                 self.notifyChunksChanged(force: true)
                 self.onPhaseChanged?(false)
@@ -666,10 +689,26 @@ public final class ChunkManager: @unchecked Sendable {
             for (_, task) in activeTasks { task.cancel() }
             activeTasks.removeAll()
             clearPending()
+            recordHistory(success: false)
             onCompletion?(.failure(lastError ?? DownloadError.cancelled))
         } else if totalSize > 0 || singleStreamMode {
+            recordHistory(success: true)
             onCompletion?(.success(()))
         }
+    }
+
+    /// Folds this download's measured bandwidth and latency into the per-host
+    /// history so a repeated source starts near its learned optimum.
+    private func recordHistory(success: Bool) {
+        guard totalSize > 0, let start = downloadStartTime else { return }
+        let host = url.host ?? ""
+        guard !host.isEmpty else { return }
+        let elapsed = Date().timeIntervalSince(start)
+        let bandwidth = elapsed > 0.1 ? Int64(Double(totalSize) / elapsed) : 0
+        guard bandwidth > 0 else { return }
+        SourceHistoryStore.shared.record(host: host, bandwidth: bandwidth,
+                                         rtt: measuredRTT, success: success,
+                                         supportsRange: serverSupportsResume)
     }
 
     // MARK: - Progress

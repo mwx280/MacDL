@@ -16,6 +16,11 @@ struct MacDLApp: App {
         if let logsDir {
             FileLogWriter.setLogFile(logsDir.appendingPathComponent("MacDL.log"))
         }
+        // Per-host download history for smart cold-start, kept beside downloads.json.
+        let historyURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("com.xiaowu.MacDL")
+            .appendingPathComponent("source-history.json")
+        SourceHistoryStore.shared.setFileURL(historyURL)
         // 0 means "Adaptive" connections; the shared session must still allow
         // the per-host cap up to the maximum the adaptive policy may reach.
         ChunkDownloadTask.maxConnectionsProvider = {
