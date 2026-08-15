@@ -550,4 +550,31 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(ok)
         #expect(verifyPattern(in: dest, size: 4 * 1024 * 1024))
     }
+
+    @Test func rateLimitDegradationRecoversAndCompletes() {
+        // With a fast recovery-probe base, a rate-limited server must still be
+        // finished correctly, and the degradation must not be permanent: the
+        // recovery probe climbs back up and trips the limit again (≥2 429s).
+        // A larger file keeps the download running long enough for the probe
+        // (base 0.2s) plus the adaptive evaluation (3s) to re-trip the limit.
+        FakeURLProtocol.virtualFileSize = 16 * 1024 * 1024
+        FakeURLProtocol.maxConcurrentRequests = 1
+        FakeURLProtocol.latencyMs = 100
+        ChunkManager.recoveryProbeBaseOverride = 0.2
+        defer {
+            FakeURLProtocol.maxConcurrentRequests = 0
+            FakeURLProtocol.latencyMs = 0
+            ChunkManager.recoveryProbeBaseOverride = nil
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-ratelimit-recover.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 120))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 16 * 1024 * 1024))
+        #expect(FakeURLProtocol.rateLimit429Count >= 2)
+    }
 }

@@ -17,6 +17,10 @@ public enum EngineConstants {
     public static let sourceFailureThreshold = 3
     public static let sourceCooldownInterval: TimeInterval = 30.0
 
+    // Rate-limit degradation recovery
+    public static let rateLimitRecoveryBase: TimeInterval = 60.0
+    public static let rateLimitRecoveryCap: TimeInterval = 600.0
+
     // Token bucket
     public static let bucketTokenCapMultiplier = 2.0
     public static let bucketTokenMinCap: Double = 1_048_576 // 1 MiB

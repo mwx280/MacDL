@@ -38,7 +38,7 @@ public final class ChunkManager: @unchecked Sendable {
     private var sources: [Source] = []
     private var chunkSource: [Int: Int] = [:]
     private var chunkDispatchTime: [Int: Date] = [:]
-    private var maxObservedChunkSpeed: Int64 = 0
+    private var recentChunkSpeeds: [Int64] = []
     private var sourceScheduler: SourceScheduler
     private var completedCount = 0
     private var failedCount = 0
@@ -56,9 +56,15 @@ public final class ChunkManager: @unchecked Sendable {
     private var singleStreamBytes: Int64 = 0
     private var singleStreamRetries = 0
     private var singleStreamRetryItem: DispatchWorkItem?
+    private var recoveryAttempts = 0
+    private var recoveryWorkItem: DispatchWorkItem?
 
     private let maxRetries = EngineConstants.maxChunkRetries
     private let bucket = TokenBucket(rate: 0)
+    /// Number of recent chunk speeds kept for the soft rate-limit detector.
+    private static let chunkSpeedWindowSize = 8
+    /// Test hook overriding the rate-limit recovery-probe base delay.
+    nonisolated(unsafe) static var recoveryProbeBaseOverride: TimeInterval?
 
     private let syncQueue = DispatchQueue(label: "com.xiaowu.chunkmanager.sync")
     private var logTimer: Timer?
@@ -321,12 +327,17 @@ public final class ChunkManager: @unchecked Sendable {
                                 if elapsed > 0.05 {
                                     let rate = Int64(Double(self.chunks[index].size) / elapsed)
                                     self.sources[si].recordThroughput(rate)
-                                    self.maxObservedChunkSpeed = max(self.maxObservedChunkSpeed, rate)
-                                    // Soft rate-limiting: a chunk far slower than the
-                                    // fastest seen one (while others run fast) means the
-                                    // server throttles extra concurrent requests, not
-                                    // that the network is slow. Degrade the count.
-                                    if rate < 1_000_000, self.maxObservedChunkSpeed > 5_000_000 {
+                                    // Slide the rate into a short window and detect
+                                    // soft rate-limiting by relative gap: a chunk far
+                                    // slower than the fastest recent one (and absolutely
+                                    // slow) means the server throttles extra requests,
+                                    // not that the whole link is slow.
+                                    self.recentChunkSpeeds.append(rate)
+                                    if self.recentChunkSpeeds.count > Self.chunkSpeedWindowSize {
+                                        self.recentChunkSpeeds.removeFirst()
+                                    }
+                                    if let windowMax = self.recentChunkSpeeds.max(),
+                                       rate > 0, rate < windowMax / 5, rate < 1_000_000 {
                                         self.handleSlowChunk()
                                     }
                                 }
@@ -399,6 +410,8 @@ public final class ChunkManager: @unchecked Sendable {
             chunks[index].status = .failed
             failedCount += 1
             markChunkDirty(index)
+            chunkSource[index] = nil
+            chunkDispatchTime[index] = nil
             EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
             return false
         }
@@ -416,6 +429,7 @@ public final class ChunkManager: @unchecked Sendable {
                 if hasAlternative {
                     EngineLog.manager.warning("source \(si) cooled down, failing chunk \(index) over")
                     chunkSource[index] = nil
+                    chunkDispatchTime[index] = nil
                     retryCounts[index] = 0
                     writtenBytes -= chunks[index].downloadedSize
                     chunks[index].status = .pending
@@ -432,6 +446,8 @@ public final class ChunkManager: @unchecked Sendable {
             chunks[index].status = .failed
             failedCount += 1
             markChunkDirty(index)
+            chunkSource[index] = nil
+            chunkDispatchTime[index] = nil
             EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
             return false
         }
@@ -472,12 +488,40 @@ public final class ChunkManager: @unchecked Sendable {
 
     /// Lowers the connection cap, locks the adaptive policy at that ceiling and
     /// stops the adaptive timer so it does not probe back up into the limit.
+    /// A recovery probe is scheduled with exponential backoff so a transient
+    /// limit does not permanently strand the download at a low count, while a
+    /// persistently limiting server is only re-probed ever more rarely.
     private func degradeConcurrency(to count: Int) {
         guard isAutoConnections, maxConcurrent > count else { return }
         EngineLog.manager.warning("degrading connections \(maxConcurrent) -> \(count)")
         maxConcurrent = count
         stopAdaptTimer()
         autoPolicy.forceConcurrencyCeiling(count)
+        scheduleRecoveryProbe()
+    }
+
+    /// After a rate-limit degradation, re-enables adaptive connections once the
+    /// backoff delay has passed, so the download can climb back up if the server
+    /// has recovered. Each degradation doubles the wait, capped at
+    /// `rateLimitRecoveryCap`, so a persistently limiting server is probed less
+    /// and less often.
+    private func scheduleRecoveryProbe() {
+        recoveryWorkItem?.cancel()
+        recoveryAttempts += 1
+        let base = Self.recoveryProbeBaseOverride ?? EngineConstants.rateLimitRecoveryBase
+        let delay = min(base * pow(2.0, Double(recoveryAttempts - 1)),
+                        EngineConstants.rateLimitRecoveryCap)
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.recoveryWorkItem = nil
+            guard self.isAutoConnections, !self.isPaused,
+                  self.maxConcurrent < EngineConstants.maxAutoConnections else { return }
+            EngineLog.manager.notice("rate-limit recovery probe after \(Int(delay))s, re-enabling adaptive connections")
+            self.autoPolicy.reset()
+            self.startAdaptTimer()
+        }
+        recoveryWorkItem = item
+        syncQueue.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     /// Updates the byte/second throttle shared by all chunks of this download.
@@ -533,6 +577,8 @@ public final class ChunkManager: @unchecked Sendable {
             self.retryWorkItems.removeAll()
             self.singleStreamRetryItem?.cancel()
             self.singleStreamRetryItem = nil
+            self.recoveryWorkItem?.cancel()
+            self.recoveryWorkItem = nil
             self.clearPending()
             for (_, task) in self.activeTasks { task.pause() }
             self.activeTasks.removeAll()
@@ -585,6 +631,8 @@ public final class ChunkManager: @unchecked Sendable {
             self.retryWorkItems.removeAll()
             self.singleStreamRetryItem?.cancel()
             self.singleStreamRetryItem = nil
+            self.recoveryWorkItem?.cancel()
+            self.recoveryWorkItem = nil
             for (_, task) in self.activeTasks { task.cancel() }
             self.activeTasks.removeAll()
             self.singleStreamTask?.cancel()
