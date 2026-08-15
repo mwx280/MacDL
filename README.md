@@ -194,12 +194,12 @@ MacDLTests/            App tests (XCTest + fake engine)
 
 ## Testing
 
-180 tests across two suites:
+219 tests across two suites:
 
-- **Engine (30)**: Swift Testing against a fake `URLProtocol`, no real network.
+- **Engine (52)**: Swift Testing against a fake `URLProtocol`, no real network.
   Covers chunk integrity, pause/resume, throttling, backoff, single-thread
   fallback and Range edge cases.
-- **App (150)**: XCTest with a fake engine, no real disk or notification
+- **App (167)**: XCTest with a fake engine, no real disk or notification
   center. Covers the download lifecycle, priority flow, duplicate policy,
   persistence round trips, the update state machine and localization.
 

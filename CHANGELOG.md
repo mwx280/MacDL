@@ -35,6 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings window redesigned: rows gain inline description subtitles, icons get
   per-row colors, and the window auto-sizes to the active pane. Navigation uses
   the native system `TabView` instead of a self-drawn pill tab bar.
+- Large-file download performance: the engine tracks chunk completion and
+  written bytes with incremental counters and drains the pending queue with a
+  cursor, so progress/completion callbacks and scheduling are O(1) per event
+  instead of O(n)/O(n²).
+- Chunk state is synced to the app incrementally (only changed chunks) instead of
+  copying the full array every tick, and the app keeps its own copy so the
+  engine's writes never trigger full-array copy-on-write. Adds a
+  `setChunksUpdateHandler` method to `DownloadEngineProtocol`.
+- Chunk reconstruction from compact persisted state uses a single merge pass
+  (O(n + m)) instead of a nested scan.
 
 ### Fixed
 
