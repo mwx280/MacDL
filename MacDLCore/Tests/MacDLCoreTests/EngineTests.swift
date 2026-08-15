@@ -528,4 +528,26 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         // test genuinely exercises the 429 → single-connection degradation).
         #expect(FakeURLProtocol.rateLimit429Count > 0)
     }
+
+    @Test func softRateLimitDegradesAndCompletes() {
+        // A server that throttles (not 429s) requests beyond the first one: the
+        // engine must notice the slow chunk, halve its connections, and still
+        // assemble the file correctly.
+        FakeURLProtocol.virtualFileSize = 4 * 1024 * 1024
+        FakeURLProtocol.softLimitConcurrent = 1
+        FakeURLProtocol.softLimitRate = 500 * 1024
+        defer {
+            FakeURLProtocol.softLimitConcurrent = 0
+            FakeURLProtocol.softLimitRate = 0
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-softlimit.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 4 * 1024 * 1024))
+    }
 }

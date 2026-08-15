@@ -38,6 +38,7 @@ public final class ChunkManager: @unchecked Sendable {
     private var sources: [Source] = []
     private var chunkSource: [Int: Int] = [:]
     private var chunkDispatchTime: [Int: Date] = [:]
+    private var maxObservedChunkSpeed: Int64 = 0
     private var sourceScheduler: SourceScheduler
     private var completedCount = 0
     private var failedCount = 0
@@ -318,8 +319,16 @@ public final class ChunkManager: @unchecked Sendable {
                             if let start = self.chunkDispatchTime.removeValue(forKey: index) {
                                 let elapsed = Date().timeIntervalSince(start)
                                 if elapsed > 0.05 {
-                                    self.sources[si].recordThroughput(
-                                        Int64(Double(self.chunks[index].size) / elapsed))
+                                    let rate = Int64(Double(self.chunks[index].size) / elapsed)
+                                    self.sources[si].recordThroughput(rate)
+                                    self.maxObservedChunkSpeed = max(self.maxObservedChunkSpeed, rate)
+                                    // Soft rate-limiting: a chunk far slower than the
+                                    // fastest seen one (while others run fast) means the
+                                    // server throttles extra concurrent requests, not
+                                    // that the network is slow. Degrade the count.
+                                    if rate < 1_000_000, self.maxObservedChunkSpeed > 5_000_000 {
+                                        self.handleSlowChunk()
+                                    }
                                 }
                             }
                         }
@@ -451,11 +460,24 @@ public final class ChunkManager: @unchecked Sendable {
     /// session. The adaptive policy's "try more connections" assumption is wrong
     /// for such servers — the second concurrent request is rejected outright.
     private func handleRateLimit() {
-        guard isAutoConnections, maxConcurrent > 1 else { return }
-        EngineLog.manager.warning("server rate-limited (429), degrading to a single connection")
-        maxConcurrent = 1
+        degradeConcurrency(to: 1)
+    }
+
+    /// Soft rate-limiting (a chunk throttled far below the fastest one while
+    /// others run fast): halve the connection count, converging toward the level
+    /// the server actually tolerates instead of a hard drop to one.
+    private func handleSlowChunk() {
+        degradeConcurrency(to: max(1, maxConcurrent / 2))
+    }
+
+    /// Lowers the connection cap, locks the adaptive policy at that ceiling and
+    /// stops the adaptive timer so it does not probe back up into the limit.
+    private func degradeConcurrency(to count: Int) {
+        guard isAutoConnections, maxConcurrent > count else { return }
+        EngineLog.manager.warning("degrading connections \(maxConcurrent) -> \(count)")
+        maxConcurrent = count
         stopAdaptTimer()
-        autoPolicy.forceConcurrencyCeiling(1)
+        autoPolicy.forceConcurrencyCeiling(count)
     }
 
     /// Updates the byte/second throttle shared by all chunks of this download.

@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import MacDLCore
 
-@Suite struct SourceHistoryStoreTests {
+@Suite(.serialized) struct SourceHistoryStoreTests {
     @Test func unknownHostReturnsNil() {
         SourceHistoryStore.shared.setFileURL(nil)
         SourceHistoryStore.shared.removeAll()

@@ -27,6 +27,11 @@ final class FakeURLProtocol: URLProtocol {
     nonisolated(unsafe) static var maxConcurrentRequests = 0
     // Counts how many 429 responses have been sent (for assertions).
     nonisolated(unsafe) static var rateLimit429Count = 0
+    // Soft rate-limit: requests beyond this many concurrent are throttled to
+    // `softLimitRate` bytes/second (simulating a server that throttles instead
+    // of returning 429).
+    nonisolated(unsafe) static var softLimitConcurrent = 0
+    nonisolated(unsafe) static var softLimitRate: Int64 = 0
     // Delay (ms) before the response is delivered, simulating round-trip latency.
     nonisolated(unsafe) static var latencyMs: Int64 = 0
     // Peak number of concurrently in-flight requests observed.
@@ -116,12 +121,14 @@ final class FakeURLProtocol: URLProtocol {
         }
         let latency = Double(Self.latencyMs) / 1000.0
         let hostRate = url.host.flatMap { Self.perHostRates[$0] }
-        let throttled = Self.perConnectionRate > 0 || (hostRate ?? 0) > 0
+        let softThrottled = Self.softLimitConcurrent > 0 && Self.activeRequests > Self.softLimitConcurrent
+        let softRate = softThrottled ? Self.softLimitRate : 0
+        let throttled = Self.perConnectionRate > 0 || (hostRate ?? 0) > 0 || softRate > 0
         if latency > 0 || throttled {
             // Deliver the response and body asynchronously, optionally delayed
             // by latency and throttled per connection.
             let slices = data
-            let rate = hostRate ?? Self.perConnectionRate
+            let rate = softRate > 0 ? softRate : (hostRate ?? Self.perConnectionRate)
             DispatchQueue.global().async {
                 if latency > 0 {
                     Thread.sleep(forTimeInterval: latency)
@@ -177,6 +184,8 @@ final class FakeURLProtocol: URLProtocol {
         failingHosts.removeAll()
         maxConcurrentRequests = 0
         rateLimit429Count = 0
+        softLimitConcurrent = 0
+        softLimitRate = 0
         latencyMs = 0
         peakRequests = 0
         lock.lock()
