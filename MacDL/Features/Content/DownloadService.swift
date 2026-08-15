@@ -112,10 +112,55 @@ final class DownloadService {
            (engine as AnyObject) === DownloadEngine.shared {
             return
         }
-        let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
-        let dir = savePath ?? AppConfig.defaultDownloadDir
+        guard let sourceURL = URL(string: url) else {
+            addResolvedDownload(primary: nil, url: url, mirrors: [], checksum: nil, filename: nil,
+                                savePath: savePath, saveBookmark: saveBookmark, dlLimit: dlLimit,
+                                connections: connections, allowDuplicate: allowDuplicate)
+            return
+        }
+        // A Metalink document lists mirrors + a checksum: fetch and parse it first,
+        // then start the download from those sources (no manual mirror hunting).
+        if MetalinkParser.isMetalinkURL(sourceURL) {
+            Task { [weak self] in
+                let metalink = await Self.fetchMetalink(sourceURL)
+                await MainActor.run {
+                    guard let self else { return }
+                    if let metalink, let primary = metalink.urls.first {
+                        self.addResolvedDownload(
+                            primary: primary,
+                            url: url,
+                            mirrors: Array(metalink.urls.dropFirst()),
+                            checksum: metalink.checksum,
+                            filename: metalink.filename,
+                            savePath: savePath, saveBookmark: saveBookmark, dlLimit: dlLimit,
+                            connections: connections, allowDuplicate: allowDuplicate)
+                    } else {
+                        self.addResolvedDownload(
+                            primary: nil, url: url, mirrors: [], checksum: nil, filename: nil,
+                            savePath: savePath, saveBookmark: saveBookmark, dlLimit: dlLimit,
+                            connections: connections, allowDuplicate: allowDuplicate)
+                    }
+                }
+            }
+            return
+        }
+        addResolvedDownload(primary: sourceURL, url: url, mirrors: [], checksum: nil,
+                            filename: sourceURL.lastPathComponent,
+                            savePath: savePath, saveBookmark: saveBookmark, dlLimit: dlLimit,
+                            connections: connections, allowDuplicate: allowDuplicate)
+    }
 
-        if !allowDuplicate, let existing = downloads.first(where: { $0.url == url || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
+    /// Creates and starts a download from a resolved primary URL (plus optional
+    /// mirrors and checksum). `primary == nil` marks an invalid/unparseable URL.
+    private func addResolvedDownload(primary: URL?, url: String, mirrors: [URL], checksum: String?,
+                                     filename: String?, savePath: String?, saveBookmark: Data?,
+                                     dlLimit: Int, connections: Int?, allowDuplicate: Bool) {
+        let name = filename ?? primary?.lastPathComponent
+            ?? URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
+        let dir = savePath ?? AppConfig.defaultDownloadDir
+        let resolvedURL = primary?.absoluteString ?? url
+
+        if !allowDuplicate, let existing = downloads.first(where: { $0.url == resolvedURL || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
             switch DuplicatePolicy.decide(for: existing) {
             case .proceed:
                 break
@@ -129,17 +174,19 @@ final class DownloadService {
 
         let d = Download(
             filename: name,
-            url: url,
+            url: resolvedURL,
             status: .active,
             savePath: savePath,
             saveBookmark: saveBookmark,
             downloadLimit: dlLimit > 0 ? dlLimit : nil,
-            maxConcurrentChunks: connections ?? settings.maxConnections
+            maxConcurrentChunks: connections ?? settings.maxConnections,
+            expectedChecksum: checksum,
+            mirrors: mirrors.map(\.absoluteString)
         )
         store.append(d)
         store.save()
 
-        guard let sourceURL = URL(string: url) else {
+        guard let sourceURL = primary ?? URL(string: url) else {
             store.update(d.id) {
                 $0.status = .error
                 $0.errorKey = "Invalid URL"
@@ -159,6 +206,16 @@ final class DownloadService {
         }
 
         setupEngineTask(for: d.id, url: sourceURL, dlLimit: dlLimit)
+    }
+
+    /// Fetches and parses a Metalink document off the main thread.
+    private static func fetchMetalink(_ url: URL) async -> MetalinkFile? {
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return MetalinkParser.parse(data)
+        } catch {
+            return nil
+        }
     }
 
     private func startNextWaitingDownload() {
