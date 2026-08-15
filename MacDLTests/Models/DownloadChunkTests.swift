@@ -126,6 +126,18 @@ import MacDLCore
         #expect(d.chunks[3].downloadedSize == 0)
     }
 
+    @Test func compactStateRebuildsGappedRanges() throws {
+        let json = """
+        {"id": "\(UUID().uuidString)", "filename": "a.bin", "url": "https://e.com/a.bin", "totalSize": 1000, "downloadedSize": 512, "downloadSpeed": 0, "status": "active", "addedAt": 0, "chunkSize": 256, "maxConcurrentChunks": 4, "completedRanges": [{"startOffset": 0, "endOffset": 256}, {"startOffset": 512, "endOffset": 768}], "partialChunks": []}
+        """
+        let d = try JSONDecoder().decode(Download.self, from: Data(json.utf8))
+        #expect(d.chunks.count == 4)
+        #expect(d.chunks[0].status == .completed)
+        #expect(d.chunks[1].status != .completed)
+        #expect(d.chunks[2].status == .completed)
+        #expect(d.chunks[3].status != .completed)
+    }
+
     @Test func emptyCompactStateLeavesChunksEmpty() throws {
         let json = """
         {"id": "\(UUID().uuidString)", "filename": "a.bin", "url": "https://e.com/a.bin", "totalSize": 1000, "downloadedSize": 0, "downloadSpeed": 0, "status": "waiting", "addedAt": 0, "chunkSize": 256, "maxConcurrentChunks": 4}

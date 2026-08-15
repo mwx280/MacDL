@@ -157,13 +157,19 @@ public struct Download: Identifiable, Codable, Sendable {
     public static func rebuildChunks(totalSize: Int64, chunkSize: Int64, completedRanges: [CompletedRange], partialChunks: [PartialChunk]) -> [Chunk] {
         guard totalSize > 0 else { return [] }
         var result = Chunk.chunks(totalSize: totalSize, chunkSize: chunkSize)
-        for range in completedRanges {
-            for i in result.indices {
-                let c = result[i]
-                if c.startOffset >= range.startOffset && c.endOffset <= range.endOffset {
-                    result[i].status = .completed
-                    result[i].downloadedSize = c.size
-                }
+        // Both chunks and completedRanges are ordered by offset, so a single
+        // merge pass marks completed chunks in O(n + m) instead of O(n * m).
+        var r = 0
+        for i in result.indices {
+            let c = result[i]
+            while r < completedRanges.count, completedRanges[r].endOffset <= c.startOffset {
+                r += 1
+            }
+            if r < completedRanges.count,
+               c.startOffset >= completedRanges[r].startOffset,
+               c.endOffset <= completedRanges[r].endOffset {
+                result[i].status = .completed
+                result[i].downloadedSize = c.size
             }
         }
         for p in partialChunks where p.index < result.count {
