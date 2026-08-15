@@ -76,6 +76,9 @@ public final class ChunkManager: @unchecked Sendable {
     /// `false` = actual downloading. Set before the probe and when chunks are
     /// built or single-stream begins.
     public var onPhaseChanged: ((Bool) -> Void)?
+    /// Called once the probe picked a dynamic chunk size, so the app can persist
+    /// it for resume.
+    public var onChunkSizeChanged: ((Int64) -> Void)?
 
     /// Creates a manager for one download. `maxConcurrent <= 0` selects auto
     /// mode: the engine picks the connection count from the probed file size
@@ -171,6 +174,15 @@ public final class ChunkManager: @unchecked Sendable {
                 }
                 EngineLog.manager.notice("totalSize=\(total) rtt=\(self.measuredRTT)")
                 guard !self.singleStreamMode else { return }
+                // Pick a chunk size suited to this file's size and latency before
+                // splitting, so large files are not chopped into hundreds of
+                // thousands of tiny chunks.
+                let dynamicChunkSize = ChunkingPolicy.chunkSize(
+                    totalSize: total, rtt: self.measuredRTT, singleConnRate: 0)
+                if dynamicChunkSize != self.chunkSize {
+                    self.chunkSize = dynamicChunkSize
+                    self.onChunkSizeChanged?(dynamicChunkSize)
+                }
                 let built = self.buildChunks(totalSize: total, chunkSize: self.chunkSize)
                 self.chunks = built
                 self.completedCount = 0

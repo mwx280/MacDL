@@ -31,4 +31,7 @@ public protocol DownloadEngineProtocol {
     func setResumeSupportHandler(for id: UUID, handler: @escaping (Bool) -> Void)
     /// Registers the probe-phase callback (`true` while probing).
     func setPhaseHandler(for id: UUID, handler: @escaping (Bool) -> Void)
+    /// Registers the chunk-size callback, fired when the probe picks a dynamic
+    /// chunk size.
+    func setChunkSizeHandler(for id: UUID, handler: @escaping (Int64) -> Void)
 }

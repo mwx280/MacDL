@@ -111,4 +111,10 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     public func setPhaseHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
         syncQueue.sync { managers[id]?.onPhaseChanged = handler }
     }
+
+    /// Registers the chunk-size callback, fired once the probe picks a dynamic
+    /// chunk size for the file.
+    public func setChunkSizeHandler(for id: UUID, handler: @escaping (Int64) -> Void) {
+        syncQueue.sync { managers[id]?.onChunkSizeChanged = handler }
+    }
 }

@@ -209,6 +209,18 @@ final class DownloadEngineCoordinator {
             }
         }
 
+        engine.setChunkSizeHandler(for: id) { [weak self] chunkSize in
+            self?.hopToMain {
+                guard let self else { return }
+                self.store.update(id) { download in
+                    if download.chunkSize != chunkSize {
+                        download.chunkSize = chunkSize
+                    }
+                }
+                self.store.save("chunkSizeHandler")
+            }
+        }
+
         engine.setCompletionHandler(for: id) { [weak self] result in
             self?.hopToMain {
                 guard let self else { return }
