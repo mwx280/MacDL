@@ -53,6 +53,7 @@ struct MacDLApp: App {
             ContentView()
                 .environment(LanguageManager.shared)
         }
+        .defaultSize(width: 700, height: 520)
         .defaultLaunchBehavior(SettingsStore.shared.launchInBackground ? .suppressed : .presented)
         .commands {
             CommandGroup(replacing: .appInfo) {
