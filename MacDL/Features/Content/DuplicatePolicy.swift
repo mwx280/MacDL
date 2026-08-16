@@ -5,6 +5,7 @@ enum DuplicateDecision {
     case proceed
     case skip
     case resume
+    case redownload
 }
 
 // Decides how a duplicate-add should proceed based on the existing download's
@@ -29,7 +30,7 @@ enum DuplicatePolicy {
             default: return .skip
             }
         case .completed:
-            return showDuplicateCompleted() ? .proceed : .skip
+            return showDuplicateCompleted() ? .redownload : .skip
         case .error, .stopped:
             let reason = DownloadErrorText.text(for: existing) ?? LanguageManager.shared.localized("Unknown error")
             return showDuplicateFailed(reason) ? .proceed : .skip

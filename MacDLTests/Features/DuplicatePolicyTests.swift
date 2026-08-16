@@ -21,8 +21,8 @@ import Foundation
         #expect(DuplicatePolicy.decide(for: download(status: .paused), showDuplicateActive: {}, showDuplicatePaused: { .cancel }) == .skip)
     }
 
-    @Test func completedProceedsOnlyWhenConfirmed() {
-        #expect(DuplicatePolicy.decide(for: download(status: .completed), showDuplicateActive: {}, showDuplicateCompleted: { true }) == .proceed)
+    @Test func completedRedownloadsOnlyWhenConfirmed() {
+        #expect(DuplicatePolicy.decide(for: download(status: .completed), showDuplicateActive: {}, showDuplicateCompleted: { true }) == .redownload)
         #expect(DuplicatePolicy.decide(for: download(status: .completed), showDuplicateActive: {}, showDuplicateCompleted: { false }) == .skip)
     }
 

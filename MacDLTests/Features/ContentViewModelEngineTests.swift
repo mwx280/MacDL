@@ -91,6 +91,23 @@ import MacDLCore
         #expect(engine.started.isEmpty)
     }
 
+    @Test func addDuplicateCompletedRedownloadsExisting() {
+        // Re-adding a completed download's URL must restart the original entry
+        // (same id) instead of creating a duplicate task.
+        let engine = FakeEngine()
+        let vm = makeVM(engine: engine)
+        let d = Download(filename: "dup.bin", url: "https://example.com/dup.bin", status: .completed)
+        vm.downloads = [d]
+        vm.service.duplicateDecider = { _ in .redownload }
+        vm.addDownload(url: "https://example.com/dup.bin")
+        #expect(vm.downloads.count == 1)
+        let result = vm.downloads.first { $0.id == d.id }
+        #expect(result?.status == .active)
+        #expect(result?.totalSize == 0)
+        #expect(result?.chunks.isEmpty == true)
+        #expect(engine.started.contains(d.id))
+    }
+
     @Test func addDownloadWaitsOverConcurrencyLimit() {
         let engine = FakeEngine()
         let vm = makeVM(engine: engine, maxConcurrentDownloads: 2)

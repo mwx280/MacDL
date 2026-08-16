@@ -22,6 +22,12 @@ final class DownloadService {
     /// Downloads currently in the range-probe/detection phase (transient, not persisted).
     var probingDownloads = Set<UUID>()
 
+    /// Decides how a duplicate add proceeds. Injectable so tests can exercise
+    /// the duplicate paths without presenting NSAlerts.
+    var duplicateDecider: (Download) -> DuplicateDecision = { existing in
+        DuplicatePolicy.decide(for: existing)
+    }
+
     var downloads: [Download] {
         get { store.downloads }
         set { store.downloads = newValue }
@@ -194,11 +200,14 @@ final class DownloadService {
         let resolvedURL = primary?.absoluteString ?? url
 
         if !allowDuplicate, let existing = downloads.first(where: { $0.url == resolvedURL || ($0.filename == name && ($0.savePath ?? AppConfig.defaultDownloadDir) == dir) }) {
-            switch DuplicatePolicy.decide(for: existing) {
+            switch duplicateDecider(existing) {
             case .proceed:
                 break
             case .resume:
                 resumeDownload(id: existing.id)
+                return
+            case .redownload:
+                restartCompletedDownload(id: existing.id)
                 return
             case .skip:
                 return
@@ -399,19 +408,24 @@ final class DownloadService {
     /// Re-downloads a finished download. Confirms first; if the destination file
     /// already exists the dialog warns that it will be overwritten.
     func redownloadDownload(id: UUID, confirmation: (Download, Bool) -> Bool) {
+        guard let d = downloads.first(where: { $0.id == id }), d.status == .completed else { return }
+        let dir = d.savePath ?? AppConfig.defaultDownloadDir
+        let finalPath = dir + "/" + d.filename
+        let fileExists = FileManager.default.fileExists(atPath: finalPath)
+        guard confirmation(d, fileExists) else { return }
+        restartCompletedDownload(id: id)
+    }
+
+    /// Restarts a completed download from scratch, reusing its existing entry so
+    /// a duplicate task is not created. The caller has already confirmed. Removes
+    /// the finished file and any stale staging so the fresh download starts clean.
+    private func restartCompletedDownload(id: UUID) {
         guard let idx = downloads.firstIndex(where: { $0.id == id }) else { return }
         let d = downloads[idx]
         guard d.status == .completed else { return }
 
         let dir = d.savePath ?? AppConfig.defaultDownloadDir
-        let finalPath = dir + "/" + d.filename
-        let fileExists = FileManager.default.fileExists(atPath: finalPath)
-
-        guard confirmation(d, fileExists) else { return }
-
-        // Remove the finished file (and any stale staging) so the fresh download
-        // starts clean instead of resuming old chunks.
-        try? FileManager.default.removeItem(atPath: finalPath)
+        try? FileManager.default.removeItem(atPath: dir + "/" + d.filename)
         try? FileManager.default.removeItem(atPath: dir + "/" + d.filename + ".macdl")
 
         downloads[idx].status = .active
