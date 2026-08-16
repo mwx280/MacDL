@@ -4,6 +4,8 @@
 
 # MacDL
 
+[简体中文](README.zh-CN.md)
+
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-000000.svg)]()
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
