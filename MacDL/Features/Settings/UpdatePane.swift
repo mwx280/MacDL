@@ -9,13 +9,10 @@ struct UpdatePane: View {
     var body: some View {
         VStack(spacing: 16) {
             card {
-                prefRow("info.circle", "Current Version", color: .blue) {
+                prefRow("info.circle", "Current Version", description: UpdateService.currentVersion, color: .blue) {
                     HStack(spacing: 10) {
-                        Text(UpdateService.currentVersion)
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                        checkForUpdatesButton
                         updateControl
+                        checkForUpdatesButton
                     }
                 }
 
