@@ -775,6 +775,23 @@
         }
       }
     },
+    "Continue Download" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue Download"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续下载"
+          }
+        }
+      }
+    },
     "Copy Link" : {
       "extractionState" : "manual",
       "localizations" : {

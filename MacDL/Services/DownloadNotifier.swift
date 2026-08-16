@@ -48,7 +48,7 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
         EngineLog.app.debug("DownloadNotifier delegate set")
         let resume = UNNotificationAction(identifier: resumeAction,
-                                          title: LanguageManager.shared.localized("Resume"),
+                                          title: LanguageManager.shared.localized("Continue Download"),
                                           options: [])
         let retry = UNNotificationAction(identifier: retryAction,
                                          title: LanguageManager.shared.localized("Retry"),
@@ -127,11 +127,22 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
         EngineLog.app.debug("DownloadNotifier notifyCompleted \(download.filename) authorized=\(self.authorized ? 1 : 0)")
         suppressPendingStarted(for: download.id)
-        send(title: LanguageManager.shared.localized("Download Completed"),
-             body: dir + "/" + download.filename,
-             id: download.id,
-             kind: "completed",
-             sound: true)
+        let content = UNMutableNotificationContent()
+        content.title = LanguageManager.shared.localized("Download Completed")
+        content.body = dir + "/" + download.filename
+        content.sound = .default
+        // Offer "Open File Location" so the user can reveal the finished file.
+        content.categoryIdentifier = revealCategory
+        content.userInfo = ["id": download.id.uuidString]
+        let request = UNNotificationRequest(identifier: download.id.uuidString + "-completed",
+                                            content: content,
+                                            trigger: nil)
+        guard authorized else {
+            pending.append(request)
+            return
+        }
+        EngineLog.app.debug("DownloadNotifier posting completed")
+        post(request)
     }
 
     func notifyFailed(_ download: Download) {

@@ -4,7 +4,6 @@ import AppKit
 enum DownloadDialogResult {
     case ok
     case resume
-    case newDownload
     case cancel
 }
 
@@ -21,19 +20,14 @@ enum DialogPresenter {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
-    /// Duplicate is paused: offer Resume / New Download / Cancel.
+    /// Duplicate is paused: offer Resume / Cancel.
     static func duplicatePaused() -> DownloadDialogResult {
         let alert = NSAlert()
         alert.messageText = LanguageManager.shared.localized("Paused Download")
         alert.informativeText = LanguageManager.shared.localized("A paused download for this file already exists. Resume it?")
         alert.addButton(withTitle: LanguageManager.shared.localized("Resume"))
-        alert.addButton(withTitle: LanguageManager.shared.localized("New Download"))
         alert.addButton(withTitle: LanguageManager.shared.localized("Cancel"))
-        switch alert.runModal() {
-        case .alertFirstButtonReturn: return .resume
-        case .alertSecondButtonReturn: return .newDownload
-        default: return .cancel
-        }
+        return alert.runModal() == .alertFirstButtonReturn ? .resume : .cancel
     }
 
     /// Duplicate already completed: offer Download Again / Cancel.

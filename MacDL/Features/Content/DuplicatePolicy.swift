@@ -26,7 +26,6 @@ enum DuplicatePolicy {
         case .paused:
             switch showDuplicatePaused() {
             case .resume: return .resume
-            case .newDownload: return .proceed
             default: return .skip
             }
         case .completed:

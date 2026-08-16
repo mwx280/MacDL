@@ -17,10 +17,6 @@ import Foundation
         #expect(DuplicatePolicy.decide(for: download(status: .paused), showDuplicateActive: {}, showDuplicatePaused: { .resume }) == .resume)
     }
 
-    @Test func pausedNewDownloadProceeds() {
-        #expect(DuplicatePolicy.decide(for: download(status: .paused), showDuplicateActive: {}, showDuplicatePaused: { .newDownload }) == .proceed)
-    }
-
     @Test func pausedCancelSkips() {
         #expect(DuplicatePolicy.decide(for: download(status: .paused), showDuplicateActive: {}, showDuplicatePaused: { .cancel }) == .skip)
     }
