@@ -19,6 +19,15 @@ public final class TokenBucket: @unchecked Sendable {
         self.rate = max(0, rate)
     }
 
+    /// The current refill rate (bytes/second; 0 = unlimited). Read-only; lets a
+    /// caller size timeouts so throttled transfers are never mistaken for
+    /// stalled ones.
+    public var currentRate: Double {
+        condition.lock()
+        defer { condition.unlock() }
+        return rate
+    }
+
     /// Changes the refill rate; wakes any waiting consumer to re-evaluate.
     public func setRate(_ newRate: Double) {
         condition.lock()

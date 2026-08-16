@@ -986,12 +986,16 @@ public final class ChunkManager: @unchecked Sendable {
     /// treated as a dropped connection (silent/half-open): cancel it so the
     /// chunk retries instead of waiting out the URLSession request timeout.
     /// Detection is per-task so a freshly dispatched request gets a full window
-    /// of its own and throttling never trips it (the writer keeps the clock
-    /// fresh while draining), while a local network drop stops the whole
-    /// download at once. Call on syncQueue.
+    /// of its own, but only while the DOWNLOAD is silent: a speed limit
+    /// throttles every chunk through a shared token bucket, so an individual
+    /// chunk can legitimately wait longer than `stallTimeout` between writes
+    /// while the transfer keeps progressing. A local network drop stops the
+    /// whole download at once; a speed limit does not. Call on syncQueue.
     private func checkForStalls() {
         guard !isPaused else { return }
         let timeout = Self.stallTimeoutOverride ?? EngineConstants.stallTimeout
+        let downloadQuiet = Date().timeIntervalSince(lastByteTime) > timeout
+        guard downloadQuiet else { return }
         var cancelled = false
         for (index, task) in activeTasks where task.isIdle(for: timeout) {
             EngineLog.manager.warning("chunk \(index) stalled (no activity for \(Int(timeout))s), cancelling")

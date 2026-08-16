@@ -57,7 +57,12 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         manager.setSpeedLimit(204_800)
         let sem = DispatchSemaphore(value: 0)
         var ok = false
-        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        var lastErr: Error?
+        manager.onCompletion = { r in
+            if case .success = r { ok = true }
+            if case .failure(let e) = r { lastErr = e; print("PAUSERESUME FAILURE:", e) }
+            sem.signal()
+        }
         manager.start()
         Thread.sleep(forTimeInterval: 0.3)
         manager.pause()
@@ -139,6 +144,7 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         var err: Error?
         manager.onCompletion = { r in if case .failure(let e) = r { err = e }; sem.signal() }
         FakeURLProtocol.serverTotalOverride = 2 * 1024 * 1024  // server file grew
+        defer { FakeURLProtocol.serverTotalOverride = nil }
         manager.start(withChunks: chunks, totalSize: 1024 * 1024)
         #expect(waitSemaphore(sem))
         #expect(err is DownloadError)
@@ -343,6 +349,33 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(t.contains(true))
         // Cleared once the download ends in failure.
         #expect(t.last == false)
+    }
+
+    @Test func throttledDownloadDoesNotFalseStall() {
+        // Regression: a speed-limited download with many concurrent chunks must
+        // never be mistaken for a stalled connection. The shared token bucket
+        // starves individual chunks (they can wait >5s between writes), which
+        // used to trip the per-task stall watchdog and cancel/retry chunks in a
+        // loop — surfacing "network interrupted" flashes.
+        FakeURLProtocol.virtualFileSize = 4 * 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-throttlenostall.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, chunkSize: 262144, maxConcurrent: 16)
+        manager.setSpeedLimit(128 * 1024)
+        let lock = NSLock()
+        var retryingTransitions: [Bool] = []
+        manager.onRetrying = { r in lock.lock(); retryingTransitions.append(r); lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 90))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 4 * 1024 * 1024))
+        lock.lock()
+        let t = retryingTransitions
+        lock.unlock()
+        // The throttled download must never flip into the retrying state.
+        #expect(t.isEmpty)
     }
 
     @Test func networkFailuresDoNotFreezeAdaptivePolicy() {
@@ -834,5 +867,195 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         // FTP must never send a Range header.
         let ranged = FakeURLProtocol.requests.filter { $0.value(forHTTPHeaderField: "Range") != nil }
         #expect(ranged.isEmpty)
+    }
+
+    // MARK: - Cross-download scheduling (shared fake transport: keep these in
+    // the same serialized suite so FakeURLProtocol statics never race).
+
+    private func schDest(_ name: String) -> URL {
+        URL(fileURLWithPath: NSTemporaryDirectory() + name)
+    }
+
+    @Test func scheduleStartsUnderCapAndQueuesOver() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(2)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID(), c = UUID()
+        #expect(engine.schedule(id: a, url: url, destinationURL: schDest("/sch-a.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: []) == true)
+        #expect(engine.schedule(id: b, url: url, destinationURL: schDest("/sch-b.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: []) == true)
+        #expect(engine.schedule(id: c, url: url, destinationURL: schDest("/sch-c.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: []) == false)
+        engine.cancel(id: a)
+        engine.cancel(id: b)
+        engine.cancel(id: c)
+    }
+
+    @Test func completionPromotesNextQueued() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(1)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID()
+        var promoted: [UUID] = []
+        let promLock = NSLock()
+        engine.setPromotionHandler { id in promLock.lock(); promoted.append(id); promLock.unlock() }
+        let semB = DispatchSemaphore(value: 0)
+        engine.setCompletionHandler(for: b) { _ in semB.signal() }
+        #expect(engine.schedule(id: a, url: url, destinationURL: schDest("/sch-ca.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: []) == true)
+        #expect(engine.schedule(id: b, url: url, destinationURL: schDest("/sch-cb.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: []) == false)
+        // a finishes -> b is promoted and completes.
+        #expect(waitSemaphore(semB, timeout: 30))
+        promLock.lock()
+        let p = promoted
+        promLock.unlock()
+        #expect(p.contains(b))
+        engine.cancel(id: a)
+    }
+
+    @Test func growingCapPromotesQueued() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(1)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID()
+        var promoted: [UUID] = []
+        let promLock = NSLock()
+        engine.setPromotionHandler { id in promLock.lock(); promoted.append(id); promLock.unlock() }
+        _ = engine.schedule(id: a, url: url, destinationURL: schDest("/sch-ga.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        _ = engine.schedule(id: b, url: url, destinationURL: schDest("/sch-gb.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        engine.setMaxConcurrentDownloads(2)
+        promLock.lock()
+        let p = promoted
+        promLock.unlock()
+        #expect(p.contains(b))
+        engine.cancel(id: a)
+        engine.cancel(id: b)
+    }
+
+    @Test func cancelDoesNotPromoteQueued() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(1)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID()
+        var promoted: [UUID] = []
+        let promLock = NSLock()
+        engine.setPromotionHandler { id in promLock.lock(); promoted.append(id); promLock.unlock() }
+        _ = engine.schedule(id: a, url: url, destinationURL: schDest("/sch-xa.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        _ = engine.schedule(id: b, url: url, destinationURL: schDest("/sch-xb.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        // Deleting the running download frees a slot but must not start b.
+        engine.cancel(id: a)
+        Thread.sleep(forTimeInterval: 0.5)
+        promLock.lock()
+        let p = promoted
+        promLock.unlock()
+        #expect(p.isEmpty)
+        engine.cancel(id: b)
+    }
+
+    @Test func enqueueRegistersWithoutStarting() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(1)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID()
+        var promoted: [UUID] = []
+        let promLock = NSLock()
+        engine.setPromotionHandler { id in promLock.lock(); promoted.append(id); promLock.unlock() }
+        _ = engine.schedule(id: a, url: url, destinationURL: schDest("/sch-ea.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        // A persisted waiting download is enqueued: it must not start on its own.
+        engine.enqueue(id: b, url: url, destinationURL: schDest("/sch-eb.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        Thread.sleep(forTimeInterval: 0.5)
+        promLock.lock()
+        let p = promoted
+        promLock.unlock()
+        #expect(p.isEmpty)
+        engine.cancel(id: a)
+        engine.cancel(id: b)
+    }
+
+    // MARK: - Priority scheduling
+
+    @Test func priorityPausesOthersAndRestores() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(3)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID(), c = UUID()
+        var paused: [UUID] = []
+        var resumed: [UUID] = []
+        let lock = NSLock()
+        engine.setPriorityPausedHandler { id in lock.lock(); paused.append(id); lock.unlock() }
+        engine.setPriorityResumedHandler { id in lock.lock(); resumed.append(id); lock.unlock() }
+        _ = engine.schedule(id: a, url: url, destinationURL: schDest("/pr-a.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        _ = engine.schedule(id: b, url: url, destinationURL: schDest("/pr-b.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        _ = engine.schedule(id: c, url: url, destinationURL: schDest("/pr-c.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        engine.setPriorityDownload(a)
+        lock.lock(); let p = paused; lock.unlock()
+        #expect(p.sorted() == [b, c].sorted())
+        engine.endPriority(excluding: nil)
+        lock.lock(); let r = resumed; lock.unlock()
+        #expect(r.sorted() == [b, c].sorted())
+        engine.cancel(id: a)
+        engine.cancel(id: b)
+        engine.cancel(id: c)
+    }
+
+    @Test func priorityStartsQueuedTarget() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(1)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID()
+        var promoted: [UUID] = []
+        var paused: [UUID] = []
+        let lock = NSLock()
+        engine.setPromotionHandler { id in lock.lock(); promoted.append(id); lock.unlock() }
+        engine.setPriorityPausedHandler { id in lock.lock(); paused.append(id); lock.unlock() }
+        _ = engine.schedule(id: a, url: url, destinationURL: schDest("/pr-qa.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        _ = engine.schedule(id: b, url: url, destinationURL: schDest("/pr-qb.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        // b is queued (cap 1); making it priority must start it and pause a.
+        engine.setPriorityDownload(b)
+        lock.lock(); let pr = promoted; let pa = paused; lock.unlock()
+        #expect(pr.contains(b))
+        #expect(pa.contains(a))
+        engine.cancel(id: a)
+        engine.cancel(id: b)
+    }
+
+    @Test func endPrioritySkipsExcluded() {
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 256 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(2)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let a = UUID(), b = UUID()
+        var resumed: [UUID] = []
+        let lock = NSLock()
+        engine.setPriorityResumedHandler { id in lock.lock(); resumed.append(id); lock.unlock() }
+        _ = engine.schedule(id: a, url: url, destinationURL: schDest("/pr-sa.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        _ = engine.schedule(id: b, url: url, destinationURL: schDest("/pr-sb.bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        engine.setPriorityDownload(a)
+        engine.endPriority(excluding: b)
+        lock.lock(); let r = resumed; lock.unlock()
+        // b (the deleted one) must not be resumed; a is the priority (never paused).
+        #expect(r.isEmpty)
+        engine.cancel(id: a)
+        engine.cancel(id: b)
     }
 }

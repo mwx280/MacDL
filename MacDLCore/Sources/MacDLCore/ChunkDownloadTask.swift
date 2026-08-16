@@ -102,6 +102,16 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
             // Always send a bounded Range so resuming near the chunk end never omits it (which made the server return the whole 200 file)
             req.setValue("bytes=\(from)-\(to)", forHTTPHeaderField: "Range")
         }
+        // Under a speed limit the throttle drains the receive buffer slower than
+        // the network fills it, so the connection can legitimately idle while
+        // buffered bytes drain. Give the request an idle budget big enough that
+        // a throttled transfer is never mistaken for a dead connection by
+        // URLSession's request timeout (the engine's own stall detector is what
+        // catches real drops).
+        let throttle = max(bucket?.currentRate ?? 0, Self.globalBucket.currentRate)
+        if throttle > 0 {
+            req.timeoutInterval = max(EngineConstants.requestTimeout, (Double(bufferCap) / throttle) * 2)
+        }
         EngineLog.chunk.debug("Chunk #\(self.chunkIndex) start range=\(from)-\(to) resumeFrom=\(resumeFrom) wholeFile=\(self.requestsWholeFile ? 1 : 0)")
 
         if !FileManager.default.fileExists(atPath: fileURL.path) {
