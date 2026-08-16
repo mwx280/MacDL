@@ -143,7 +143,9 @@ public struct AutoConnectionPolicy: Sendable {
     private var lastGainRatio: Double = 0
     private var failureTimes: [Date] = []
     private var lastFailureAt: Date?
-    private var isFrozen = false
+    /// True while upward probing is frozen by a burst of retryable failures
+    /// (429/5xx). Read-only; lets the engine and tests observe the state.
+    public private(set) var isFrozen = false
 
     /// Resets all adaptive state (used when auto mode is re-entered).
     public mutating func reset() {

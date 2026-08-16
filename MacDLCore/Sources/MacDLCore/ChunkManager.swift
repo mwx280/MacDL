@@ -439,11 +439,13 @@ public final class ChunkManager: @unchecked Sendable {
         if (error as? DownloadError) == .httpStatus(429) {
             handleRateLimit()
         }
-        // Feed retryable failures (429/5xx/network) to the auto policy so a
-        // stressed server stops being probed upward. Stalls are a local-link
-        // problem, not server stress — skip them so a network drop does not
-        // freeze the connection count.
-        if isAutoConnections, (error as? DownloadError)?.isRetryable != false, !isStall {
+        // Feed retryable failures to the auto policy so a stressed server stops
+        // being probed upward. Only server responses (429/5xx) are genuine
+        // stress signals; transport failures (URLError / DownloadError.network,
+        // which also covers stall-cancels) mean the LINK is down — freezing the
+        // connection count for those would leave the adaptive engine stuck at a
+        // low count after the link returns.
+        if isAutoConnections, (error as? DownloadError)?.isRetryable != false, !isNetworkFailure(error) {
             autoPolicy.recordFailure()
         }
         if let dlError = error as? DownloadError, !dlError.isRetryable {
@@ -721,6 +723,12 @@ public final class ChunkManager: @unchecked Sendable {
     /// True while any chunk task or the single-stream task is transferring.
     public var hasActiveTasks: Bool {
         syncQueue.sync { !activeTasks.isEmpty || singleStreamTask != nil }
+    }
+
+    /// Whether the adaptive connection policy is currently frozen by retryable
+    /// failures (429/5xx). Test hook: transport failures must never freeze it.
+    var isAutoPolicyFrozen: Bool {
+        syncQueue.sync { autoPolicy.isFrozen }
     }
     // MARK: - Scheduling
 

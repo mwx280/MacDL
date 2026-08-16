@@ -345,6 +345,79 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(t.last == false)
     }
 
+    @Test func networkFailuresDoNotFreezeAdaptivePolicy() {
+        // A Wi-Fi drop is transport failures, not server stress: three quick
+        // transport errors would freeze the adaptive policy (30s) under the old
+        // behavior, leaving connections stuck low after the link returns. They
+        // must not feed the failure storm at all.
+        FakeURLProtocol.virtualFileSize = 4 * 1024 * 1024
+        FakeURLProtocol.failAllTimes = 3
+        defer { FakeURLProtocol.failAllTimes = 0 }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-nofreeze.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        // Wait until the three probe attempts have failed (backoff 1+2s), then
+        // check the policy right in the middle of the storm.
+        var deadline = Date().addingTimeInterval(20)
+        while FakeURLProtocol.requests.count < 3, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        Thread.sleep(forTimeInterval: 0.2) // let the third failure's handler run
+        #expect(manager.isAutoPolicyFrozen == false)
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(manager.isAutoPolicyFrozen == false)
+        #expect(verifyPattern(in: dest, size: 4 * 1024 * 1024))
+    }
+
+    @Test func http429StillFreezesAdaptivePolicy() {
+        // A 429 storm is a genuine server stress signal: the freeze must still
+        // engage, proving the transport-error bypass did not disable it.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.statusOverrideAfterStart = 429
+        FakeURLProtocol.latencyMs = 20
+        defer {
+            FakeURLProtocol.statusOverrideAfterStart = nil
+            FakeURLProtocol.latencyMs = 0
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-429freeze.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        manager.start()
+        var frozen = false
+        var deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            if manager.isAutoPolicyFrozen { frozen = true; break }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        #expect(frozen)
+    }
+
+    @Test func adaptiveRampsUpAfterNetworkBlip() {
+        // Functional outcome: after a transport-error blip at the start, the
+        // adaptive engine must still open several connections on a
+        // per-connection-throttled server once the link recovers.
+        FakeURLProtocol.virtualFileSize = 8 * 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 512 * 1024
+        FakeURLProtocol.failAllTimes = 3
+        defer {
+            FakeURLProtocol.perConnectionRate = 0
+            FakeURLProtocol.failAllTimes = 0
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-blipramp.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 8 * 1024 * 1024))
+        #expect(FakeURLProtocol.peakRequests >= 3)
+    }
+
     @Test func resumeAllChunksCompletedReportsDone() {
         // A download whose persisted chunks are all complete must still fire
         // the completion callback, or a crash between the last chunk write and

@@ -59,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transport failure that schedules a retry with no recent bytes also flips the
   row into the retrying state — so turning Wi-Fi off mid-download shows
   "network interrupted, retrying" instead of a frozen 0 KB/s.
+- Transport failures no longer freeze the adaptive connection policy: only
+  server responses (429/5xx) count as stress signals for the failure freeze, so
+  a Wi-Fi drop never leaves the engine unable to ramp connections back up after
+  the link returns.
 - Retrying state callback: the engine reports when a stalled transfer is being
   re-established, so the app can surface "network interrupted, retrying"
   instead of a frozen counter.
