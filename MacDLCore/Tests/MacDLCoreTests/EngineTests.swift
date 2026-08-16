@@ -602,4 +602,22 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(waitSemaphore(sem, timeout: 60))
         #expect(failed)
     }
+
+    @Test func ftpDownloadStreamsWholeFile() {
+        // FTP has no Range support: the engine must skip the probe, stream the
+        // whole file in one go, and assemble the bytes correctly.
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-ftp.bin")
+        let manager = makeChunkManager(url: URL(string: "ftp://ftp.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+        // FTP must never send a Range header.
+        let ranged = FakeURLProtocol.requests.filter { $0.value(forHTTPHeaderField: "Range") != nil }
+        #expect(ranged.isEmpty)
+    }
 }

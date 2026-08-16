@@ -53,6 +53,19 @@ final class FakeURLProtocol: URLProtocol {
         let total = Self.serverTotalOverride ?? Self.virtualFileSize
         let rangeHeader = request.value(forHTTPHeaderField: "Range")
 
+        // Simulate FTP: a non-HTTP response carrying the whole file (no Range
+        // support). Lets tests exercise the single-stream non-HTTP path.
+        if url.scheme?.lowercased() == "ftp" {
+            var body = Data(count: Int(total))
+            for i in body.indices { body[i] = UInt8(i % 251) }
+            let response = URLResponse(url: url, mimeType: "application/octet-stream",
+                                       expectedContentLength: Int(total), textEncodingName: nil)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: body)
+            Self.finish(self)
+            return
+        }
+
         // Simulate a transient connection failure for whole-file (single-stream) requests.
         if rangeHeader == nil, Self.failWholeFileTimes > 0 {
             Self.failWholeFileTimes -= 1

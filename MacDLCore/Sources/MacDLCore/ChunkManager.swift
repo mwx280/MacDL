@@ -24,6 +24,7 @@ public final class ChunkManager: @unchecked Sendable {
 
     private var maxConcurrent: Int
     private var isAutoConnections = false
+    private let isFTP: Bool
     private var autoPolicy = AutoConnectionPolicy()
     private var adaptWorkItem: DispatchWorkItem?
     private var probeStartTime: Date?
@@ -105,6 +106,7 @@ public final class ChunkManager: @unchecked Sendable {
         self.chunkSize = chunkSize
         self.isAutoConnections = maxConcurrent <= 0
         self.maxConcurrent = self.isAutoConnections ? 1 : maxConcurrent
+        self.isFTP = url.scheme?.lowercased() == "ftp"
         self.sources = [Source(url: url)] + mirrors.map { Source(url: $0) }
         self.sourceScheduler = SourceScheduler(sourceCount: self.sources.count)
         // Seed cold-start decisions from past sessions for this host, so a
@@ -124,8 +126,14 @@ public final class ChunkManager: @unchecked Sendable {
         startLogTimer()
         syncQueue.async {
             self.singleStreamRetries = 0
-            self.onPhaseChanged?(true)
-            self.startProbe()
+            if self.isFTP {
+                // FTP has no Range support: skip the probe and stream the whole
+                // file in one go.
+                self.enterSingleStream()
+            } else {
+                self.onPhaseChanged?(true)
+                self.startProbe()
+            }
         }
     }
 

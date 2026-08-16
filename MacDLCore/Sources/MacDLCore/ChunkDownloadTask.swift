@@ -178,47 +178,55 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
 
 extension ChunkDownloadTask: URLSessionDataDelegate {
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
-        if let http = response as? HTTPURLResponse, http.statusCode == 416 {
+        guard let http = response as? HTTPURLResponse else {
+            // Non-HTTP response (e.g. FTP): the body is the whole file, delivered
+            // with no Range support. Report the declared length when available.
+            let expected = response.expectedContentLength
+            if expected > 0 { onTotalSizeKnown?(expected) }
+            onSupportsResume?(false)
+            EngineLog.chunk.debug("Chunk #\(self.chunkIndex) non-HTTP response, expected=\(expected)")
+            completionHandler(.allow)
+            return
+        }
+        if http.statusCode == 416 {
             EngineLog.chunk.warning("Chunk #\(self.chunkIndex) 416 range not satisfiable, marking chunk failed")
             completionHandler(.cancel)
             finish(with: .failure(DownloadError.rangeNotSatisfiable))
             return
         }
-        if let http = response as? HTTPURLResponse {
-            onSupportsResume?(http.statusCode == 206)
-            switch http.statusCode {
-            case 206:
-                if let range = http.value(forHTTPHeaderField: "Content-Range"),
-                   let slash = range.lastIndex(of: "/") {
-                    let totalStr = String(range[range.index(after: slash)...]).trimmingCharacters(in: .whitespaces)
-                    if totalStr != "*", let total = Int64(totalStr), total > 0 {
-                        onTotalSizeKnown?(total)
-                    } else {
-                        EngineLog.chunk.warning("Chunk #\(self.chunkIndex) Content-Range size unparsable: \(range)")
-                    }
+        onSupportsResume?(http.statusCode == 206)
+        switch http.statusCode {
+        case 206:
+            if let range = http.value(forHTTPHeaderField: "Content-Range"),
+               let slash = range.lastIndex(of: "/") {
+                let totalStr = String(range[range.index(after: slash)...]).trimmingCharacters(in: .whitespaces)
+                if totalStr != "*", let total = Int64(totalStr), total > 0 {
+                    onTotalSizeKnown?(total)
+                } else {
+                    EngineLog.chunk.warning("Chunk #\(self.chunkIndex) Content-Range size unparsable: \(range)")
                 }
-            case 200..<300:
-                // A bounded Range request answered with 200 means the server ignored
-                // our Range header and is sending the whole file — writing it at this
-                // chunk's offset would corrupt the download. (The single-stream task
-                // with endOffset == Int64.max legitimately accepts a 200.)
-                if !requestsWholeFile, endOffset != Int64.max {
-                    EngineLog.chunk.warning("Chunk #\(self.chunkIndex) server ignored Range (200), failing chunk")
-                    completionHandler(.cancel)
-                    finish(with: .failure(DownloadError.httpStatus(200)))
-                    return
-                }
-                let expected = response.expectedContentLength
-                if expected > 0 { onTotalSizeKnown?(expected) }
-            default:
-                // Error responses (4xx/5xx) must not be treated as a valid file
-                // size or written to the file. Fail the chunk so the engine can
-                // retry (e.g. a 429 from a rate-limiting mirror).
-                EngineLog.chunk.warning("Chunk #\(self.chunkIndex) HTTP \(http.statusCode), failing chunk")
+            }
+        case 200..<300:
+            // A bounded Range request answered with 200 means the server ignored
+            // our Range header and is sending the whole file — writing it at this
+            // chunk's offset would corrupt the download. (The single-stream task
+            // with endOffset == Int64.max legitimately accepts a 200.)
+            if !requestsWholeFile, endOffset != Int64.max {
+                EngineLog.chunk.warning("Chunk #\(self.chunkIndex) server ignored Range (200), failing chunk")
                 completionHandler(.cancel)
-                finish(with: .failure(DownloadError.httpStatus(http.statusCode)))
+                finish(with: .failure(DownloadError.httpStatus(200)))
                 return
             }
+            let expected = response.expectedContentLength
+            if expected > 0 { onTotalSizeKnown?(expected) }
+        default:
+            // Error responses (4xx/5xx) must not be treated as a valid file
+            // size or written to the file. Fail the chunk so the engine can
+            // retry (e.g. a 429 from a rate-limiting mirror).
+            EngineLog.chunk.warning("Chunk #\(self.chunkIndex) HTTP \(http.statusCode), failing chunk")
+            completionHandler(.cancel)
+            finish(with: .failure(DownloadError.httpStatus(http.statusCode)))
+            return
         }
         EngineLog.chunk.debug("Chunk #\(self.chunkIndex) response code=\((response as? HTTPURLResponse)?.statusCode ?? 0)")
         completionHandler(.allow)
