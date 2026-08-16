@@ -99,6 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Soft throttling is now handled by the adaptive no-gain backoff instead, and the
   recovery backoff resets once a chunk completes so a transient `429` recovers
   in about a minute instead of growing toward ten minutes.
+- Re-adding a download from the clipboard reports its actual state in the
+  notification ("Download Completed" / "Paused Download" / "Failed Download")
+  instead of always "Already in Download List".
 
 ### Changed
 

@@ -170,21 +170,23 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         guard settings.notifyRedownload else { return }
         EngineLog.app.debug("DownloadNotifier notifyDuplicate \(download.filename)")
         let content = UNMutableNotificationContent()
-        content.title = LanguageManager.shared.localized("Already in Download List")
         content.body = download.filename
         content.userInfo = ["id": download.id.uuidString]
-        // The action matches the existing task's state: resume a paused task,
-        // retry a failed one, reveal a finished file. Active/waiting tasks get
-        // no action — they're already downloading.
+        // The title reflects the existing task's state, and the action matches
+        // it too: resume a paused task, retry a failed one, reveal a finished
+        // file. Only active/waiting tasks are "already in the download list".
         switch download.status {
         case .paused:
+            content.title = LanguageManager.shared.localized("Paused Download")
             content.categoryIdentifier = resumeCategory
         case .error, .stopped:
+            content.title = LanguageManager.shared.localized("Failed Download")
             content.categoryIdentifier = retryCategory
         case .completed:
+            content.title = LanguageManager.shared.localized("Download Completed")
             content.categoryIdentifier = revealCategory
         default:
-            break
+            content.title = LanguageManager.shared.localized("Already in Download List")
         }
         let request = UNNotificationRequest(identifier: UUID().uuidString + "-duplicate",
                                             content: content,

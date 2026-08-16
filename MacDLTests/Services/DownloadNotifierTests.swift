@@ -135,6 +135,26 @@ import MacDLCore
         #expect(requests[0].content.categoryIdentifier == "reveal")
     }
 
+    @Test func duplicatePromptTitlesCompletedAsCompleted() {
+        // Re-adding a finished download must say it is completed, not that it is
+        // "already in the download list".
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let d = Download(filename: "a.zip", url: "https://e.com/a.zip", status: .completed)
+        notifier.notifyDuplicate(d)
+        #expect(requests[0].content.title == LanguageManager.shared.localized("Download Completed"))
+    }
+
+    @Test func duplicatePromptTitlesActiveAsAlreadyInList() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let d = Download(filename: "a.zip", url: "https://e.com/a.zip", status: .active)
+        notifier.notifyDuplicate(d)
+        #expect(requests[0].content.title == LanguageManager.shared.localized("Already in Download List"))
+    }
+
     @Test func duplicatePromptHasNoActionForActive() {
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
