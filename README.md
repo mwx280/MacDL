@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="icon.png" width="128" alt="MacDL">
+<img src="assets/icon.png" width="128" alt="MacDL">
 
 # MacDL
 
-[简体中文](README.zh-CN.md)
+[简体中文](docs/README.zh-CN.md)
 
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-000000.svg)]()
@@ -21,7 +21,7 @@ A download manager that lives in your macOS menu bar. Under the hood it runs a
 multi-threaded, chunked download engine built on `URLSession`, so downloads are
 fast and the app quietly stays out of your way.
 
-![screenshot](screenshot.png)
+![screenshot](assets/screenshot.png)
 
 ## Features
 

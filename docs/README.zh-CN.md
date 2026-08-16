@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="icon.png" width="128" alt="MacDL">
+<img src="../assets/icon.png" width="128" alt="MacDL">
 
 # MacDL
 
-[English](README.md)
+[English](../README.md)
 
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-00a4ff.svg)](../LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2015%2B-000000.svg)]()
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)]()
 [![UI](https://img.shields.io/badge/UI-SwiftUI-0D0D0D.svg)]()
@@ -19,7 +19,7 @@
 
 一个常驻 macOS 菜单栏的下载管理器。底层是建立在 `URLSession` 之上的多线程分块下载引擎，下载快，平时就安静待在菜单栏里，不碍事。
 
-![screenshot](screenshot.png)
+![screenshot](../assets/screenshot.png)
 
 ## 功能特性
 
@@ -185,7 +185,7 @@ CI（GitHub Actions）先跑引擎测试，再构建并测试应用。
 
 ## 许可证
 
-[GPL-3.0](LICENSE)
+[GPL-3.0](../LICENSE)
 
 **明确限制：**
 
