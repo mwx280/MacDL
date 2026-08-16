@@ -88,9 +88,10 @@ swap in a fake engine and never touch the network or disk.
 
 | File | Role |
 |------|------|
-| `DownloadEngine.swift` | Facade. One `ChunkManager` per download; schedules downloads against a global concurrency cap and a priority download (pausing the others); every control call goes through a single serial queue. |
+| `DownloadEngine.swift` | Facade. One `ChunkManager` per download; schedules downloads against a global concurrency cap and a priority download (pausing the others); holds downloads while the network link is down; every control call goes through a single serial queue. |
 | `DownloadEngineProtocol.swift` | Protocol boundary so tests can inject a fake. |
 | `DownloadScheduler.swift` | Cross-download scheduling: a pure FIFO + concurrency-cap state machine deciding which downloads run and which wait, and which queued download starts when a slot frees. |
+| `NetworkReachability.swift` | System link monitor (`NWPathMonitor`): while the link is down, downloads hold their chunks instead of burning retries, and resume when it returns. |
 | `ChunkManager.swift` | Coordinates one download: Range probe, dynamic chunking, multi-source scheduling, retries with backoff, failover and single-thread fallback when Range is unsupported. |
 | `AutoConnectionPolicy.swift` | Pure adaptive-connection decision logic: cold-start count, informed jumps, rate-limit freeze and convergence. |
 | `ChunkingPolicy.swift` | Pure chunk-size selection from file size, RTT and single-connection rate. |
@@ -226,9 +227,9 @@ MacDLTests/            App tests (XCTest + fake engine)
 
 ## Testing
 
-317 tests across two suites:
+319 tests across two suites:
 
-- **Engine (142)**: Swift Testing against a fake `URLProtocol`, no real network.
+- **Engine (144)**: Swift Testing against a fake `URLProtocol`, no real network.
   Covers chunk integrity, pause/resume, throttling, backoff, single-thread
   fallback, Range edge cases, multi-source failover, dynamic chunking,
   chunk-state reconstruction, cross-download scheduling, priority scheduling,

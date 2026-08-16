@@ -84,6 +84,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Network reachability: the engine now monitors the system link (`NWPathMonitor`).
+  While it is down, downloads hold their chunks instead of burning retries
+  against a dead network, show the retrying state, and resume automatically
+  when the link returns. A `NetworkReachability` change callback is plumbed to
+  the app so a disconnect policy (auto-pause, extended retry) can be built on
+  top of it.
 - Priority scheduling moved into the engine: `setPriorityDownload` pauses every
   other running download (remembered for restore) and starts a queued/paused
   priority download; `endPriority` restores them; `registerPriorityPaused`

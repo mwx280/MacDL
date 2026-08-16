@@ -54,9 +54,10 @@
 
 | 文件 | 职责 |
 |------|------|
-| `DownloadEngine.swift` | 门面。每个下载对应一个 `ChunkManager`；按全局并发上限调度下载，并支持优先下载（暂停其它）；所有控制调用统一走一条串行队列。 |
+| `DownloadEngine.swift` | 门面。每个下载对应一个 `ChunkManager`；按全局并发上限调度下载，并支持优先下载（暂停其它）；本机链路断开时 hold 住下载；所有控制调用统一走一条串行队列。 |
 | `DownloadEngineProtocol.swift` | 协议边界，测试可注入假引擎。 |
 | `DownloadScheduler.swift` | 跨下载调度：纯 FIFO + 并发上限状态机，决定哪些下载运行、哪些等待，以及槽位释放后启动哪个排队的下载。 |
+| `NetworkReachability.swift` | 系统链路监控（`NWPathMonitor`）：链路断开时下载 hold 住 chunk 不再烧重试，恢复后自动续传。 |
 | `ChunkManager.swift` | 协调单个下载：Range 探测、动态分块、多源调度、指数退避重试、故障转移、不支持 Range 时退回单线程。 |
 | `AutoConnectionPolicy.swift` | 纯自适应连接决策：冷启动连接数、跳步探测、限速冻结与收敛。 |
 | `ChunkingPolicy.swift` | 根据文件大小、RTT 和单连速率选择分块大小的纯函数。 |
@@ -173,9 +174,9 @@ MacDLTests/            应用测试（XCTest + 假引擎）
 
 ## 测试
 
-一共 317 个测试，分两套：
+一共 319 个测试，分两套：
 
-- **引擎（142 个）**：Swift Testing + 假 `URLProtocol`，不发真实网络请求。覆盖分块完整性、暂停/续传、限速、退避、单线程回退、Range 边界、多源故障转移、动态分块、块状态重建、跨下载调度、优先级调度、stall 检测与重试、自适应策略交互、校验和、Metalink 解析、源调度和 FTP。
+- **引擎（144 个）**：Swift Testing + 假 `URLProtocol`，不发真实网络请求。覆盖分块完整性、暂停/续传、限速、退避、单线程回退、Range 边界、多源故障转移、动态分块、块状态重建、跨下载调度、优先级调度、网络可达性 hold/恢复、stall 检测与重试、自适应策略交互、校验和、Metalink 解析、源调度和 FTP。
 - **应用（174 个）**：XCTest + 假引擎，不碰真实磁盘和通知中心。覆盖下载生命周期、优先流程、重复下载策略、持久化往返、Metalink 失败处理、更新状态机和本地化。
 
 CI（GitHub Actions）先跑引擎测试，再构建并测试应用。
