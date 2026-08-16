@@ -71,6 +71,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   icon, progress bar and background), and the speed slot is replaced by
   "Network interrupted, retrying..." instead of a frozen 0 KB/s.
 
+### Fixed
+
+- False "network interrupted" flashes under a speed limit: with many concurrent
+  chunks sharing one token bucket, individual chunks could wait longer than the
+  5s stall threshold between writes while the download kept progressing, and the
+  stall watchdog cancelled them in a loop. Stall detection now only fires when
+  the whole download has been silent for the timeout (a link drop stops
+  everything; a speed limit does not), and each request's URLSession idle
+  timeout is sized by the throttle rate so a throttled connection is never
+  mistaken for a dead one.
+
 ### Changed
 
 - Priority scheduling moved into the engine: `setPriorityDownload` pauses every
