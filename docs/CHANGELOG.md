@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-08-16
 
 ### Added
 
@@ -147,6 +147,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A dynamic chunk size larger than the probe's initial 256 KB no longer makes
   the probe chunk look like a short read: chunk 0 keeps its probe range and
   completes without a second request.
+- The engine's network-down flag was read and written from different queues (a
+  data race that could strand a held chunk); its access is now lock-guarded.
+- A dropped link with mirrors could cool down the primary source before the
+  hold ran; the hold now takes priority over source failover so an outage does
+  not pollute per-source cooldown state.
+- Single-stream (no-Range) downloads now hold while the link is down instead of
+  burning their one retry, matching the chunked path.
 
 ## [0.2.0] - 2026-08-05
 
