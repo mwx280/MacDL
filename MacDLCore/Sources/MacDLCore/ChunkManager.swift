@@ -491,7 +491,8 @@ public final class ChunkManager: @unchecked Sendable {
             let cooldown = Self.sourceCooldownOverride ?? EngineConstants.sourceCooldownInterval
             sources[si].recordFailure(now: Date(),
                                       threshold: EngineConstants.sourceFailureThreshold,
-                                      cooldown: cooldown)
+                                      cooldown: cooldown,
+                                      cooldownCap: EngineConstants.sourceCooldownCap)
             if !sources[si].isAvailable() {
                 let hasAlternative = sources.enumerated().contains { $0.offset != si && $0.element.isAvailable() }
                 if hasAlternative {
@@ -967,9 +968,19 @@ public final class ChunkManager: @unchecked Sendable {
                 }
                 // Weighted round-robin across healthy sources: faster sources
                 // (higher EWMA throughput) serve more chunks, and cooling-down
-                // sources get none.
+                // sources get none. An unmeasured mirror serves at most one
+                // trial chunk so a slow mirror can't eat half the file before
+                // its throughput is sampled.
                 let throughputs = sources.map(\.avgThroughput)
-                let available = sources.map { $0.isAvailable() }
+                var activePerSource = Array(repeating: 0, count: sources.count)
+                for idx in activeTasks.keys {
+                    if let si = chunkSource[idx] { activePerSource[si] += 1 }
+                }
+                let available = sources.indices.map { i -> Bool in
+                    guard sources[i].isAvailable() else { return false }
+                    if i > 0, !sources[i].hasSampledThroughput, activePerSource[i] > 0 { return false }
+                    return true
+                }
                 guard let si = sourceScheduler.pick(throughputs: throughputs, available: available) else {
                     // No source is usable right now: leave the head in place and
                     // let the cooldown timer re-enter dispatch when one recovers.

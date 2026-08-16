@@ -16,6 +16,7 @@ public enum EngineConstants {
     // Source failover / cooldown
     public static let sourceFailureThreshold = 3
     public static let sourceCooldownInterval: TimeInterval = 30.0
+    public static let sourceCooldownCap: TimeInterval = 600.0
 
     // Rate-limit degradation recovery
     public static let rateLimitRecoveryBase: TimeInterval = 60.0

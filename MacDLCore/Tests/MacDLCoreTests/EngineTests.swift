@@ -894,6 +894,28 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(fastRequests > slowRequests)
     }
 
+    @Test func unsampledMirrorGetsSingleTrialChunk() {
+        // A slow, not-yet-measured mirror must serve only one trial chunk before
+        // its throughput is sampled; the fast primary handles the rest instead of
+        // splitting the file 50/50 with an unmeasured mirror.
+        FakeURLProtocol.virtualFileSize = 4 * 1024 * 1024
+        FakeURLProtocol.perHostRates = ["primary.example": 2 * 1024 * 1024, "mirror.example": 64 * 1024]
+        defer { FakeURLProtocol.perHostRates.removeAll() }
+        let primary = URL(string: "https://primary.example/f.bin")!
+        let mirror = URL(string: "https://mirror.example/f.bin")!
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-trial.bin")
+        let manager = makeChunkManager(url: primary, dest: dest, maxConcurrent: 16, mirrors: [mirror])
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 4 * 1024 * 1024))
+        let mirrorRequests = FakeURLProtocol.requests.filter { $0.url?.host == "mirror.example" }.count
+        #expect(mirrorRequests == 1)
+    }
+
     @Test func highLatencyDynamicChunkingDoesNotRefetchProbe() {
         // RTT high enough to grow the chunk size beyond the probe's 256 KB must
         // not make the probe chunk look like a short read: chunk 0 keeps its
