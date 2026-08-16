@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timeout, so a dropped link is detected and re-established much faster. The
   stall signal is kept separate from the adaptive connection policy and source
   cooldown, so a local network drop never reads as server-side stress.
+  Detection is per-task (each request tracks its own idle clock), and a
+  transport failure that schedules a retry with no recent bytes also flips the
+  row into the retrying state — so turning Wi-Fi off mid-download shows
+  "network interrupted, retrying" instead of a frozen 0 KB/s.
 - Retrying state callback: the engine reports when a stalled transfer is being
   re-established, so the app can surface "network interrupted, retrying"
   instead of a frozen counter.

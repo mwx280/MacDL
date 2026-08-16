@@ -43,6 +43,10 @@ public enum EngineConstants {
     // request timeout. Checked at `stallCheckInterval`.
     public static let stallTimeout: TimeInterval = 5
     public static let stallCheckInterval: TimeInterval = 2
+    // How long without bytes before a retryable network failure surfaces the
+    // "retrying" state. Keeps a single chunk hiccup among flowing chunks from
+    // flipping the whole row into the network-interrupted treatment.
+    public static let retryingGraceInterval: TimeInterval = 1.0
 
     // Progress / logging cadence
     public static let speedReportInterval: TimeInterval = 1.0

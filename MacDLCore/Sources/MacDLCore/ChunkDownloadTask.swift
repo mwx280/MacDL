@@ -43,6 +43,9 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
     // user cancel so the completion reports a retryable transport error instead
     // of .cancelled.
     private var stalled = false
+    // Last moment this task received or wrote bytes. Guards the stall watchdog:
+    // a task idle for `stallTimeout` is a dropped connection, not a slow one.
+    private var lastActivityTime = Date()
     private var speedCheckTime: Date = .distantPast
     private var speedCheckBytes: Int64 = 0
 
@@ -91,6 +94,9 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
             finish(with: .success(()))
             return
         }
+        dataCondition.lock()
+        lastActivityTime = Date()
+        dataCondition.unlock()
         var req = URLRequest(url: url)
         if !requestsWholeFile {
             // Always send a bounded Range so resuming near the chunk end never omits it (which made the server return the whole 200 file)
@@ -150,6 +156,14 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
         dataCondition.unlock()
         dataTask?.cancel()
         cleanup()
+    }
+
+    /// True when the task has received or written no bytes for `interval`.
+    /// Thread-safe: reads the activity clock under the data condition lock.
+    func isIdle(for interval: TimeInterval) -> Bool {
+        dataCondition.lock()
+        defer { dataCondition.unlock() }
+        return Date().timeIntervalSince(lastActivityTime) > interval
     }
 
     private func cleanup() {
@@ -253,6 +267,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         guard !isCancelled, !isPaused, !stalled else { return }
         dataCondition.lock()
         pendingData.append(data)
+        lastActivityTime = Date()
         let overCap = pendingData.count > bufferCap
         dataCondition.signal()
         dataCondition.unlock()
@@ -313,6 +328,9 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                 guard let fh = fileHandle else { return }
                 fh.write(c)
                 bytesWritten += Int64(c.count)
+                dataCondition.lock()
+                lastActivityTime = Date()
+                dataCondition.unlock()
                 let now = Date()
                 if speedCheckTime == .distantPast {
                     speedCheckTime = now

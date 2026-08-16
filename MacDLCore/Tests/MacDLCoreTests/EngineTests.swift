@@ -320,6 +320,31 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(verifyPattern(in: dest, size: 1024 * 1024))
     }
 
+    @Test func networkFailureShowsRetryingBeforeError() {
+        // Wi-Fi drop simulated as fast transport errors (every request fails
+        // immediately with cannotConnectToHost). The engine must surface the
+        // retrying state while it retries — the previous bug never set it for
+        // the fast-failure path, leaving the row frozen at 0 KB.
+        FakeURLProtocol.failAllTimes = 1000
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-retryerr.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let lock = NSLock()
+        var transitions: [Bool] = []
+        manager.onRetrying = { r in lock.lock(); transitions.append(r); lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var failed = false
+        manager.onCompletion = { r in if case .failure = r { failed = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(failed)
+        lock.lock()
+        let t = transitions
+        lock.unlock()
+        #expect(t.contains(true))
+        // Cleared once the download ends in failure.
+        #expect(t.last == false)
+    }
+
     @Test func resumeAllChunksCompletedReportsDone() {
         // A download whose persisted chunks are all complete must still fire
         // the completion callback, or a crash between the last chunk write and
