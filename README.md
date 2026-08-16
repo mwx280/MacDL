@@ -88,7 +88,7 @@ swap in a fake engine and never touch the network or disk.
 
 | File | Role |
 |------|------|
-| `DownloadEngine.swift` | Facade. One `ChunkManager` per download; schedules downloads against a global concurrency cap; every control call goes through a single serial queue. |
+| `DownloadEngine.swift` | Facade. One `ChunkManager` per download; schedules downloads against a global concurrency cap and a priority download (pausing the others); every control call goes through a single serial queue. |
 | `DownloadEngineProtocol.swift` | Protocol boundary so tests can inject a fake. |
 | `DownloadScheduler.swift` | Cross-download scheduling: a pure FIFO + concurrency-cap state machine deciding which downloads run and which wait, and which queued download starts when a slot frees. |
 | `ChunkManager.swift` | Coordinates one download: Range probe, dynamic chunking, multi-source scheduling, retries with backoff, failover and single-thread fallback when Range is unsupported. |
@@ -135,7 +135,7 @@ ContentView ──────────────► ContentViewModel ─�
       │                            (view state)         (business logic)   (list + persistence)
       │                                                    │
       │               DownloadEngineCoordinator (engine glue, Finder badge, sandbox)
-      │               PriorityDownloadCoordinator (priority state machine)
+      │               PriorityDownloadCoordinator (priority flags + status sync)
       └── DownloadListView / DownloadRow / NewDownloadView / SettingsView
 ```
 
@@ -147,7 +147,7 @@ ContentView ──────────────► ContentViewModel ─�
 | `Features/Content/DownloadService.swift` | Download lifecycle: add/pause/resume/retry/redownload/delete, post-completion handling, file-integrity checks. Hands scheduling to the engine's scheduler. |
 | `Features/Content/DownloadStore.swift` | Single source of truth for the download list; reads and writes persistence. |
 | `Features/Content/DownloadEngineCoordinator.swift` | Registers engine callbacks, throttles progress saves, maps errors to localized text. |
-| `Features/Content/PriorityDownloadCoordinator.swift` | Priority state machine: promote, auto-pause the others, restore when done. |
+| `Features/Content/PriorityDownloadCoordinator.swift` | Priority flags and status sync; the engine decides which downloads pause/resume via its scheduling callbacks. |
 | `Features/Content/ProgressPublisher.swift` | Publishes and updates the Finder `NSProgress` badge; owns cancellation. |
 | `Models/Download.swift` | Download model; compact persistence (merged completed ranges + per-chunk resume points). Chunk-state math delegates to the engine's `Chunk` extensions. |
 | `Models/DownloadPath.swift` | Single place that decides the `.macdl` staging and final destination paths. |
@@ -226,14 +226,14 @@ MacDLTests/            App tests (XCTest + fake engine)
 
 ## Testing
 
-312 tests across two suites:
+316 tests across two suites:
 
-- **Engine (138)**: Swift Testing against a fake `URLProtocol`, no real network.
+- **Engine (141)**: Swift Testing against a fake `URLProtocol`, no real network.
   Covers chunk integrity, pause/resume, throttling, backoff, single-thread
   fallback, Range edge cases, multi-source failover, dynamic chunking,
-  chunk-state reconstruction, cross-download scheduling, stall detection and
-  retrying, adaptive-policy interactions, checksum verification, Metalink
-  parsing, source scheduling and FTP.
+  chunk-state reconstruction, cross-download scheduling, priority scheduling,
+  stall detection and retrying, adaptive-policy interactions, checksum
+  verification, Metalink parsing, source scheduling and FTP.
 - **App (174)**: XCTest with a fake engine, no real disk or notification
   center. Covers the download lifecycle, priority flow, duplicate policy,
   persistence round trips, Metalink failure handling, the update state machine

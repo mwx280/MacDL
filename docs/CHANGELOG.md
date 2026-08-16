@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Priority scheduling moved into the engine: `setPriorityDownload` pauses every
+  other running download (remembered for restore) and starts a queued/paused
+  priority download; `endPriority` restores them; `registerPriorityPaused`
+  rebuilds the set after a restart. The app's `PriorityDownloadCoordinator` now
+  only keeps the persisted flags and reflects the engine's pause/restore
+  callbacks in the store.
 - Download scheduling moved into the engine: a new `DownloadScheduler` owns the
   global concurrency cap and FIFO waiting queue. `DownloadEngine.schedule()` /
   `enqueue()` register downloads, and a completion or a grown cap promotes the
