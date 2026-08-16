@@ -22,7 +22,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("play.circle", "Download Started", color: .green) {
+                    prefRow("play.circle", "Download Started", description: "Download Started description", color: .green) {
                         Toggle("", isOn: $notifyStart)
                             .toggleStyle(.switch)
                             .controlSize(.mini)

@@ -402,6 +402,23 @@
       }
     },
     "Appearance" : {
+    "Appearance description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light, dark, or follow the system"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浅色、深色或跟随系统"
+          }
+        }
+      }
+    },
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
@@ -1306,6 +1323,23 @@
       }
     },
     "Download Started" : {
+    "Download Started description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify when a download starts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载开始时发送通知"
+          }
+        }
+      }
+    },
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
@@ -1649,6 +1683,23 @@
 
     },
     "Hide Dock Icon on Close" : {
+    "Hide Dock Icon on Close description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide the Dock icon when the main window closes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭主窗口后隐藏 Dock 图标"
+          }
+        }
+      }
+    },
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
@@ -1921,6 +1972,23 @@
       }
     },
     "Language" : {
+    "Language description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the interface language"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择界面语言"
+          }
+        }
+      }
+    },
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
