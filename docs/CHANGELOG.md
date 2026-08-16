@@ -95,6 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Adaptive connections back off after repeated no-gain probes: when a speed
+  limit or a saturated link caps throughput, the engine re-probes upward less
+  and less often instead of churning, and skips the throttled cold-start
+  estimate. Changing the global or per-download speed limit now re-converges the
+  connection count immediately, and a throttled download no longer records its
+  capped speed as per-host history.
 - Network reachability: the engine now monitors the system link (`NWPathMonitor`).
   While it is down, downloads hold their chunks instead of burning retries
   against a dead network, show the retrying state, and resume automatically

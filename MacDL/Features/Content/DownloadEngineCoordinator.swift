@@ -40,6 +40,7 @@ final class DownloadEngineCoordinator {
     private var needsProgressSave = false
     private var lastProgressSaveTime: Date = .distantPast
     private nonisolated(unsafe) var capObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var speedLimitObserver: NSObjectProtocol?
 
     init(engine: DownloadEngineProtocol, store: DownloadStore, notifier: DownloadNotifier, settings: SettingsStore) {
         self.engine = engine
@@ -64,11 +65,18 @@ final class DownloadEngineCoordinator {
             forName: .maxConcurrentDownloadsChanged, object: nil, queue: .main) { [weak self] _ in
             self?.syncMaxConcurrentDownloads()
         }
+        speedLimitObserver = NotificationCenter.default.addObserver(
+            forName: .globalSpeedLimitChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.engine.onGlobalSpeedLimitChanged()
+        }
     }
 
     deinit {
         if let capObserver {
             NotificationCenter.default.removeObserver(capObserver)
+        }
+        if let speedLimitObserver {
+            NotificationCenter.default.removeObserver(speedLimitObserver)
         }
     }
 

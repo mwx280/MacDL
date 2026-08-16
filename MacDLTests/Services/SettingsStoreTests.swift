@@ -56,6 +56,19 @@ import Foundation
         store.defaultDownloadSpeed = original
     }
 
+    @Test func maxDownloadSpeedChangePostsNotification() {
+        let original = store.maxDownloadSpeed
+        var observed = false
+        let token = NotificationCenter.default.addObserver(
+            forName: .globalSpeedLimitChanged, object: nil, queue: nil) { _ in
+                observed = true
+            }
+        store.maxDownloadSpeed = 5_242_880
+        store.maxDownloadSpeed = original
+        NotificationCenter.default.removeObserver(token)
+        #expect(observed == true)
+    }
+
     @Test func launchAtLoginPersists() {
         let original = store.launchAtLogin
         store.launchAtLogin = true

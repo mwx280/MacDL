@@ -271,7 +271,7 @@ public final class ChunkManager: @unchecked Sendable {
         pendingIndices = Array(1..<built.count)
         pendingHead = 0
         if isAutoConnections {
-            if let bw = historyBandwidth {
+            if let bw = historyBandwidth, !isThrottled {
                 maxConcurrent = max(1, min(
                     AutoConnectionPolicy.informedInitialConnectionCount(
                         singleConnRate: bw, fileSize: total, rtt: historyRTT ?? measuredRTT),
@@ -390,7 +390,9 @@ public final class ChunkManager: @unchecked Sendable {
                         // The probe chunk doubles as a single-connection speed
                         // sample: refine the initial count from its measured
                         // throughput instead of climbing one step at a time.
-                        if self.isAutoConnections, index == 0, self.rttMeasured {
+                        // Skip it under a speed limit, where the measured rate is
+                        // the throttled write rate, not the link's capability.
+                        if self.isAutoConnections, index == 0, self.rttMeasured, !self.isThrottled {
                             let rateStart = self.probeDataStartTime ?? self.probeStartTime
                             if let rateStart {
                                 let elapsed = Date().timeIntervalSince(rateStart)
@@ -618,6 +620,22 @@ public final class ChunkManager: @unchecked Sendable {
         syncQueue.async {
             self.speedLimit = limit
             self.updateBucket()
+            // A speed-limit change invalidates the adaptive policy's measurements
+            // (the observed speed was the old throttle's, not the link's).
+            if self.isAutoConnections {
+                self.autoPolicy.reset()
+                self.evaluateAutoConnections()
+            }
+        }
+    }
+
+    /// Called when the global speed cap changes, so adaptive connections
+    /// re-converge immediately instead of waiting for the periodic re-probe.
+    public func onSpeedLimitChanged() {
+        syncQueue.async {
+            guard self.isAutoConnections else { return }
+            self.autoPolicy.reset()
+            self.evaluateAutoConnections()
         }
     }
 
@@ -749,7 +767,21 @@ public final class ChunkManager: @unchecked Sendable {
     var isAutoPolicyFrozen: Bool {
         syncQueue.sync { autoPolicy.isFrozen }
     }
+
+    /// The current adaptive connection cap. Test hook: lets tests observe the
+    /// cold-start decision without reimplementing the probe.
+    var currentMaxConcurrent: Int {
+        syncQueue.sync { maxConcurrent }
+    }
     // MARK: - Scheduling
+
+    /// True while a speed limit (this download's own, or the shared global cap)
+    /// is in effect. The adaptive connection policy uses this to skip rate-based
+    /// cold-start estimates; the running adaptation keys off observed no-gain
+    /// probes instead, since a shared global cap has no static per-download rate.
+    private var isThrottled: Bool {
+        speedLimit > 0 || ChunkDownloadTask.globalBucket.currentRate > 0
+    }
 
     /// Number of chunks still waiting to be dispatched (not yet consumed by the
     /// `pendingHead` cursor).
@@ -1101,6 +1133,9 @@ public final class ChunkManager: @unchecked Sendable {
         guard totalSize > 0 else { return }
         let host = url.host ?? ""
         guard !host.isEmpty else { return }
+        // A throttled download's measured speed is the cap, not the link's
+        // capability; recording it would poison future cold-start estimates.
+        guard !isThrottled else { return }
         // Use the recent throughput (not totalSize/elapsed, which overstates a
         // resumed download that only fetched the remaining bytes this session).
         let bandwidth = downloadSpeed

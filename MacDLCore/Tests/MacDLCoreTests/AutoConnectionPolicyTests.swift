@@ -235,4 +235,74 @@ import Foundation
         settle(&p, speed: 1200) // 20% gain → keep
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
     }
+
+    // MARK: - No-gain backoff
+
+    @Test func noGainIncrementsBackoffCounter() {
+        var p = AutoConnectionPolicy(cooldown: 3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
+        settle(&p, speed: 1000) // no gain
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 1)
+        #expect(p.consecutiveNoGain == 1)
+    }
+
+    @Test func gainResetsBackoffCounter() {
+        var p = AutoConnectionPolicy(cooldown: 3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
+        settle(&p, speed: 1100) // gain
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
+        #expect(p.consecutiveNoGain == 0)
+    }
+
+    @Test func repeatedNoGainBacksOffReprobeInterval() {
+        // Two consecutive no-gain probes push the re-probe cadence from 30s to
+        // 60s, so a capped link (speed limit / saturated network) is re-tested
+        // less and less often instead of churning every 30s.
+        var p = AutoConnectionPolicy(cooldown: 3, stableEvaluationsToConverge: 2,
+                                     reprobeInterval: 30, noGainBackoffThreshold: 2,
+                                     noGainReprobeCap: 600)
+        var t = t0
+        settle(&p, speed: 1000)
+
+        // Cycle 1: probe 1→2, no gain, revert.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == 2)
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t) == 1)
+        #expect(p.consecutiveNoGain == 1)
+        // Converge at 1.
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil)
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil) // converged
+
+        // First re-probe (still base 30s): probe, no gain, revert.
+        t = t.addingTimeInterval(30)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == 2)
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t) == 1)
+        #expect(p.consecutiveNoGain == 2)
+        // Converge again.
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil)
+        t = t.addingTimeInterval(3)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil) // converged
+
+        // Backed off: at the old 30s mark it must NOT re-probe yet.
+        t = t.addingTimeInterval(30)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == nil)
+        // At 60s it re-probes.
+        t = t.addingTimeInterval(30)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t) == 2)
+    }
 }

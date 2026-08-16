@@ -103,9 +103,14 @@ final class FakeEngine: DownloadEngineProtocol {
         networkChangeHandlers.append(handler)
     }
 
+    func onGlobalSpeedLimitChanged() {
+        globalSpeedLimitChangeCount += 1
+    }
+
     var isPriorityPaused: Set<UUID> { priorityPausedIds }
     var monitoredNetwork = false
     private var networkChangeHandlers: [(Bool) -> Void] = []
+    private(set) var globalSpeedLimitChangeCount = 0
 
     func fireNetworkChange(satisfied: Bool) {
         for handler in networkChangeHandlers { handler(satisfied) }

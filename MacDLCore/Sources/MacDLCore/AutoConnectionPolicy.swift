@@ -52,8 +52,15 @@ public struct AutoConnectionPolicy: Sendable {
     /// Gain ratio at/above which the next probe jumps +2 connections.
     public let jumpThresholdLow: Double
     /// After converging, the policy re-probes upward this often, so it can pick
-    /// up network improvements that arrived mid-download.
+    /// up network improvements that arrived mid-download. This is the base
+    /// interval; a run of no-gain probes backs it off exponentially (see
+    /// `noGainBackoffThreshold` / `noGainReprobeCap`).
     public let reprobeInterval: TimeInterval
+    /// Consecutive no-gain probes before the re-probe interval starts backing
+    /// off and the probe step drops to a single connection.
+    public let noGainBackoffThreshold: Int
+    /// Upper bound on the backed-off re-probe interval.
+    public let noGainReprobeCap: TimeInterval
 
     public init(minConnections: Int = 1,
                 maxConnections: Int = 16,
@@ -68,7 +75,9 @@ public struct AutoConnectionPolicy: Sendable {
                 regressThreshold: Double = 0.8,
                 jumpThresholdHigh: Double = 1.3,
                 jumpThresholdLow: Double = 1.15,
-                reprobeInterval: TimeInterval = 30) {
+                reprobeInterval: TimeInterval = 30,
+                noGainBackoffThreshold: Int = 2,
+                noGainReprobeCap: TimeInterval = 600) {
         self.minConnections = max(1, minConnections)
         self.maxConnections = max(self.minConnections, maxConnections)
         self.gainThreshold = max(0, gainThreshold)
@@ -83,6 +92,8 @@ public struct AutoConnectionPolicy: Sendable {
         self.jumpThresholdHigh = max(1, jumpThresholdHigh)
         self.jumpThresholdLow = max(1, jumpThresholdLow)
         self.reprobeInterval = max(0, reprobeInterval)
+        self.noGainBackoffThreshold = max(1, noGainBackoffThreshold)
+        self.noGainReprobeCap = max(self.reprobeInterval, noGainReprobeCap)
     }
 
     // MARK: - Cold-start counts
@@ -143,6 +154,10 @@ public struct AutoConnectionPolicy: Sendable {
     private var lastGainRatio: Double = 0
     private var failureTimes: [Date] = []
     private var lastFailureAt: Date?
+    /// Consecutive no-gain probes. Once it reaches `noGainBackoffThreshold`,
+    /// the re-probe interval backs off and the probe step drops to one. Read-only
+    /// so the engine and tests can observe the throttle/saturation signal.
+    public private(set) var consecutiveNoGain = 0
     /// True while upward probing is frozen by a burst of retryable failures
     /// (429/5xx). Read-only; lets the engine and tests observe the state.
     public private(set) var isFrozen = false
@@ -165,6 +180,7 @@ public struct AutoConnectionPolicy: Sendable {
         failureTimes = []
         lastFailureAt = nil
         isFrozen = false
+        consecutiveNoGain = 0
     }
 
     /// Smoothes a new aggregate-throughput sample (one per second). Uses an
@@ -257,9 +273,11 @@ public struct AutoConnectionPolicy: Sendable {
         }
 
         // Once converged, re-probe upward on a slow cadence so a network that
-        // improved mid-download is picked up instead of locking the count.
+        // improved mid-download is picked up instead of locking the count. A run
+        // of no-gain probes backs the cadence off so a capped link (speed limit
+        // or saturated network) is re-tested ever more rarely instead of churning.
         if isConverged {
-            if let at = convergedAt, now.timeIntervalSince(at) >= reprobeInterval {
+            if let at = convergedAt, now.timeIntervalSince(at) >= effectiveReprobeInterval() {
                 isConverged = false
                 convergedAt = nil
                 stableCount = 0
@@ -287,12 +305,14 @@ public struct AutoConnectionPolicy: Sendable {
             if Double(smoothedSpeed) >= Double(probePrevSpeed) * (1 + gainThreshold) {
                 lastGainRatio = Double(smoothedSpeed) / Double(probePrevSpeed)
                 isProbing = false
+                consecutiveNoGain = 0
                 return nil
             } else {
                 // Diminishing returns — revert and remember this level as the ceiling.
                 isProbing = false
                 lastGainRatio = 0
                 ceiling = probePrevConnections
+                consecutiveNoGain += 1
                 return probePrevConnections
             }
         }
@@ -308,9 +328,12 @@ public struct AutoConnectionPolicy: Sendable {
         }
 
         // Adaptive step: jump +2/+3 after strong previous gains to converge
-        // faster on per-connection-throttled servers.
+        // faster on per-connection-throttled servers. Once a capped link has
+        // burned several no-gain probes, back off to a single-connection step so
+        // re-probes stay cheap.
         let step: Int
-        if lastGainRatio >= jumpThresholdHigh { step = 3 }
+        if consecutiveNoGain >= noGainBackoffThreshold { step = 1 }
+        else if lastGainRatio >= jumpThresholdHigh { step = 3 }
         else if lastGainRatio >= jumpThresholdLow { step = 2 }
         else { step = 1 }
         let next = Swift.min(currentConnections + step, ceiling)
@@ -320,5 +343,13 @@ public struct AutoConnectionPolicy: Sendable {
         lastChangeAt = now
         stableCount = 0
         return next
+    }
+
+    /// The re-probe cadence after convergence, backing off exponentially once a
+    /// capped link has burned `noGainBackoffThreshold` no-gain probes.
+    private func effectiveReprobeInterval() -> TimeInterval {
+        guard consecutiveNoGain >= noGainBackoffThreshold else { return reprobeInterval }
+        let extra = consecutiveNoGain - noGainBackoffThreshold + 1
+        return Swift.min(reprobeInterval * pow(2, Double(extra)), noGainReprobeCap)
     }
 }

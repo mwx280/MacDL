@@ -704,6 +704,34 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(FakeURLProtocol.peakRequests >= 3)
     }
 
+    @Test func throttledColdStartSkipsInformedEstimate() {
+        // A global cap distorts the probe's single-connection rate, so the
+        // informed estimate (which would under-count) must be skipped in favour
+        // of the size+RTT heuristic.
+        SourceHistoryStore.shared.removeAll()
+        SourceHistoryStore.shared.record(host: "fake.example", bandwidth: 50 * 1_048_576,
+                                         rtt: 0.01, success: true, supportsRange: true)
+        defer {
+            SourceHistoryStore.shared.removeAll()
+            ChunkDownloadTask.globalBucket.setRate(0)
+        }
+        ChunkDownloadTask.globalBucket.setRate(10 * 1_048_576) // 10 MB/s global cap
+        FakeURLProtocol.virtualFileSize = 64 * 1_048_576
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-throttle-cold.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest, maxConcurrent: 0)
+        manager.start()
+        // 64 MiB + low RTT → 4 connections via size+RTT. The informed estimate
+        // from the 50 MB/s history would have been 2, so reaching 4 proves the
+        // throttled path skipped the informed jump.
+        var deadline = Date().addingTimeInterval(10)
+        var settled = false
+        while Date() < deadline {
+            if manager.currentMaxConcurrent == 4 { settled = true; break }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        #expect(settled)
+    }
+
     @Test func pauseStopsRetryFromDispatching() {
         // Chunks after the probe return 429; retries are scheduled with backoff.
         // After pause, no retry may fire and no new request may be dispatched.

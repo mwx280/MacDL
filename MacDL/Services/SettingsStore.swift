@@ -50,6 +50,8 @@ final class SettingsStore {
             // Keep the engine's shared bucket in sync so the aggregate throughput
             // across all downloads stays under the cap.
             ChunkDownloadTask.globalBucket.setRate(Double(newValue))
+            // Let the engine re-converge adaptive connections immediately.
+            NotificationCenter.default.post(name: .globalSpeedLimitChanged, object: nil)
         }
     }
 
@@ -130,4 +132,7 @@ extension Notification.Name {
     /// Posted when the global max-concurrent-downloads setting changes, so the
     /// engine's scheduler cap stays in sync.
     static let maxConcurrentDownloadsChanged = Notification.Name("com.xiaowu.maxConcurrentDownloadsChanged")
+    /// Posted when the global speed cap changes, so adaptive connections
+    /// re-converge immediately instead of waiting for a periodic re-probe.
+    static let globalSpeedLimitChanged = Notification.Name("com.xiaowu.globalSpeedLimitChanged")
 }

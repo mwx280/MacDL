@@ -33,6 +33,9 @@ public protocol DownloadEngineProtocol {
     /// Registers the callback fired when the system link state changes
     /// (`true` = network available).
     func setNetworkChangeHandler(_ handler: @escaping (Bool) -> Void)
+    /// Called when the global speed cap changes, so each download re-converges
+    /// its adaptive connection count instead of waiting for a periodic re-probe.
+    func onGlobalSpeedLimitChanged()
     /// Resumes a paused download; false when nothing is tracked for the id.
     func resume(id: UUID) -> Bool
     /// Pauses the download.

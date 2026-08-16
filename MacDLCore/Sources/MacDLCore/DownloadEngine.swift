@@ -102,6 +102,15 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
         }
     }
 
+    /// Called when the global speed cap changes. Each download re-converges its
+    /// adaptive connection count against the new cap instead of waiting for the
+    /// periodic re-probe.
+    public func onGlobalSpeedLimitChanged() {
+        syncQueue.async {
+            for (_, manager) in self.managers { manager.onSpeedLimitChanged() }
+        }
+    }
+
     // MARK: - Scheduling
 
     /// Sets the global cap on simultaneously running downloads. A grown cap
