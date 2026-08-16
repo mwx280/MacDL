@@ -38,7 +38,7 @@ import MacDLCore
         #expect(engine.started.count == 2)
     }
 
-    @Test func handleLinksWithDuplicateAsksRedownload() {
+    @Test func handleLinksWithDuplicateNotifies() {
         let engine = FakeEngine()
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
@@ -48,8 +48,9 @@ import MacDLCore
         vm.downloads = [existing]
         vm.handleDownloadLinks("https://example.com/dup.bin https://example.com/new.bin")
         #expect(vm.downloads.contains { $0.url == "https://example.com/new.bin" })
-        // The duplicate prompts a re-download notification instead of being added.
-        #expect(requests.contains { $0.content.userInfo["url"] as? String == "https://example.com/dup.bin" })
+        // The duplicate prompts a notification carrying the existing task's id
+        // instead of being added again.
+        #expect(requests.contains { $0.content.userInfo["id"] as? String == existing.id.uuidString })
     }
 
     @Test func allowDuplicateAddsExistingUrl() {
@@ -61,17 +62,33 @@ import MacDLCore
         #expect(vm.downloads.filter { $0.url == "https://example.com/dup.bin" }.count == 2)
     }
 
-    @Test func redownloadNotificationTriggersAdd() {
+    @Test func duplicateActionNotificationResumesPausedDownload() {
         let engine = FakeEngine()
         let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
-        // The .requestRedownload observer is only installed by the real app's
-        // startAppServices(); install it here to exercise the app flow.
+        let paused = Download(filename: "dup.bin", url: "https://example.com/dup.bin", status: .paused)
+        vm.downloads = [paused]
+        // The .requestDownloadAction observer is only installed by the real
+        // app's startAppServices(); install it here to exercise the app flow.
         vm.startAppServices()
-        NotificationCenter.default.post(name: .requestRedownload, object: "https://example.com/redl.bin")
+        NotificationCenter.default.post(name: .requestDownloadAction, object: DuplicateNotificationAction.resume(paused.id))
         // The test already runs on the main thread; pump it so the main-queue
         // observer runs before asserting.
         RunLoop.main.run(until: Date().addingTimeInterval(0.02))
-        #expect(vm.downloads.contains { $0.url == "https://example.com/redl.bin" })
+        #expect(vm.downloads.first { $0.id == paused.id }?.status == .active)
+        #expect(engine.resumed.contains(paused.id))
+        vm.stopAppServices()
+    }
+
+    @Test func duplicateActionNotificationRetriesFailedDownload() {
+        let engine = FakeEngine()
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        let failed = Download(filename: "fail.bin", url: "https://example.com/fail.bin", status: .error)
+        vm.downloads = [failed]
+        vm.startAppServices()
+        NotificationCenter.default.post(name: .requestDownloadAction, object: DuplicateNotificationAction.retry(failed.id))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        #expect(vm.downloads.first { $0.id == failed.id }?.status == .active)
+        #expect(engine.started.contains(failed.id))
         vm.stopAppServices()
     }
 

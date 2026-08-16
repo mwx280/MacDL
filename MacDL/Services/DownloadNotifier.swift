@@ -4,7 +4,16 @@ import UserNotifications
 import MacDLCore
 
 extension Notification.Name {
-    static let requestRedownload = Notification.Name("com.xiaowu.requestRedownload")
+    static let requestDownloadAction = Notification.Name("com.xiaowu.requestDownloadAction")
+}
+
+/// What to do when a duplicate-add notification's button is tapped. The action
+/// reuses the existing download (by id) instead of creating a new one, so two
+/// same-name tasks never write the same `.macdl` file.
+enum DuplicateNotificationAction: Sendable {
+    case resume(UUID)
+    case retry(UUID)
+    case reveal(UUID)
 }
 
 // Sends local notifications for download start / completion / failure.
@@ -24,8 +33,12 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     var startedDelay: TimeInterval = 0.5
     private var startedAt: [UUID: Date] = [:]
 
-    private let redownloadCategory = "redownload"
-    private let redownloadAction = "redownload-action"
+    private let resumeCategory = "resume"
+    private let resumeAction = "resume-action"
+    private let retryCategory = "retry"
+    private let retryAction = "retry-action"
+    private let revealCategory = "reveal"
+    private let revealAction = "reveal-action"
 
     override private init() {
         post = { UNUserNotificationCenter.current().add($0) }
@@ -34,14 +47,19 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         super.init()
         UNUserNotificationCenter.current().delegate = self
         EngineLog.app.debug("DownloadNotifier delegate set")
-        let action = UNNotificationAction(identifier: redownloadAction,
-                                          title: LanguageManager.shared.localized("Redownload"),
+        let resume = UNNotificationAction(identifier: resumeAction,
+                                          title: LanguageManager.shared.localized("Resume"),
+                                          options: [])
+        let retry = UNNotificationAction(identifier: retryAction,
+                                         title: LanguageManager.shared.localized("Retry"),
+                                         options: [])
+        let reveal = UNNotificationAction(identifier: revealAction,
+                                          title: LanguageManager.shared.localized("Show in Finder"),
                                           options: [])
         UNUserNotificationCenter.current().setNotificationCategories([
-            UNNotificationCategory(identifier: redownloadCategory,
-                                   actions: [action],
-                                   intentIdentifiers: [],
-                                   options: [])
+            UNNotificationCategory(identifier: resumeCategory, actions: [resume], intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: retryCategory, actions: [retry], intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: revealCategory, actions: [reveal], intentIdentifiers: [], options: [])
         ])
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             // Extract Sendable values here; the settings object itself must not
@@ -128,22 +146,34 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
              sound: true)
     }
 
-    func notifyRedownload(_ url: String) {
+    func notifyDuplicate(_ download: Download) {
         guard settings.notifyRedownload else { return }
-        EngineLog.app.debug("DownloadNotifier notifyRedownload \(url)")
+        EngineLog.app.debug("DownloadNotifier notifyDuplicate \(download.filename)")
         let content = UNMutableNotificationContent()
         content.title = LanguageManager.shared.localized("Already in Download List")
-        content.body = url
-        content.categoryIdentifier = redownloadCategory
-        content.userInfo = ["url": url]
-        let request = UNNotificationRequest(identifier: UUID().uuidString + "-redownload",
+        content.body = download.filename
+        content.userInfo = ["id": download.id.uuidString]
+        // The action matches the existing task's state: resume a paused task,
+        // retry a failed one, reveal a finished file. Active/waiting tasks get
+        // no action — they're already downloading.
+        switch download.status {
+        case .paused:
+            content.categoryIdentifier = resumeCategory
+        case .error, .stopped:
+            content.categoryIdentifier = retryCategory
+        case .completed:
+            content.categoryIdentifier = revealCategory
+        default:
+            break
+        }
+        let request = UNNotificationRequest(identifier: UUID().uuidString + "-duplicate",
                                             content: content,
                                             trigger: nil)
         guard authorized else {
             pending.append(request)
             return
         }
-        EngineLog.app.debug("DownloadNotifier posting redownload prompt")
+        EngineLog.app.debug("DownloadNotifier posting duplicate prompt")
         post(request)
     }
 
@@ -196,10 +226,19 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
-        if response.actionIdentifier == redownloadAction,
-           let url = response.notification.request.content.userInfo["url"] as? String {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .requestRedownload, object: url)
+        let userInfo = response.notification.request.content.userInfo
+        if let idString = userInfo["id"] as? String, let id = UUID(uuidString: idString) {
+            let action: DuplicateNotificationAction?
+            switch response.actionIdentifier {
+            case resumeAction: action = .resume(id)
+            case retryAction: action = .retry(id)
+            case revealAction: action = .reveal(id)
+            default: action = nil
+            }
+            if let action {
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .requestDownloadAction, object: action)
+                }
             }
         } else if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
             // Tapping the notification body opens the main window so the user can

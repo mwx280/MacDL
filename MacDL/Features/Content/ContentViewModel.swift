@@ -47,22 +47,26 @@ final class ContentViewModel {
 
     /// Sets up the app-wide observers and file-check timer. Called exactly once
     /// from the real app (MacDLApp). Tests must NOT call this per-instance:
-    /// the global .requestRedownload observer and the repeating timer would
+    /// the global .requestDownloadAction observer and the repeating timer would
     /// leak across suites in the parallel test host and corrupt each other's
     /// downloads.
     func startAppServices() {
         guard termObserver == nil, redownloadObserver == nil, fileCheckTimer == nil else { return }
         redownloadObserver = NotificationCenter.default.addObserver(
-            forName: .requestRedownload,
+            forName: .requestDownloadAction,
             object: nil,
             queue: .main
         ) { [weak self] note in
             // Extract the Sendable payload before hopping, then run on the main
             // queue (guaranteed by queue: .main).
-            let url = note.object as? String
+            let action = note.object as? DuplicateNotificationAction
             MainActor.assumeIsolated {
-                guard let self, let url else { return }
-                self.service.addDownload(url: url, allowDuplicate: true)
+                guard let self, let action else { return }
+                switch action {
+                case .resume(let id): self.service.resumeDownload(id: id)
+                case .retry(let id): self.service.retryDownload(id: id)
+                case .reveal(let id): self.service.revealDownloadInFinder(id: id)
+                }
             }
         }
         termObserver = NotificationCenter.default.addObserver(

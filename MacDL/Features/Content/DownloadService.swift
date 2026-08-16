@@ -94,8 +94,8 @@ final class DownloadService {
             return
         }
         for link in links {
-            if downloads.contains(where: { $0.url == link }) {
-                notifier.notifyRedownload(link)
+            if let existing = downloads.first(where: { $0.url == link }) {
+                notifier.notifyDuplicate(existing)
             } else {
                 addDownload(url: link)
             }
@@ -435,6 +435,13 @@ final class DownloadService {
         }
 
         setupEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
+    }
+
+    /// Reveals a finished download's file in Finder.
+    func revealDownloadInFinder(id: UUID) {
+        guard let d = downloads.first(where: { $0.id == id }) else { return }
+        let dir = d.savePath ?? AppConfig.defaultDownloadDir
+        NSWorkspace.shared.selectFile(dir + "/" + d.filename, inFileViewerRootedAtPath: dir)
     }
 
     func setDownloadLimit(id: UUID, limit: Int) {

@@ -106,14 +106,42 @@ import MacDLCore
         #expect(removed.isEmpty)
     }
 
-    @Test func redownloadPromptCarriesUrl() {
+    @Test func duplicatePromptUsesResumeCategoryForPaused() {
         var requests: [UNNotificationRequest] = []
         let notifier = DownloadNotifier(post: { requests.append($0) })
         notifier.authorized = true
-        notifier.notifyRedownload("https://e.com/a.zip")
+        let d = Download(filename: "a.zip", url: "https://e.com/a.zip", status: .paused)
+        notifier.notifyDuplicate(d)
         #expect(requests.count == 1)
-        #expect(requests[0].content.categoryIdentifier == "redownload")
-        #expect(requests[0].content.userInfo["url"] as? String == "https://e.com/a.zip")
+        #expect(requests[0].content.categoryIdentifier == "resume")
+        #expect(requests[0].content.userInfo["id"] as? String == d.id.uuidString)
+    }
+
+    @Test func duplicatePromptUsesRetryCategoryForFailed() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let d = Download(filename: "a.zip", url: "https://e.com/a.zip", status: .error)
+        notifier.notifyDuplicate(d)
+        #expect(requests[0].content.categoryIdentifier == "retry")
+    }
+
+    @Test func duplicatePromptUsesRevealCategoryForCompleted() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let d = Download(filename: "a.zip", url: "https://e.com/a.zip", status: .completed)
+        notifier.notifyDuplicate(d)
+        #expect(requests[0].content.categoryIdentifier == "reveal")
+    }
+
+    @Test func duplicatePromptHasNoActionForActive() {
+        var requests: [UNNotificationRequest] = []
+        let notifier = DownloadNotifier(post: { requests.append($0) })
+        notifier.authorized = true
+        let d = Download(filename: "a.zip", url: "https://e.com/a.zip", status: .active)
+        notifier.notifyDuplicate(d)
+        #expect(requests[0].content.categoryIdentifier.isEmpty)
     }
 
     @Test func startedGateOffSkipsPosting() {
@@ -148,13 +176,13 @@ import MacDLCore
         #expect(requests.isEmpty)
     }
 
-    @Test func redownloadGateOffSkipsPosting() {
+    @Test func duplicateGateOffSkipsPosting() {
         var requests: [UNNotificationRequest] = []
         let settings = SettingsStore(defaults: UserDefaults(suiteName: "test-gate-\(UUID().uuidString)")!)
         settings.notifyRedownload = false
         let notifier = DownloadNotifier(post: { requests.append($0) }, settings: settings)
         notifier.authorized = true
-        notifier.notifyRedownload("https://e.com/a.bin")
+        notifier.notifyDuplicate(Download(filename: "a.bin", url: "https://e.com/a.bin", status: .paused))
         #expect(requests.isEmpty)
     }
 
