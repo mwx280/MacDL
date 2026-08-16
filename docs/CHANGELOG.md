@@ -70,6 +70,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Retrying" status with an orange highlight across the row (status badge, file
   icon, progress bar and background), and the speed slot is replaced by
   "Network interrupted, retrying..." instead of a frozen 0 KB/s.
+- `macdl://` deep links: opening a `macdl://<url>` link (from a bookmarklet,
+  Shortcut or the terminal) hands the URL to the app to add as a download;
+  other URL opens are ignored.
+- Selectable update channel: Settings gains a stable/preview picker, so a
+  preview build follows preview releases and a stable build stays on stable.
+- Completed-download notifications offer a "Show in Finder" action to reveal
+  the finished file, and the duplicate-download notification action is tailored
+  to the existing task's state (resume a paused one, retry a failed one, reveal
+  a finished one; active/waiting tasks get no action).
+- Launching in the background with active downloads posts a "MacDL is Running"
+  notice, so a menu-bar launch doesn't go unnoticed while transfers continue.
 
 ### Fixed
 
@@ -130,6 +141,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `setChunksUpdateHandler` method to `DownloadEngineProtocol`.
 - Chunk reconstruction from compact persisted state uses a single merge pass
   (O(n + m)) instead of a nested scan.
+- HTTP error messages are now human-readable: 401/403/404/408/429/5xx map to
+  plain-language reasons ("Authentication required", "Access denied", "File not
+  found", "Request timed out", "Too many requests", "Server error") instead of
+  a bare status code.
 
 ### Fixed
 
