@@ -426,6 +426,37 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(upReported)
     }
 
+    @Test func networkDownHoldWithMirrorsDoesNotFailover() {
+        // A dropped local link with mirrors present must hold the probe instead
+        // of failing it over to a mirror or burning retries, then complete
+        // byte-correct once the link returns.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.failAllTimes = 1 // the probe fails with a transport error
+        defer { FakeURLProtocol.failAllTimes = 0 }
+        let primary = URL(string: "https://primary.example/f.bin")!
+        let mirror = URL(string: "https://mirror.example/f.bin")!
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-netdown-mirrors.bin")
+        let manager = makeChunkManager(url: primary, dest: dest, mirrors: [mirror])
+        var networkDown = true
+        manager.isNetworkDown = { networkDown }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        // The probe fails while the link is down: it must be held, not failed
+        // over or retried.
+        var deadline = Date().addingTimeInterval(10)
+        while FakeURLProtocol.requests.count < 1, Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+        Thread.sleep(forTimeInterval: 1.5)
+        #expect(FakeURLProtocol.requests.count == 1) // still only the probe, no failover attempt
+        // Recovery re-dispatches on the primary and the download completes.
+        networkDown = false
+        manager.networkRecovered()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+    }
+
     @Test func throttledDownloadDoesNotFalseStall() {
         // Regression: a speed-limited download with many concurrent chunks must
         // never be mistaken for a stalled connection. The shared token bucket

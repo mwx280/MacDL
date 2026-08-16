@@ -463,6 +463,21 @@ public final class ChunkManager: @unchecked Sendable {
             EngineLog.manager.error("chunk \(index) failed permanently (\(dlError.errorDescription ?? "?"))")
             return false
         }
+        // While the local link is down (reachability), hold the chunk instead of
+        // burning a retry: requeue it pending without counting the attempt, and
+        // let the recovery kick re-dispatch it. The download shows the retrying
+        // state until the link returns. This must run before the source failover
+        // below: a dropped local link is a global fault, not a source-specific
+        // one, so it must not cool down / fail over the source.
+        if isNetworkFailure(error), isNetworkDown?() == true {
+            writtenBytes -= chunks[index].downloadedSize
+            chunks[index].status = .pending
+            markChunkDirty(index)
+            enqueuePending(index)
+            setRetrying(true)
+            EngineLog.manager.notice("chunk \(index) held, network is down")
+            return false
+        }
         // Failover: when the chunk's source goes into cooldown and another source
         // is available, requeue the chunk so the next dispatch picks the healthy
         // source instead of the failing one. Returns false (no backoff timer) so
@@ -503,19 +518,6 @@ public final class ChunkManager: @unchecked Sendable {
             chunkSource[index] = nil
             chunkDispatchTime[index] = nil
             EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
-            return false
-        }
-        // While the local link is down (reachability), hold the chunk instead of
-        // burning a retry: requeue it pending without counting the attempt, and
-        // let the recovery kick re-dispatch it. The download shows the retrying
-        // state until the link returns.
-        if isNetworkFailure(error), isNetworkDown?() == true {
-            writtenBytes -= chunks[index].downloadedSize
-            chunks[index].status = .pending
-            markChunkDirty(index)
-            enqueuePending(index)
-            setRetrying(true)
-            EngineLog.manager.notice("chunk \(index) held, network is down")
             return false
         }
         retryCounts[index] = attempt
