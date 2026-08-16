@@ -44,9 +44,12 @@ public struct AutoConnectionPolicy: Sendable {
     /// Weight of the newest speed sample in the EMA (0..1). Higher = faster to
     /// react, lower = smoother.
     public let emaCoefficient: Double
-    /// A connection count is reverted only when speed falls below this fraction
-    /// of the best seen (regression detection).
+    /// A connection count is reverted only when the recent-window average falls
+    /// below this fraction of the best seen (regression detection).
     public let regressThreshold: Double
+    /// Samples required before sustained throughput regression can trigger a
+    /// connection rollback. Samples arrive roughly once per second.
+    public let regressionWindowSize: Int
     /// Gain ratio at/above which the next probe jumps +3 connections.
     public let jumpThresholdHigh: Double
     /// Gain ratio at/above which the next probe jumps +2 connections.
@@ -73,6 +76,7 @@ public struct AutoConnectionPolicy: Sendable {
                 errorFreezeRelease: TimeInterval = 30,
                 emaCoefficient: Double = 0.5,
                 regressThreshold: Double = 0.8,
+                regressionWindowSize: Int = 5,
                 jumpThresholdHigh: Double = 1.3,
                 jumpThresholdLow: Double = 1.15,
                 reprobeInterval: TimeInterval = 30,
@@ -89,6 +93,7 @@ public struct AutoConnectionPolicy: Sendable {
         self.errorFreezeRelease = max(0, errorFreezeRelease)
         self.emaCoefficient = min(1, max(0, emaCoefficient))
         self.regressThreshold = min(1, max(0, regressThreshold))
+        self.regressionWindowSize = max(1, regressionWindowSize)
         self.jumpThresholdHigh = max(1, jumpThresholdHigh)
         self.jumpThresholdLow = max(1, jumpThresholdLow)
         self.reprobeInterval = max(0, reprobeInterval)
@@ -152,6 +157,8 @@ public struct AutoConnectionPolicy: Sendable {
     private var isConverged = false
     private var convergedAt: Date?
     private var lastGainRatio: Double = 0
+    private var regressionSamples: [Int64] = []
+    private var regressionSampleTotal: Double = 0
     private var failureTimes: [Date] = []
     private var lastFailureAt: Date?
     /// Consecutive no-gain probes. Once it reaches `noGainBackoffThreshold`,
@@ -177,6 +184,7 @@ public struct AutoConnectionPolicy: Sendable {
         isConverged = false
         convergedAt = nil
         lastGainRatio = 0
+        clearRegressionWindow()
         failureTimes = []
         lastFailureAt = nil
         isFrozen = false
@@ -192,6 +200,11 @@ public struct AutoConnectionPolicy: Sendable {
             hasSmoothed = true
         } else {
             smoothedSpeed = Int64((Double(smoothedSpeed) * (1 - emaCoefficient)) + (Double(sample) * emaCoefficient))
+        }
+        regressionSamples.append(sample)
+        regressionSampleTotal += Double(sample)
+        if regressionSamples.count > regressionWindowSize {
+            regressionSampleTotal -= Double(regressionSamples.removeFirst())
         }
     }
 
@@ -222,6 +235,7 @@ public struct AutoConnectionPolicy: Sendable {
         probePrevSpeed = smoothedSpeed
         isProbing = true
         stableCount = 0
+        clearRegressionWindow()
     }
 
     /// Hard-caps the connection count at `count`, used when the server signals
@@ -236,6 +250,7 @@ public struct AutoConnectionPolicy: Sendable {
         stableCount = 0
         isConverged = false
         convergedAt = nil
+        clearRegressionWindow()
     }
 
     /// Called at most once per `evaluationInterval`. Returns the connection
@@ -262,13 +277,15 @@ public struct AutoConnectionPolicy: Sendable {
         // Revert to the best count if the current one is doing clearly worse.
         // Checked before the convergence guard so a mid-download slowdown is
         // still corrected after the policy has converged.
-        if bestSpeed > 0, Double(smoothedSpeed) < Double(bestSpeed) * regressThreshold,
+        if hasSustainedRegression(against: bestSpeed),
            currentConnections > bestConnections {
             lastChangeAt = now
             stableCount = 0
             lastGainRatio = 0
+            isProbing = false
             isConverged = false
             convergedAt = nil
+            clearRegressionWindow()
             return bestConnections
         }
 
@@ -306,6 +323,7 @@ public struct AutoConnectionPolicy: Sendable {
                 lastGainRatio = Double(smoothedSpeed) / Double(probePrevSpeed)
                 isProbing = false
                 consecutiveNoGain = 0
+                clearRegressionWindow()
                 return nil
             } else {
                 // Diminishing returns — revert and remember this level as the ceiling.
@@ -313,6 +331,7 @@ public struct AutoConnectionPolicy: Sendable {
                 lastGainRatio = 0
                 ceiling = probePrevConnections
                 consecutiveNoGain += 1
+                clearRegressionWindow()
                 return probePrevConnections
             }
         }
@@ -342,7 +361,22 @@ public struct AutoConnectionPolicy: Sendable {
         isProbing = true
         lastChangeAt = now
         stableCount = 0
+        clearRegressionWindow()
         return next
+    }
+
+    /// Requires a complete window so a short dip cannot trigger a rollback.
+    /// The mean represents sustained throughput; using the minimum would make a
+    /// single bad sample poison the entire window.
+    private func hasSustainedRegression(against referenceSpeed: Int64) -> Bool {
+        guard referenceSpeed > 0, regressionSamples.count == regressionWindowSize else { return false }
+        let average = regressionSampleTotal / Double(regressionWindowSize)
+        return average < Double(referenceSpeed) * regressThreshold
+    }
+
+    private mutating func clearRegressionWindow() {
+        regressionSamples.removeAll(keepingCapacity: true)
+        regressionSampleTotal = 0
     }
 
     /// The re-probe cadence after convergence, backing off exponentially once a

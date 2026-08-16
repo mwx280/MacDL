@@ -115,6 +115,55 @@ import Foundation
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == nil)
     }
 
+    // MARK: - Long-window regression
+
+    @Test func transientSpeedDipDoesNotRegress() {
+        var p = regressionCandidate()
+        p.record(speed: 500)
+        for _ in 0..<4 { p.record(speed: 1000) }
+
+        // One slow sample among fast ones keeps the window average above the
+        // regression threshold, so the policy keeps probing upward instead of
+        // rolling back.
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 3)
+    }
+
+    @Test func incompleteSlowWindowDoesNotRegress() {
+        var p = regressionCandidate()
+        for _ in 0..<4 { p.record(speed: 500) }
+
+        // Four slow samples do not yet fill the window, so no rollback can fire.
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 3)
+    }
+
+    @Test func sustainedSpeedDropRegressesToBestConnectionCount() {
+        var p = regressionCandidate()
+        for _ in 0..<5 { p.record(speed: 500) }
+
+        // A full window of slow samples sits below 80% of the best, so the
+        // policy rolls back to the best known connection count.
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 1)
+    }
+
+    @Test func regressionThresholdIsStrict() {
+        var p = regressionCandidate()
+        for _ in 0..<5 { p.record(speed: 800) }
+
+        // Exactly at the 80% threshold: not below it, so no rollback.
+        #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 3)
+    }
+
+    /// Establishes best = 1 connection at 1000 bytes/s, then re-opens the
+    /// ceiling and clears the in-flight probe so regression can be exercised
+    /// in isolation from probe scoring.
+    private func regressionCandidate() -> AutoConnectionPolicy {
+        var policy = AutoConnectionPolicy(cooldown: 0, regressionWindowSize: 5)
+        settle(&policy, speed: 1000)
+        #expect(policy.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2)
+        policy.forceConcurrencyCeiling(16)
+        return policy
+    }
+
     // MARK: - Latency-weighted cold start
 
     @Test func initialCountWeightsRTT() {

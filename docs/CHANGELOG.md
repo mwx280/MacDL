@@ -95,6 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Adaptive connections now require a full five-sample throughput window below
+  the historical best before rolling back. A brief bandwidth dip no longer
+  drops connections, while a sustained slowdown still returns to the best known
+  count; upward probe scoring remains responsive through the existing EMA.
 - Adaptive connections back off after repeated no-gain probes: when a speed
   limit or a saturated link caps throughput, the engine re-probes upward less
   and less often instead of churning, and skips the throttled cold-start
