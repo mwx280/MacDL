@@ -119,6 +119,16 @@ public final class ChunkManager: @unchecked Sendable {
     /// engine from reachability. While it returns true, the manager holds
     /// chunks instead of burning retries, and waits for `networkRecovered()`.
     public var isNetworkDown: (() -> Bool)?
+    /// Returns the engine's current per-download connection budget (the global
+    /// cap split across running downloads). Set by the engine; read on syncQueue.
+    /// Nil for a standalone manager, which then uses `maxAutoConnections`.
+    public var connectionBudgetLimit: (() -> Int)?
+
+    /// The connection cap in effect for this download: the engine's budget share
+    /// when attached, otherwise the engine-wide max.
+    private var connectionBudgetCap: Int {
+        connectionBudgetLimit?() ?? EngineConstants.maxAutoConnections
+    }
 
     /// Creates a manager for one download. `maxConcurrent <= 0` selects auto
     /// mode: the engine picks the connection count from the probed file size
@@ -191,7 +201,7 @@ public final class ChunkManager: @unchecked Sendable {
             if self.isAutoConnections {
                 self.maxConcurrent = max(1, min(
                     AutoConnectionPolicy.initialConnectionCount(fileSize: totalSize, supportsResume: true),
-                    EngineConstants.maxAutoConnections))
+                    self.connectionBudgetCap))
                 self.startAdaptTimer()
                 EngineLog.manager.notice("auto resume initial connections=\(self.maxConcurrent)")
             }
@@ -275,12 +285,12 @@ public final class ChunkManager: @unchecked Sendable {
                 maxConcurrent = max(1, min(
                     AutoConnectionPolicy.informedInitialConnectionCount(
                         singleConnRate: bw, fileSize: total, rtt: historyRTT ?? measuredRTT),
-                    EngineConstants.maxAutoConnections))
+                    connectionBudgetCap))
                 EngineLog.manager.notice("auto historical connections=\(maxConcurrent) bw=\(bw)")
             } else {
                 maxConcurrent = max(1, min(
                     AutoConnectionPolicy.initialConnectionCount(fileSize: total, supportsResume: true, rtt: measuredRTT),
-                    EngineConstants.maxAutoConnections))
+                    connectionBudgetCap))
                 EngineLog.manager.notice("auto initial connections=\(maxConcurrent)")
             }
             startAdaptTimer()
@@ -640,6 +650,22 @@ public final class ChunkManager: @unchecked Sendable {
         }
     }
 
+    /// Called when the global connection budget share changes (a download
+    /// started or finished). Clamps the connection count down to the new share
+    /// so the aggregate never exceeds the budget; a later re-probe climbs back
+    /// when the share grows.
+    public func onConnectionBudgetChanged() {
+        syncQueue.async {
+            guard self.isAutoConnections else { return }
+            let cap = self.connectionBudgetCap
+            if self.maxConcurrent > cap {
+                EngineLog.manager.notice("budget cap \(cap), clamping connections \(self.maxConcurrent) -> \(cap)")
+                self.maxConcurrent = max(1, cap)
+                self.dispatchNext()
+            }
+        }
+    }
+
     /// Updates the parallel-connection cap and re-dispatches pending chunks.
     /// A non-positive value switches the download into auto mode (adaptive
     /// connection tuning); a positive value switches back to a fixed cap.
@@ -655,7 +681,7 @@ public final class ChunkManager: @unchecked Sendable {
                     self.autoPolicy.reset()
                     self.maxConcurrent = Swift.max(1, Swift.min(
                         AutoConnectionPolicy.initialConnectionCount(fileSize: self.totalSize, supportsResume: true),
-                        EngineConstants.maxAutoConnections))
+                        self.connectionBudgetCap))
                     self.startAdaptTimer()
                     EngineLog.manager.notice("auto connections enabled, initial=\(self.maxConcurrent)")
                 } else {
@@ -1292,7 +1318,7 @@ public final class ChunkManager: @unchecked Sendable {
         let hasPending = pendingCount > 0
         let wasTripped = autoPolicy.isTripped
         guard let next = autoPolicy.evaluate(currentConnections: current, hasPending: hasPending) else { return }
-        let clamped = Swift.max(1, Swift.min(next, EngineConstants.maxAutoConnections))
+        let clamped = Swift.max(1, Swift.min(next, EngineConstants.maxAutoConnections, connectionBudgetCap))
         if autoPolicy.isTripped, !wasTripped {
             EngineLog.manager.warning("adaptive connections tripped, locking at \(clamped)")
             stopAdaptTimer()

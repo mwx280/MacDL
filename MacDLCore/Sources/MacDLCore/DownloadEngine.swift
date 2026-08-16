@@ -20,6 +20,9 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     // by `endPriority` (or `registerPriorityPaused` on relaunch).
     private var priorityPaused: Set<UUID> = []
     private let scheduler = DownloadScheduler(capacity: 1)
+    private let connectionBudget = ConnectionBudgetAllocator(
+        totalBudget: EngineConstants.globalConnectionBudget,
+        perDownloadCap: EngineConstants.maxAutoConnections)
     private var onPromoted: ((UUID) -> Void)?
     private var onPriorityPaused: ((UUID) -> Void)?
     private var onPriorityResumed: ((UUID) -> Void)?
@@ -228,15 +231,21 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
         let manager = ChunkManager(id: id, url: start.url, destinationURL: start.destinationURL, chunkSize: start.chunkSize, maxConcurrent: start.maxConcurrent, mirrors: start.mirrors)
         manager.setSpeedLimit(start.speedLimit)
         manager.isNetworkDown = { [weak self] in self?.networkDown ?? false }
+        manager.connectionBudgetLimit = { [weak self] in
+            self?.connectionBudget.share(for: id) ?? EngineConstants.maxAutoConnections
+        }
         applyHandlers(to: manager, id: id)
         managers[id]?.cancel()
         managers[id] = manager
+        connectionBudget.register(id)
         if start.chunks.isEmpty {
             manager.start()
         } else {
             let totalSize = start.chunks.last?.endOffset ?? 0
             manager.start(withChunks: start.chunks, totalSize: totalSize)
         }
+        // The new download shrank everyone's share; re-clamp each manager.
+        for (_, m) in managers { m.onConnectionBudgetChanged() }
     }
 
     /// Installs the buffered non-completion handlers plus the completion
@@ -263,6 +272,7 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
                 if self.managers[id] === manager {
                     self.managers.removeValue(forKey: id)
                     self.handlers[id] = nil
+                    self.releaseConnectionBudget(id)
                 }
                 guard !wasDiscarded else { return }
                 userCompletion?(result)
@@ -307,6 +317,7 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
             handlers.removeValue(forKey: id)
             scheduler.discard(id)
             discarded.insert(id)
+            releaseConnectionBudget(id)
         }
     }
 
@@ -317,7 +328,15 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
             pendingStarts.removeValue(forKey: id)
             handlers.removeValue(forKey: id)
             discarded.remove(id)
+            releaseConnectionBudget(id)
         }
+    }
+
+    /// Releases a finished/cancelled download's connection-budget share and
+    /// re-clamps the remaining managers. Call on syncQueue.
+    private func releaseConnectionBudget(_ id: UUID) {
+        connectionBudget.remove(id)
+        for (_, m) in managers { m.onConnectionBudgetChanged() }
     }
 
     /// Updates the per-download byte/second throttle.

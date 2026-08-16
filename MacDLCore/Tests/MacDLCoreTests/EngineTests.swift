@@ -1089,6 +1089,31 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         engine.cancel(id: c)
     }
 
+    @Test func connectionBudgetCapsAggregateConnections() {
+        // Three auto-mode downloads must not collectively exceed the global
+        // connection budget: each is capped at 32/3 ≈ 10 instead of climbing to 16.
+        FakeURLProtocol.virtualFileSize = 4 * 1024 * 1024
+        FakeURLProtocol.perConnectionRate = 64 * 1024
+        defer { FakeURLProtocol.perConnectionRate = 0 }
+        let engine = DownloadEngine()
+        engine.setMaxConcurrentDownloads(5)
+        let url = URL(string: "https://fake.example/f.bin")!
+        let ids = [UUID(), UUID(), UUID()]
+        let sem = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var remaining = ids.count
+        for id in ids {
+            engine.setCompletionHandler(for: id) { _ in
+                lock.lock(); remaining -= 1; lock.unlock()
+                if remaining == 0 { sem.signal() }
+            }
+            _ = engine.schedule(id: id, url: url, destinationURL: schDest("/budget-\(id.uuidString).bin"), speedLimit: 0, chunkSize: 262144, maxConcurrent: 0, chunks: [], mirrors: [])
+        }
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(FakeURLProtocol.peakRequests <= EngineConstants.globalConnectionBudget)
+        for id in ids { engine.cancel(id: id) }
+    }
+
     @Test func completionPromotesNextQueued() {
         FakeURLProtocol.virtualFileSize = 1024 * 1024
         FakeURLProtocol.perConnectionRate = 256 * 1024

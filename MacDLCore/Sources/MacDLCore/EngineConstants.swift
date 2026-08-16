@@ -12,6 +12,8 @@ public enum EngineConstants {
     // Auto connection adaptation
     public static let maxAutoConnections = 16
     public static let autoEvaluationInterval: TimeInterval = 3.0
+    // Aggregate cap on adaptive connections across all running downloads.
+    public static let globalConnectionBudget = 32
 
     // Source failover / cooldown
     public static let sourceFailureThreshold = 3

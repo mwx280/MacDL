@@ -107,6 +107,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its throughput is sampled, so a slow mirror no longer eats half the file at
   cold start. A persistently failing source backs off its cooldown
   exponentially (30s → 600s) instead of re-trying on a fixed cadence.
+- Global connection budget: adaptive connections across all running downloads
+  are capped at a shared budget (32, split evenly), so many simultaneous
+  downloads no longer each climb to 16 and exhaust the network.
 - Adaptive connections back off after repeated no-gain probes: when a speed
   limit or a saturated link caps throughput, the engine re-probes upward less
   and less often instead of churning, and skips the throttled cold-start
