@@ -74,6 +74,26 @@ public final class DownloadScheduler: @unchecked Sendable {
         return promoteWhileSpace()
     }
 
+    /// Removes a download from both sets WITHOUT promoting a replacement.
+    /// Used by pause (frees a slot but must not start a queued download) and by
+    /// delete (the user asked to stop, not to fill the queue).
+    public func discard(_ id: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+        running.remove(id)
+        waiting.removeAll { $0 == id }
+    }
+
+    /// Adds a download to the running set regardless of capacity (a paused
+    /// download resuming or a retry restarting bypass the cap, mirroring the
+    /// app's resume semantics).
+    public func forceRun(_ id: UUID) {
+        lock.lock()
+        defer { lock.unlock() }
+        waiting.removeAll { $0 == id }
+        running.insert(id)
+    }
+
     /// Whether `id` is currently running.
     public func isRunning(_ id: UUID) -> Bool {
         lock.lock()

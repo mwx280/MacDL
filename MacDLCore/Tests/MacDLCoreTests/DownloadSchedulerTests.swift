@@ -85,6 +85,38 @@ import Foundation
         #expect(s.isRunning(b))
     }
 
+    @Test func discardNeverPromotes() {
+        let s = DownloadScheduler(capacity: 1)
+        let a = UUID(), b = UUID()
+        _ = s.schedule(a)
+        _ = s.schedule(b)
+        // Pausing/deleting a running download must not start a queued one.
+        s.discard(a)
+        #expect(s.isRunning(a) == false)
+        #expect(s.isWaiting(b) == true)
+        // Discarding the queued one leaves nothing behind.
+        s.discard(b)
+        #expect(s.isWaiting(b) == false)
+        #expect(s.waitingCount == 0)
+    }
+
+    @Test func forceRunBypassesCapacity() {
+        let s = DownloadScheduler(capacity: 1)
+        let a = UUID(), b = UUID(), c = UUID()
+        _ = s.schedule(a)
+        _ = s.schedule(b)
+        _ = s.schedule(c)
+        // Resume a queued download out of turn (app resume bypasses the cap).
+        s.forceRun(b)
+        #expect(s.isRunning(a))
+        #expect(s.isRunning(b))
+        #expect(s.waitingCount == 1)
+        // Both slots are now full; finishing a does not promote c.
+        #expect(s.finished(a).isEmpty)
+        #expect(s.isWaiting(c))
+        #expect(s.isRunning(b))
+    }
+
     @Test func finishRemovesPendingWaitingEntry() {
         // finished() on a queued (never-running) id must not promote it later.
         let s = DownloadScheduler(capacity: 1)
