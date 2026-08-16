@@ -75,7 +75,21 @@ struct MacDLApp: App {
         MenuBarExtra {
             MenuBarContent()
         } label: {
+            MenuBarLabel()
+        }
+    }
+
+    /// Menu bar icon. Registers SwiftUI's `openWindow` action as soon as the
+    /// icon renders, so the main window can be created even when the menu is
+    /// never opened (e.g. tapping a notification after a background launch).
+    private struct MenuBarLabel: View {
+        @Environment(\.openWindow) private var openWindow
+
+        var body: some View {
             Image(systemName: "arrow.down.circle")
+                .onAppear {
+                    MacDLApp.openWindowAction = { id in openWindow(id: id) }
+                }
         }
     }
 
@@ -94,15 +108,48 @@ struct MacDLApp: App {
         }
     }
 
+    /// SwiftUI's `openWindow` action, registered by the menu bar view. It is the
+    /// only reliable way to create the main window after a background launch,
+    /// when `WindowGroup` has never instantiated it yet.
+    @MainActor static var openWindowAction: ((String) -> Void)?
+
     @MainActor
     static func showWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        if let action = openWindowAction {
+            action("main")
+        }
+        // openWindow creates the window asynchronously; poll briefly for it,
+        // then activate the app and bring the main window to the front. Target
+        // the main window only — a hidden settings window kept alive by SwiftUI
+        // must not be picked up.
+        Task { @MainActor in
+            NSApp.activate(ignoringOtherApps: true)
+            for _ in 0..<20 {
+                if let window = mainWindow() {
+                    window.makeKeyAndOrderFront(nil)
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+        }
     }
 
     @MainActor
     static func hideWindow() {
-        NSApp.windows.first?.orderOut(nil)
+        mainWindow()?.orderOut(nil)
+    }
+
+    @MainActor
+    private static func mainWindow() -> NSWindow? {
+        NSApp.windows.first { $0.identifier?.rawValue == "main" }
+            ?? NSApp.windows.first { $0.title == "MacDL" }
+            ?? NSApp.windows.first { $0.canBecomeKey && !isSettingsWindow($0) }
+    }
+
+    @MainActor
+    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
+        let title = window.title.lowercased()
+        return title.contains("settings") || title.contains("preferences") || title.contains("设置")
     }
 
     private static var isTerminating = false

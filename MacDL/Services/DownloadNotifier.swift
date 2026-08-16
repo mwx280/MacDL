@@ -201,6 +201,14 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .requestRedownload, object: url)
             }
+        } else if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+            // Tapping the notification body opens the main window so the user can
+            // see the download — a background launch may have no window open yet.
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    MacDLApp.showWindow()
+                }
+            }
         }
         completionHandler()
     }

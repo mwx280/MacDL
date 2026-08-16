@@ -87,6 +87,13 @@ import MacDLCore
         #expect(vm.downloads.isEmpty)
     }
 
+    @Test func handleLinksReportsWhetherLinksWereAdded() {
+        let engine = FakeEngine()
+        let vm = ContentViewModel(engine: engine, persistence: makePersistence(), settings: SettingsStore())
+        #expect(vm.handleDownloadLinks("https://example.com/yes.bin"))
+        #expect(!vm.handleDownloadLinks("no links here"))
+    }
+
     private func makePersistence() -> DownloadPersistence {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("clip-tests-\(UUID().uuidString)", isDirectory: true)
