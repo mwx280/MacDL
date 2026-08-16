@@ -51,12 +51,41 @@ final class DownloadService {
             guard let self else { return }
             if isProbing { self.probingDownloads.insert(id) } else { self.probingDownloads.remove(id) }
         }
+        coordinator.onPromotion = { [weak self] id in
+            // The engine promoted a queued download: flip it to active so the
+            // user sees it running.
+            guard let self else { return }
+            guard let idx = self.store.index(of: id) else { return }
+            self.store.downloads[idx].status = .active
+            self.store.save()
+            self.coordinator.notifyStartedIfNeeded(id, download: self.store.downloads[idx])
+        }
         // A fresh app launch must not keep tasks from a previous session running.
         let wasActive = store.downloads.filter { $0.status == .active }.map(\.id)
         for i in store.downloads.indices where store.downloads[i].status == .active {
             store.downloads[i].status = .paused
         }
         priority.restoreFromStore()
+        // Re-register persisted waiting downloads into the engine's scheduler so
+        // it can promote them when a slot frees. They keep waiting here; nothing
+        // starts just because the app launched.
+        for d in store.downloads where d.status == .waiting {
+            guard let url = URL(string: d.url) else { continue }
+            if !coordinator.beginAccess(for: d) {
+                store.update(d.id) {
+                    $0.status = .error
+                    $0.errorKey = "Download folder access lost. Choose it again in Settings."
+                    $0.errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
+                }
+                store.save()
+                continue
+            }
+            coordinator.enqueue(id: d.id, url: url, dest: DownloadPath.staging(for: d),
+                                speedLimit: Int64(d.downloadLimit ?? 0),
+                                chunkSize: d.chunkSize,
+                                maxConcurrent: d.maxConcurrentChunks,
+                                chunks: d.chunks)
+        }
         // When enabled, pick up exactly the tasks that were still downloading at
         // quit time; manually paused ones stay paused.
         if settings.autoResumeOnLaunch {
@@ -197,16 +226,11 @@ final class DownloadService {
             return
         }
 
-        // Count actives excluding the one we just added; otherwise the new download
-        // always nudges the count one over the limit and never starts at limit 1.
-        let activeCount = downloads.filter { $0.status == .active && $0.id != d.id }.count
-        if activeCount >= max(settings.maxConcurrentDownloads, 1) {
-            store.update(d.id) { $0.status = .waiting }
-            store.save()
-            return
-        }
-
-        setupEngineTask(for: d.id, url: sourceURL, dlLimit: dlLimit)
+        // The engine's scheduler decides whether this starts now or queues
+        // against the global concurrency cap.
+        let status = scheduleEngineTask(for: d.id, url: sourceURL, dlLimit: dlLimit)
+        store.update(d.id) { $0.status = status }
+        store.save()
     }
 
     /// Fetches and parses a Metalink document off the main thread.
@@ -243,24 +267,32 @@ final class DownloadService {
         store.save()
     }
 
-    private func startNextWaitingDownload() {
-        let limit = max(settings.maxConcurrentDownloads, 1)
-        while downloads.filter({ $0.status == .active }).count < limit,
-              let idx = downloads.firstIndex(where: { $0.status == .waiting }) {
-            downloads[idx].status = .active
-            store.save()
-            guard let sourceURL = URL(string: downloads[idx].url) else {
-                downloads[idx].status = .error
-                downloads[idx].errorKey = "Invalid URL"
-                downloads[idx].errorMessage = LanguageManager.shared.localized("Invalid URL")
-                store.save()
-                continue
+    /// Schedules a download against the engine's global concurrency cap.
+    /// Returns the resulting status: `.active` when it started now, `.waiting`
+    /// when queued, `.error` when sandbox access was lost.
+    private func scheduleEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) -> DownloadStatus {
+        guard let src = downloads.first(where: { $0.id == id }) else { return .error }
+        if !coordinator.beginAccess(for: src) {
+            store.update(id) {
+                $0.status = .error
+                $0.errorKey = "Download folder access lost. Choose it again in Settings."
+                $0.errorMessage = LanguageManager.shared.localized("Download folder access lost. Choose it again in Settings.")
             }
-            setupEngineTask(for: downloads[idx].id, url: sourceURL, dlLimit: downloads[idx].downloadLimit ?? 0)
+            store.save()
+            return .error
         }
+        let dest = DownloadPath.staging(for: src)
+        let speedLimit = Int64(dlLimit > 0 ? dlLimit : (src.downloadLimit ?? 0))
+        let started = coordinator.schedule(id: id, url: sourceURL, dest: dest, speedLimit: speedLimit,
+                                           chunkSize: src.chunkSize,
+                                           maxConcurrent: src.maxConcurrentChunks,
+                                           chunks: src.chunks)
+        return started ? .active : .waiting
     }
 
-    private func setupEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
+    /// Starts a download immediately, bypassing the concurrency cap (retry
+    /// semantics). Marks the task failed when sandbox access was lost.
+    private func startEngineTask(for id: UUID, url sourceURL: URL, dlLimit: Int) {
         guard let src = downloads.first(where: { $0.id == id }) else { return }
         if !coordinator.beginAccess(for: src) {
             store.update(id) {
@@ -347,7 +379,9 @@ final class DownloadService {
             priority.end(excluding: id)
         }
         guard let d = downloads.first(where: { $0.id == id }) else { return }
-        if d.status == .active {
+        if d.status == .active || d.status == .waiting {
+            // Both running and queued downloads are tracked by the engine's
+            // scheduler and must be released on delete.
             coordinator.cancel(id)
             coordinator.untrack(id)
         }
@@ -394,14 +428,9 @@ final class DownloadService {
             return
         }
 
-        let activeCount = downloads.filter { $0.status == .active && $0.id != id }.count
-        if activeCount >= max(settings.maxConcurrentDownloads, 1) {
-            downloads[idx].status = .waiting
-            store.save()
-            return
-        }
-
-        setupEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
+        let status = scheduleEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
+        downloads[idx].status = status
+        store.save()
     }
 
     func retryDownload(id: UUID) {
@@ -434,7 +463,7 @@ final class DownloadService {
             return
         }
 
-        setupEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
+        startEngineTask(for: id, url: sourceURL, dlLimit: d.downloadLimit ?? 0)
     }
 
     /// Reveals a finished download's file in Finder.
@@ -491,7 +520,7 @@ final class DownloadService {
         for d in toDelete {
             coordinator.progress.unpublish(for: d.id)
             coordinator.endAccess(for: d.id)
-            if d.status == .active {
+            if d.status == .active || d.status == .waiting {
                 coordinator.cancel(d.id)
                 coordinator.untrack(d.id)
             }
@@ -597,13 +626,13 @@ final class DownloadService {
     }
 
     /// Shared post-completion bookkeeping for both success and failure.
+    /// The engine promotes the next queued download on completion; the
+    /// promotion handler flips its status to active.
     private func finishDownload(id: UUID) {
         coordinator.endAccess(for: id)
         store.save()
         if id == priority.priorityDownloadID {
             priority.end()
-        } else {
-            startNextWaitingDownload()
         }
     }
 
@@ -653,9 +682,9 @@ final class DownloadService {
             notifier.notifyFailed(downloads[idx])
         }
         store.save()
-        // A deleted in-flight download just released a concurrency slot; let the
-        // next waiting task take it over.
-        startNextWaitingDownload()
+        // A cancelled in-flight download freed a scheduling slot; ask the
+        // engine's scheduler to promote the next queued download.
+        coordinator.syncMaxConcurrentDownloads()
     }
 
     // MARK: - Persistence

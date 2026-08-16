@@ -398,6 +398,11 @@ import MacDLCore
         let active = Download(filename: "gone.bin", url: "https://example.com/gone.bin", totalSize: 1000, downloadedSize: 500, status: .active, savePath: tempDir.path)
         let waiting = Download(filename: "wait.bin", url: "https://example.com/wait.bin", status: .waiting)
         vm.downloads = [active, waiting]
+        // Simulate the app having registered the waiting download with the
+        // engine's scheduler (as happens on add or at launch).
+        engine.enqueue(id: waiting.id, url: URL(string: waiting.url)!,
+                       destinationURL: URL(fileURLWithPath: tempDir.path + "/wait.bin.macdl"),
+                       speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
         vm.service.checkFilesAndPersistIfNeeded()
         await waitForCondition { vm.downloads.first { $0.id == active.id }?.status == .error }
         await drainMain()

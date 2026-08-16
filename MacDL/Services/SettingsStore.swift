@@ -23,7 +23,11 @@ final class SettingsStore {
             let v = defaults.integer(forKey: "maxConcurrentDownloads")
             return v == 0 ? 5 : v
         }
-        set { defaults.set(newValue, forKey: "maxConcurrentDownloads") }
+        set {
+            defaults.set(newValue, forKey: "maxConcurrentDownloads")
+            // Keep the engine's scheduler cap in sync with the setting.
+            NotificationCenter.default.post(name: .maxConcurrentDownloadsChanged, object: nil)
+        }
     }
 
     var downloadPath: String {
@@ -113,4 +117,10 @@ final class SettingsStore {
         get { defaults.object(forKey: "autoResumeOnLaunch") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "autoResumeOnLaunch") }
     }
+}
+
+extension Notification.Name {
+    /// Posted when the global max-concurrent-downloads setting changes, so the
+    /// engine's scheduler cap stays in sync.
+    static let maxConcurrentDownloadsChanged = Notification.Name("com.xiaowu.maxConcurrentDownloadsChanged")
 }

@@ -19,6 +19,9 @@ final class DownloadEngineCoordinator {
     var onTaskCompletion: ((UUID, Result<Void, Error>) -> Void)?
     /// Called on the main thread when a task enters/leaves the probe phase.
     var onPhaseChange: ((UUID, Bool) -> Void)?
+    /// Called on the main thread when the engine promotes a queued download to
+    /// running, so the app can flip its status to active.
+    var onPromotion: ((UUID) -> Void)?
 
     private let engine: DownloadEngineProtocol
     private let store: DownloadStore
@@ -28,6 +31,7 @@ final class DownloadEngineCoordinator {
     private var engineTrackedDownloads: Set<UUID> = []
     private var needsProgressSave = false
     private var lastProgressSaveTime: Date = .distantPast
+    private nonisolated(unsafe) var capObserver: NSObjectProtocol?
 
     init(engine: DownloadEngineProtocol, store: DownloadStore, notifier: DownloadNotifier, settings: SettingsStore) {
         self.engine = engine
@@ -35,24 +39,89 @@ final class DownloadEngineCoordinator {
         self.notifier = notifier
         self.settings = settings
         self.progress = ProgressPublisher()
+        engine.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
+        engine.setPromotionHandler { [weak self] id in
+            self?.hopToMain { self?.onPromotion?(id) }
+        }
+        capObserver = NotificationCenter.default.addObserver(
+            forName: .maxConcurrentDownloadsChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.syncMaxConcurrentDownloads()
+        }
+    }
+
+    deinit {
+        if let capObserver {
+            NotificationCenter.default.removeObserver(capObserver)
+        }
+    }
+
+    /// Pushes the current max-concurrent-downloads setting to the engine's
+    /// scheduler (also re-syncs after the setting changes).
+    func syncMaxConcurrentDownloads() {
+        engine.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
     }
 
     // MARK: - Task lifecycle
 
+    /// Starts a download immediately, bypassing the concurrency cap (resume /
+    /// retry semantics).
     func start(id: UUID, url sourceURL: URL, dest: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) {
         engineTrackedDownloads.insert(id)
         store.ensureChunks(for: id)
         if let d = store.downloads.first(where: { $0.id == id }) {
             notifyStartedIfNeeded(id, download: d)
         }
+        let p = resolvedParameters(for: id, url: sourceURL, dest: dest, speedLimit: speedLimit, chunkSize: chunkSize, maxConcurrent: maxConcurrent, chunks: chunks)
+        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
+                     chunkSize: p.chunkSize,
+                     maxConcurrent: p.maxConcurrent,
+                     chunks: p.chunks,
+                     mirrors: p.mirrors)
+        installHandlers(for: id)
+    }
+
+    /// Schedules a download against the global concurrency cap. Returns `true`
+    /// when it started now, `false` when it was queued.
+    @discardableResult
+    func schedule(id: UUID, url sourceURL: URL, dest: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) -> Bool {
+        engineTrackedDownloads.insert(id)
+        store.ensureChunks(for: id)
+        let p = resolvedParameters(for: id, url: sourceURL, dest: dest, speedLimit: speedLimit, chunkSize: chunkSize, maxConcurrent: maxConcurrent, chunks: chunks)
+        let started = engine.schedule(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
+                                      chunkSize: p.chunkSize,
+                                      maxConcurrent: p.maxConcurrent,
+                                      chunks: p.chunks,
+                                      mirrors: p.mirrors)
+        installHandlers(for: id)
+        if started, let d = store.downloads.first(where: { $0.id == id }) {
+            notifyStartedIfNeeded(id, download: d)
+        }
+        return started
+    }
+
+    /// Registers a download into the engine's waiting queue without starting it
+    /// (restoring persisted waiting downloads on launch).
+    func enqueue(id: UUID, url sourceURL: URL, dest: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) {
+        engineTrackedDownloads.insert(id)
+        store.ensureChunks(for: id)
+        let p = resolvedParameters(for: id, url: sourceURL, dest: dest, speedLimit: speedLimit, chunkSize: chunkSize, maxConcurrent: maxConcurrent, chunks: chunks)
+        engine.enqueue(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
+                       chunkSize: p.chunkSize,
+                       maxConcurrent: p.maxConcurrent,
+                       chunks: p.chunks,
+                       mirrors: p.mirrors)
+        installHandlers(for: id)
+    }
+
+    /// Resolves the effective engine start parameters from the store's model
+    /// (mirrors, dynamic chunk size, per-download connection cap).
+    private func resolvedParameters(for id: UUID, url: URL, dest: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk]) -> (chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL]) {
         let cfg = store.downloads.first { $0.id == id }
         let mirrors = (cfg?.mirrors ?? []).compactMap { URL(string: $0) }
-        engine.start(id: id, url: sourceURL, destinationURL: dest, speedLimit: speedLimit,
-                     chunkSize: cfg?.chunkSize ?? chunkSize,
-                     maxConcurrent: cfg?.maxConcurrentChunks ?? maxConcurrent,
-                     chunks: cfg?.chunks ?? chunks,
-                     mirrors: mirrors)
-        installHandlers(for: id)
+        return (cfg?.chunkSize ?? chunkSize,
+                cfg?.maxConcurrentChunks ?? maxConcurrent,
+                cfg?.chunks ?? chunks,
+                mirrors)
     }
 
     func pause(_ id: UUID) {
