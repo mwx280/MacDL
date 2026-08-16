@@ -26,7 +26,11 @@ final class FakeEngine: DownloadEngineProtocol {
     private var chunkSizeHandlers: [UUID: (Int64) -> Void] = [:]
     private var retryingHandlers: [UUID: (Bool) -> Void] = [:]
     private var promotionHandlers: [(UUID) -> Void] = []
+    private var priorityPausedHandlers: [(UUID) -> Void] = []
+    private var priorityResumedHandlers: [(UUID) -> Void] = []
     private var running = Set<UUID>()
+    private var priorityPausedIds = Set<UUID>()
+    var priorityResumedIds: [UUID] = []
 
     func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL]) {
         started.append(id)
@@ -61,6 +65,37 @@ final class FakeEngine: DownloadEngineProtocol {
     func setPromotionHandler(_ handler: @escaping (UUID) -> Void) {
         promotionHandlers.append(handler)
     }
+
+    func setPriorityPausedHandler(_ handler: @escaping (UUID) -> Void) {
+        priorityPausedHandlers.append(handler)
+    }
+
+    func setPriorityResumedHandler(_ handler: @escaping (UUID) -> Void) {
+        priorityResumedHandlers.append(handler)
+    }
+
+    func setPriorityDownload(_ id: UUID) {
+        for pid in running where pid != id {
+            running.remove(pid)
+            paused.append(pid)
+            priorityPausedIds.insert(pid)
+            for handler in priorityPausedHandlers { handler(pid) }
+        }
+    }
+
+    func endPriority(excluding skip: UUID?) {
+        for pid in priorityPausedIds where pid != skip {
+            priorityPausedIds.remove(pid)
+            priorityResumedIds.append(pid)
+            for handler in priorityResumedHandlers { handler(pid) }
+        }
+    }
+
+    func registerPriorityPaused(_ ids: Set<UUID>) {
+        priorityPausedIds.formUnion(ids)
+    }
+
+    var isPriorityPaused: Set<UUID> { priorityPausedIds }
 
     func resume(id: UUID) -> Bool {
         resumed.append(id)

@@ -24,14 +24,28 @@ import MacDLCore
         return (priority, store, engine)
     }
 
-    @Test func setPriorityPausesOthersAndRestoresOnCancel() {
+    /// Registers a download with the fake engine's scheduler (as the app does
+    /// when the download actually starts), so it counts as running.
+    private func startDownload(_ engine: FakeEngine, _ d: Download) {
+        _ = engine.schedule(id: d.id, url: URL(string: d.url)!,
+                            destinationURL: URL(fileURLWithPath: "/tmp/prio-" + d.filename),
+                            speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+    }
+
+    private func drainMain() async {
+        for _ in 0..<8 { await Task.yield() }
+    }
+
+    @Test func setPriorityPausesOthersAndRestoresOnCancel() async {
         let (priority, store, engine) = makeCoordinator()
         let a = Download(filename: "a.bin", url: "https://e.com/a.bin", status: .active)
         let b = Download(filename: "b.bin", url: "https://e.com/b.bin", status: .active)
         let c = Download(filename: "c.bin", url: "https://e.com/c.bin", status: .active)
         store.downloads = [a, b, c]
+        for d in [a, b, c] { startDownload(engine, d) }
 
         priority.setPriority(id: a.id)
+        await drainMain()
         #expect(store.downloads.first { $0.id == a.id }?.status == .active)
         #expect(store.downloads.first { $0.id == a.id }?.isPriorityDownload == true)
         #expect(store.downloads.first { $0.id == b.id }?.status == .paused)
@@ -41,19 +55,23 @@ import MacDLCore
         #expect(engine.paused.contains(c.id))
 
         priority.cancelPriority(id: a.id)
+        await drainMain()
         #expect(store.downloads.first { $0.id == a.id }?.isPriorityDownload == false)
         #expect(store.downloads.first { $0.id == b.id }?.status == .active)
         #expect(store.downloads.first { $0.id == b.id }?.pausedForPriority == false)
     }
 
-    @Test func setPriorityReplacesPrevious() {
+    @Test func setPriorityReplacesPrevious() async {
         let (priority, store, engine) = makeCoordinator()
         let a = Download(filename: "a.bin", url: "https://e.com/a.bin", status: .active)
         let b = Download(filename: "b.bin", url: "https://e.com/b.bin", status: .active)
         store.downloads = [a, b]
+        for d in [a, b] { startDownload(engine, d) }
 
         priority.setPriority(id: a.id)
+        await drainMain()
         priority.setPriority(id: b.id)
+        await drainMain()
         #expect(store.downloads.first { $0.id == a.id }?.isPriorityDownload == false)
         #expect(store.downloads.first { $0.id == a.id }?.status == .paused)
         #expect(store.downloads.first { $0.id == b.id }?.isPriorityDownload == true)
@@ -61,14 +79,17 @@ import MacDLCore
         #expect(engine.paused.contains(a.id))
     }
 
-    @Test func endExcludingSkipsDeletedDownload() {
+    @Test func endExcludingSkipsDeletedDownload() async {
         let (priority, store, engine) = makeCoordinator()
         let a = Download(filename: "a.bin", url: "https://e.com/a.bin", status: .active)
         let b = Download(filename: "b.bin", url: "https://e.com/b.bin", status: .active)
         store.downloads = [a, b]
+        for d in [a, b] { startDownload(engine, d) }
 
         priority.setPriority(id: a.id)
+        await drainMain()
         priority.end(excluding: a.id)
+        await drainMain()
         #expect(store.downloads.first { $0.id == a.id }?.isPriorityDownload == false)
         #expect(store.downloads.first { $0.id == b.id }?.status == .active)
         #expect(store.downloads.first { $0.id == b.id }?.pausedForPriority == false)
@@ -85,5 +106,21 @@ import MacDLCore
         priority.restoreFromStore()
         #expect(priority.priorityDownloadID == a.id)
         #expect(priority.pausedForPriority == [b.id])
+    }
+
+    @Test func endPriorityRestoresRegisteredPaused() async {
+        // After a restart the engine forgets which downloads were paused for
+        // priority; restoreFromStore re-registers them so end restores them.
+        let (priority, store, engine) = makeCoordinator()
+        let a = Download(filename: "a.bin", url: "https://e.com/a.bin", status: .active, isPriorityDownload: true)
+        let b = Download(filename: "b.bin", url: "https://e.com/b.bin", status: .paused, pausedForPriority: true)
+        store.downloads = [a, b]
+
+        priority.restoreFromStore()
+        priority.cancelPriority(id: a.id)
+        await drainMain()
+        #expect(store.downloads.first { $0.id == b.id }?.status == .active)
+        #expect(store.downloads.first { $0.id == b.id }?.pausedForPriority == false)
+        #expect(engine.priorityResumedIds.contains(b.id))
     }
 }

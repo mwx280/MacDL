@@ -22,6 +22,11 @@ final class DownloadEngineCoordinator {
     /// Called on the main thread when the engine promotes a queued download to
     /// running, so the app can flip its status to active.
     var onPromotion: ((UUID) -> Void)?
+    /// Called on the main thread when the engine pauses a download for priority.
+    var onPriorityPaused: ((UUID) -> Void)?
+    /// Called on the main thread when the engine restores a priority-paused
+    /// download.
+    var onPriorityResumed: ((UUID) -> Void)?
 
     private let engine: DownloadEngineProtocol
     private let store: DownloadStore
@@ -42,6 +47,12 @@ final class DownloadEngineCoordinator {
         engine.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
         engine.setPromotionHandler { [weak self] id in
             self?.hopToMain { self?.onPromotion?(id) }
+        }
+        engine.setPriorityPausedHandler { [weak self] id in
+            self?.hopToMain { self?.onPriorityPaused?(id) }
+        }
+        engine.setPriorityResumedHandler { [weak self] id in
+            self?.hopToMain { self?.onPriorityResumed?(id) }
         }
         capObserver = NotificationCenter.default.addObserver(
             forName: .maxConcurrentDownloadsChanged, object: nil, queue: .main) { [weak self] _ in
@@ -126,6 +137,20 @@ final class DownloadEngineCoordinator {
 
     func pause(_ id: UUID) {
         engine.pause(id: id)
+    }
+
+    // MARK: - Priority
+
+    func setPriorityDownload(id: UUID) {
+        engine.setPriorityDownload(id)
+    }
+
+    func endPriority(excluding skip: UUID?) {
+        engine.endPriority(excluding: skip)
+    }
+
+    func registerPriorityPaused(_ ids: Set<UUID>) {
+        engine.registerPriorityPaused(ids)
     }
 
     @discardableResult

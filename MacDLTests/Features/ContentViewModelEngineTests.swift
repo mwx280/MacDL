@@ -153,15 +153,23 @@ import MacDLCore
         #expect(engine.started.isEmpty)
     }
 
-    @Test func setPriorityPausesOthersAndRestoresOnCancel() {
+    @Test func setPriorityPausesOthersAndRestoresOnCancel() async {
         let engine = FakeEngine()
         let vm = makeVM(engine: engine)
         let a = Download(filename: "pri-a.bin", url: "https://example.com/pri-a.bin", status: .active)
         let b = Download(filename: "pri-b.bin", url: "https://example.com/pri-b.bin", status: .active)
         let c = Download(filename: "pri-c.bin", url: "https://example.com/pri-c.bin", status: .active)
         vm.downloads = [a, b, c]
+        // Register the running downloads with the engine's scheduler (as the
+        // app does when they start), so priority can pause them.
+        for d in [a, b, c] {
+            _ = engine.schedule(id: d.id, url: URL(string: d.url)!,
+                                destinationURL: URL(fileURLWithPath: "/tmp/prio-" + d.filename),
+                                speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        }
 
         vm.setPriorityDownload(id: a.id)
+        await drainMain()
         let afterSet = vm.downloads
         #expect(afterSet.first { $0.id == a.id }?.status == .active)
         #expect(afterSet.first { $0.id == a.id }?.isPriorityDownload == true)
@@ -171,6 +179,7 @@ import MacDLCore
         #expect(engine.paused.contains(c.id))
 
         vm.cancelPriorityDownload(id: a.id)
+        await drainMain()
         let afterCancel = vm.downloads
         #expect(afterCancel.first { $0.id == a.id }?.isPriorityDownload == false)
         #expect(afterCancel.first { $0.id == b.id }?.status == .active)
