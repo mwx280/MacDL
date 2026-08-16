@@ -53,6 +53,13 @@ final class SettingsStore {
         }
     }
 
+    /// Default per-download speed cap applied to new downloads (bytes/second;
+    /// 0 = unlimited). Each download can override it individually.
+    var defaultDownloadSpeed: Int {
+        get { defaults.integer(forKey: "defaultDownloadSpeed") }
+        set { defaults.set(newValue, forKey: "defaultDownloadSpeed") }
+    }
+
     var autoUpdate: Bool {
         get { defaults.object(forKey: "autoUpdate") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "autoUpdate") }

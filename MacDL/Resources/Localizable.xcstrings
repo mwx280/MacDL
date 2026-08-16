@@ -965,6 +965,40 @@
         }
       }
     },
+    "Default Speed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default Speed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认速度"
+          }
+        }
+      }
+    },
+    "Default Speed description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speed limit applied to new downloads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新建下载任务时应用的默认速度上限"
+          }
+        }
+      }
+    },
     "Adaptive" : {
       "extractionState" : "manual",
       "localizations" : {

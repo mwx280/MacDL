@@ -211,7 +211,7 @@ final class DownloadService {
             status: .active,
             savePath: savePath,
             saveBookmark: saveBookmark,
-            downloadLimit: dlLimit > 0 ? dlLimit : nil,
+            downloadLimit: dlLimit > 0 ? dlLimit : (settings.defaultDownloadSpeed > 0 ? settings.defaultDownloadSpeed : nil),
             maxConcurrentChunks: connections ?? settings.maxConnections,
             expectedChecksum: checksum,
             mirrors: mirrors.map(\.absoluteString)

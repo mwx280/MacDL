@@ -44,6 +44,18 @@ import Foundation
         store.maxDownloadSpeed = original
     }
 
+    @Test func defaultDownloadSpeedDefaultsToZero() {
+        let fresh = SettingsStore(defaults: UserDefaults(suiteName: "test-dspeed-\(UUID().uuidString)")!)
+        #expect(fresh.defaultDownloadSpeed == 0)
+    }
+
+    @Test func writeThenReadDefaultDownloadSpeed() {
+        let original = store.defaultDownloadSpeed
+        store.defaultDownloadSpeed = 1_048_576
+        #expect(store.defaultDownloadSpeed == 1_048_576)
+        store.defaultDownloadSpeed = original
+    }
+
     @Test func launchAtLoginPersists() {
         let original = store.launchAtLogin
         store.launchAtLogin = true

@@ -30,7 +30,7 @@ struct NewDownloadView: View {
         _downloadBookmark = State(initialValue: SettingsStore.shared.downloadPathBookmark)
         _model = State(initialValue: NewDownloadModel(
             defaultConnections: SettingsStore.shared.maxConnections,
-            defaultSpeedLimit: 0))
+            defaultSpeedLimit: SettingsStore.shared.defaultDownloadSpeed))
     }
 
     var body: some View {

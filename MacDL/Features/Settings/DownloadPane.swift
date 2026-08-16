@@ -6,6 +6,7 @@ struct DownloadPane: View {
     @State private var maxConcurrent: Int
     @State private var downloadPath: String
     @State private var maxDownloadSpeed: Int
+    @State private var defaultDownloadSpeed: Int
     @AppStorage("autoResumeOnLaunch") private var autoResumeOnLaunch = false
 
     private let connectionOptions = [0, 1, 2, 4, 8, 16] // 0 = Auto
@@ -16,6 +17,7 @@ struct DownloadPane: View {
         _maxConcurrent = State(initialValue: SettingsStore.shared.maxConcurrentDownloads)
         _downloadPath = State(initialValue: SettingsStore.shared.downloadPath)
         _maxDownloadSpeed = State(initialValue: SettingsStore.shared.maxDownloadSpeed)
+        _defaultDownloadSpeed = State(initialValue: SettingsStore.shared.defaultDownloadSpeed)
     }
 
     var body: some View {
@@ -84,6 +86,22 @@ struct DownloadPane: View {
                 }
 
                 divider
+
+                prefRow("speedometer", "Default Speed", description: "Default Speed description", color: .orange) {
+                    Picker(selection: $defaultDownloadSpeed) {
+                        ForEach(speedOptions, id: \.self) { speed in
+                            Text(speedLabel(speed))
+                                .tag(speed)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 100, alignment: .trailing)
+                    .onChange(of: defaultDownloadSpeed) { _, v in
+                        SettingsStore.shared.defaultDownloadSpeed = v
+                    }
+                }
             }
 
             card {
