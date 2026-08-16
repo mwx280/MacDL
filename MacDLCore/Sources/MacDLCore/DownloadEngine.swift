@@ -16,8 +16,13 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     // completion callbacks must not forward to the app or promote a queued
     // download — the app already handled the removal itself.
     private var discarded: Set<UUID> = []
+    // Downloads paused because a priority download is running. They are resumed
+    // by `endPriority` (or `registerPriorityPaused` on relaunch).
+    private var priorityPaused: Set<UUID> = []
     private let scheduler = DownloadScheduler(capacity: 1)
     private var onPromoted: ((UUID) -> Void)?
+    private var onPriorityPaused: ((UUID) -> Void)?
+    private var onPriorityResumed: ((UUID) -> Void)?
     private let syncQueue = DispatchQueue(label: "com.xiaowu.downloadengine.sync")
 
     /// Start parameters retained for a queued download until it is promoted.
@@ -65,6 +70,63 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     /// running (so the app can flip its status to active).
     public func setPromotionHandler(_ handler: @escaping (UUID) -> Void) {
         syncQueue.sync { onPromoted = handler }
+    }
+
+    /// Registers the callback fired when the engine pauses a download because a
+    /// priority download took over (so the app can mark it paused).
+    public func setPriorityPausedHandler(_ handler: @escaping (UUID) -> Void) {
+        syncQueue.sync { onPriorityPaused = handler }
+    }
+
+    /// Registers the callback fired when a priority-paused download is restored
+    /// (so the app can resume and reactivate it).
+    public func setPriorityResumedHandler(_ handler: @escaping (UUID) -> Void) {
+        syncQueue.sync { onPriorityResumed = handler }
+    }
+
+    /// Marks `id` as the priority download: every other running download is
+    /// paused and remembered for ``endPriority(excluding:)``, and the priority
+    /// download itself is started if it was queued or paused (bypassing the
+    /// cap). Fires ``onPriorityPaused`` for each download paused here.
+    public func setPriorityDownload(_ id: UUID) {
+        syncQueue.sync {
+            for pid in managers.keys where pid != id && scheduler.isRunning(pid) {
+                managers[pid]?.pause()
+                scheduler.discard(pid)
+                priorityPaused.insert(pid)
+                onPriorityPaused?(pid)
+            }
+            // Ensure the priority download itself runs.
+            if !scheduler.isRunning(id) {
+                if let manager = managers[id] {
+                    scheduler.forceRun(id)
+                    manager.resume()
+                } else if pendingStarts[id] != nil {
+                    scheduler.forceRun(id)
+                    startNow(id)
+                }
+                onPromoted?(id)
+            }
+        }
+    }
+
+    /// Ends priority mode, firing ``onPriorityResumed`` for every download paused
+    /// by ``setPriorityDownload(_:)`` except `skip`. The app drives the actual
+    /// resume (it may need to re-create a manager after a restart).
+    public func endPriority(excluding skip: UUID?) {
+        syncQueue.sync {
+            let toResume = priorityPaused
+            priorityPaused.removeAll()
+            for pid in toResume where pid != skip {
+                onPriorityResumed?(pid)
+            }
+        }
+    }
+
+    /// Re-registers the priority-paused set after a restart, so ``endPriority``
+    /// can restore them. The engine itself persists nothing.
+    public func registerPriorityPaused(_ ids: Set<UUID>) {
+        syncQueue.sync { priorityPaused.formUnion(ids) }
     }
 
     /// Schedules a download against the concurrency cap: starts it immediately

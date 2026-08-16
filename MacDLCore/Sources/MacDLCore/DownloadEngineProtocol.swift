@@ -15,6 +15,18 @@ public protocol DownloadEngineProtocol {
     func setMaxConcurrentDownloads(_ limit: Int)
     /// Registers the callback fired when a queued download is promoted to running.
     func setPromotionHandler(_ handler: @escaping (UUID) -> Void)
+    /// Registers the callback fired when the engine pauses a download for a
+    /// priority download.
+    func setPriorityPausedHandler(_ handler: @escaping (UUID) -> Void)
+    /// Registers the callback fired when a priority-paused download is restored.
+    func setPriorityResumedHandler(_ handler: @escaping (UUID) -> Void)
+    /// Marks a download as priority: pauses other running downloads and starts
+    /// the priority one if needed.
+    func setPriorityDownload(_ id: UUID)
+    /// Ends priority mode, signalling every priority-paused download to resume.
+    func endPriority(excluding skip: UUID?)
+    /// Re-registers the priority-paused set after a restart.
+    func registerPriorityPaused(_ ids: Set<UUID>)
     /// Resumes a paused download; false when nothing is tracked for the id.
     func resume(id: UUID) -> Bool
     /// Pauses the download.
