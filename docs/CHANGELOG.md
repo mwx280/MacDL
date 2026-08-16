@@ -58,6 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Retrying state callback: the engine reports when a stalled transfer is being
   re-established, so the app can surface "network interrupted, retrying"
   instead of a frozen counter.
+- Retrying row state: a download that is stalled and reconnecting shows a
+  "Retrying" status with an orange highlight across the row (status badge, file
+  icon, progress bar and background), and the speed slot is replaced by
+  "Network interrupted, retrying..." instead of a frozen 0 KB/s.
 
 ### Changed
 

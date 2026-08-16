@@ -39,18 +39,28 @@ struct DownloadRow: View {
 
                 if download.totalSize > 0 {
                     ProgressView(value: download.progress)
-                        .tint(download.status == .active ? .blue : .secondary)
+                        .tint(progressTint)
                 } else if download.status == .active || download.status == .waiting || isProbing {
                     ProgressView()
                         .progressViewStyle(.linear)
-                        .tint(download.status == .active ? .blue : .secondary)
+                        .tint(progressTint)
                 } else {
                     ProgressView(value: 0)
                         .tint(.secondary)
                 }
 
                 HStack(spacing: 8) {
-                    if isWaitingForServer {
+                    if isRetryingHighlight {
+                        // A stalled transfer shows the reconnecting message
+                        // instead of a frozen speed / "Waiting for server".
+                        if download.totalSize > 0 {
+                            HStack(spacing: 3) {
+                                Image(systemName: "gauge.with.dots.needle.50percent")
+                                    .font(.system(size: 9))
+                                Text(download.progress, format: .percent.precision(.fractionLength(1)))
+                            }
+                        }
+                    } else if isWaitingForServer {
                         HStack(spacing: 3) {
                             Image(systemName: "hourglass")
                                 .font(.system(size: 9))
@@ -70,7 +80,14 @@ struct DownloadRow: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
-                    if (download.status == .active || download.status == .waiting), !isWaitingForServer {
+                    if isRetryingHighlight {
+                        HStack(spacing: 3) {
+                            Image(systemName: "wifi.slash")
+                                .font(.system(size: 9))
+                            Text(LanguageManager.shared.localized("Network interrupted, retrying..."))
+                        }
+                        .foregroundStyle(.orange)
+                    } else if (download.status == .active || download.status == .waiting), !isWaitingForServer {
                         HStack(spacing: 3) {
                             Image(systemName: "arrow.down")
                                 .font(.system(size: 9))
@@ -94,6 +111,7 @@ struct DownloadRow: View {
             }
         }
         .padding(.vertical, 4)
+        .background(rowBackground)
         .contextMenu {
             if download.status == .active {
                 Button(action: { onPause?(download.id) }) {
@@ -162,23 +180,6 @@ struct DownloadRow: View {
         }
     }
 
-    private var fileIcon: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Image(systemName: download.fileTypeIcon)
-                .font(.title)
-                .foregroundStyle(download.fileTypeColor)
-            Circle()
-                .fill(download.status.displayColor)
-                .frame(width: 15, height: 15)
-                .overlay {
-                    Image(systemName: download.status.displayIcon)
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-                .offset(x: 4, y: 4)
-        }
-    }
-
     /// True while a task is probing or connected but hasn't received any bytes yet —
     /// a 0% figure at this point would look like it's stuck.
     private var isWaitingForServer: Bool {
@@ -186,17 +187,57 @@ struct DownloadRow: View {
         return download.downloadedSize == 0 && (download.status == .active || isProbing)
     }
 
+    /// True while the engine reports a stalled transfer being re-established.
+    /// Drives the orange "retrying" treatment across the row.
+    private var isRetryingHighlight: Bool {
+        download.isRetrying && (download.status == .active || download.status == .waiting)
+    }
+
+    private var fileIcon: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Image(systemName: download.fileTypeIcon)
+                .font(.title)
+                .foregroundStyle(download.fileTypeColor)
+            Circle()
+                .fill(isRetryingHighlight ? Color.orange : download.status.displayColor)
+                .frame(width: 15, height: 15)
+                .overlay {
+                    Image(systemName: isRetryingHighlight ? "exclamationmark" : download.status.displayIcon)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .offset(x: 4, y: 4)
+        }
+    }
+
     @ViewBuilder
     private var statusGroup: some View {
         HStack(spacing: 3) {
-            Image(systemName: isProbing ? "hourglass" : download.status.displayIcon)
+            Image(systemName: isRetryingHighlight
+                  ? "antenna.radiowaves.left.and.right.slash"
+                  : (isProbing ? "hourglass" : download.status.displayIcon))
                 .font(.caption2)
-            Text(isProbing
-                 ? LanguageManager.shared.localized("Preparing")
-                 : LanguageManager.shared.localized(download.status.labelKey))
+            Text(isRetryingHighlight
+                 ? LanguageManager.shared.localized("Retrying")
+                 : (isProbing
+                    ? LanguageManager.shared.localized("Preparing")
+                    : LanguageManager.shared.localized(download.status.labelKey)))
                 .font(.caption2)
         }
-        .foregroundStyle(isProbing ? Color.gray : download.status.displayColor)
+        .foregroundStyle(isRetryingHighlight ? Color.orange : (isProbing ? Color.gray : download.status.displayColor))
+    }
+
+    private var progressTint: Color {
+        if isRetryingHighlight { return .orange }
+        return download.status == .active ? .blue : .secondary
+    }
+
+    @ViewBuilder
+    private var rowBackground: some View {
+        if isRetryingHighlight {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.orange.opacity(0.07))
+        }
     }
 
     private func resumeGroup(_ canResume: Bool) -> some View {
