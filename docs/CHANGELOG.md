@@ -73,6 +73,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Download scheduling moved into the engine: a new `DownloadScheduler` owns the
+  global concurrency cap and FIFO waiting queue. `DownloadEngine.schedule()` /
+  `enqueue()` register downloads, and a completion or a grown cap promotes the
+  next queued download via a promotion callback. The app's `DownloadService`
+  no longer counts active downloads or promotes waiting ones itself; it hands
+  new/redownloaded tasks to the scheduler and flips a promoted download to
+  active. Pausing a download frees its slot without starting a replacement;
+  deleting it cancels the queued/running task. Persisted waiting downloads are
+  re-registered into the scheduler on launch, and changing the Max Downloads
+  setting resizes the cap live. Waiting downloads also start after priority
+  mode ends (previously they could stay stuck).
 - Chunk-state reconstruction moved into the engine: `CompletedRange`/`PartialChunk`
   and the rebuild/ensure/merge logic now live in `MacDLCore` (`Chunk.swift`), and
   the app's `Download` model delegates to it. Single source of truth for chunk

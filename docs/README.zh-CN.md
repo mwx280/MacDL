@@ -54,8 +54,9 @@
 
 | 文件 | 职责 |
 |------|------|
-| `DownloadEngine.swift` | 门面。每个下载对应一个 `ChunkManager`，所有控制调用统一走一条串行队列。 |
-| `DownloadEngineProtocol.swift` | 协议边界，方便测试注入替身。 |
+| `DownloadEngine.swift` | 门面。每个下载对应一个 `ChunkManager`；按全局并发上限调度下载；所有控制调用统一走一条串行队列。 |
+| `DownloadEngineProtocol.swift` | 协议边界，测试可注入假引擎。 |
+| `DownloadScheduler.swift` | 跨下载调度：纯 FIFO + 并发上限状态机，决定哪些下载运行、哪些等待，以及槽位释放后启动哪个排队的下载。 |
 | `ChunkManager.swift` | 协调单个下载：Range 探测、动态分块、多源调度、指数退避重试、故障转移、不支持 Range 时退回单线程。 |
 | `AutoConnectionPolicy.swift` | 纯自适应连接决策：冷启动连接数、跳步探测、限速冻结与收敛。 |
 | `ChunkingPolicy.swift` | 根据文件大小、RTT 和单连速率选择分块大小的纯函数。 |
@@ -99,7 +100,7 @@ ContentView ──────────────► ContentViewModel ─�
 | `App/MacDLApp.swift` | 程序入口。SwiftUI App、菜单栏图标、设置窗口、单实例限制、退出前确认有下载任务。 |
 | `App/MenuBarContent.swift` | 菜单栏操作：从剪贴板下载、显示/隐藏窗口、关于、偏好设置、退出。 |
 | `Features/Content/ContentViewModel.swift` | 面向 SwiftUI 的视图状态（选中项、过滤器），实际操作转发给 `DownloadService`。 |
-| `Features/Content/DownloadService.swift` | 下载生命周期：添加/暂停/续传/重试/重新下载/删除、等待队列、引擎完成后的处理、文件完整性检查。 |
+| `Features/Content/DownloadService.swift` | 下载生命周期：添加/暂停/续传/重试/重新下载/删除、引擎完成后的处理、文件完整性检查。调度交给引擎的调度器。 |
 | `Features/Content/DownloadStore.swift` | 下载列表的唯一数据源，负责读写持久化。 |
 | `Features/Content/DownloadEngineCoordinator.swift` | 注册引擎回调、控制进度保存频率、把错误映射成中文/英文文案。 |
 | `Features/Content/PriorityDownloadCoordinator.swift` | 优先下载的状态机：置顶、自动暂停其它任务、结束后的恢复。 |
@@ -127,7 +128,7 @@ ContentView ──────────────► ContentViewModel ─�
      → 失败 → 状态变为错误 → 重试 / 重新下载 / 删除
 ```
 
-单个下载和全局都设了并发上限，超出上限的任务进等待队列；某个任务结束后，会自动开始下一个等待中的下载。
+单个下载和全局都设了并发上限，超出上限的任务进等待队列。全局上限由引擎的 `DownloadScheduler` 持有：新下载在有槽位时立即开始，否则按 FIFO 排队；当某任务结束（或上限调大）时，经晋升回调自动开始下一个等待中的下载。
 
 **持久化**
 
@@ -172,9 +173,9 @@ MacDLTests/            应用测试（XCTest + 假引擎）
 
 ## 测试
 
-一共 295 个测试，分两套：
+一共 312 个测试，分两套：
 
-- **引擎（121 个）**：Swift Testing + 假 `URLProtocol`，不发真实网络请求。覆盖分块完整性、暂停/续传、限速、退避、单线程回退、Range 边界、多源故障转移、动态分块、块状态重建、stall 检测与重试、自适应策略交互、校验和、Metalink 解析、源调度和 FTP。
+- **引擎（138 个）**：Swift Testing + 假 `URLProtocol`，不发真实网络请求。覆盖分块完整性、暂停/续传、限速、退避、单线程回退、Range 边界、多源故障转移、动态分块、块状态重建、跨下载调度、stall 检测与重试、自适应策略交互、校验和、Metalink 解析、源调度和 FTP。
 - **应用（174 个）**：XCTest + 假引擎，不碰真实磁盘和通知中心。覆盖下载生命周期、优先流程、重复下载策略、持久化往返、Metalink 失败处理、更新状态机和本地化。
 
 CI（GitHub Actions）先跑引擎测试，再构建并测试应用。
