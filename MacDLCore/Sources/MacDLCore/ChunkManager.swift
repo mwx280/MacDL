@@ -852,6 +852,14 @@ public final class ChunkManager: @unchecked Sendable {
                     // Give a slow/flaky server one quick retry before failing.
                     // Never retry a user cancel, and skip when paused.
                     let isCancelled = (error as? DownloadError) == .cancelled
+                    // While the local link is down, hold the stream instead of
+                    // burning one of the few single-stream retries against a dead
+                    // network. networkRecovered() re-enters the stream.
+                    if !isCancelled, !self.isPaused, self.isNetworkFailure(error), self.isNetworkDown?() == true {
+                        self.setRetrying(true)
+                        EngineLog.manager.notice("single-stream held, network is down")
+                        return
+                    }
                     if !isCancelled, !self.isPaused, self.singleStreamRetries < EngineConstants.maxSingleStreamRetries {
                         self.singleStreamRetries += 1
                         // A single-stream failure means the whole transfer is
@@ -1043,11 +1051,18 @@ public final class ChunkManager: @unchecked Sendable {
     }
 
     /// Called by the engine when the network link comes back up: re-dispatches
-    /// the chunks that were held while it was down.
+    /// the chunks that were held while it was down, or re-enters a held
+    /// single-stream transfer.
     public func networkRecovered() {
         syncQueue.async {
             guard !self.isPaused else { return }
-            self.dispatchNext()
+            if self.singleStreamMode, self.singleStreamTask == nil {
+                self.singleStreamRetryItem?.cancel()
+                self.singleStreamRetryItem = nil
+                self.enterSingleStream()
+            } else {
+                self.dispatchNext()
+            }
         }
     }
 

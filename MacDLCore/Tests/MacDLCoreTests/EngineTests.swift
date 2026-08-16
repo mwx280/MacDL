@@ -457,6 +457,47 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
     }
 
+    @Test func singleStreamHoldsWhileNetworkDown() {
+        // Single-stream mode: the whole-file GET fails with a transport error
+        // while the link is down. It must hold (not burn its one retry), then
+        // complete once the link returns.
+        FakeURLProtocol.statusOverrideAfterStart = 0 // server ignores Range
+        FakeURLProtocol.failWholeFileTimes = 1
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        defer {
+            FakeURLProtocol.statusOverrideAfterStart = nil
+            FakeURLProtocol.failWholeFileTimes = 0
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-singleshold.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        var networkDown = true
+        manager.isNetworkDown = { networkDown }
+        let lock = NSLock()
+        var retrying: [Bool] = []
+        manager.onRetrying = { r in lock.lock(); retrying.append(r); lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        // Wait for the first whole-file GET (which fails with a transport error).
+        var deadline = Date().addingTimeInterval(5)
+        while FakeURLProtocol.requests.filter({ $0.value(forHTTPHeaderField: "Range") == nil }).isEmpty,
+              Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        Thread.sleep(forTimeInterval: 2.5) // past the 2s single-stream retry delay
+        let wholeFileRequests = FakeURLProtocol.requests.filter { $0.value(forHTTPHeaderField: "Range") == nil }
+        #expect(wholeFileRequests.count == 1) // held, no retry while the link is down
+        lock.lock(); let during = retrying; lock.unlock()
+        #expect(during.contains(true)) // shows the interrupted state while held
+        // Link returns: the engine re-enters single-stream and completes.
+        networkDown = false
+        manager.networkRecovered()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+    }
+
     @Test func throttledDownloadDoesNotFalseStall() {
         // Regression: a speed-limited download with many concurrent chunks must
         // never be mistaken for a stalled connection. The shared token bucket
