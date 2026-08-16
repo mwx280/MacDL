@@ -657,6 +657,9 @@ public final class ChunkManager: @unchecked Sendable {
                         EngineConstants.maxAutoConnections))
                     self.startAdaptTimer()
                     EngineLog.manager.notice("auto connections enabled, initial=\(self.maxConcurrent)")
+                } else {
+                    // Re-selecting auto gives the download a fresh chance.
+                    self.autoPolicy.resetCircuitBreaker()
                 }
             } else {
                 if self.isAutoConnections {
@@ -679,6 +682,7 @@ public final class ChunkManager: @unchecked Sendable {
             self.logTimer?.invalidate()
             self.logTimer = nil
             self.stopAdaptTimer()
+            self.autoPolicy.resetCircuitBreaker()
             self.stopStallCheck()
             self.setRetrying(false)
             self.bucket.stop()
@@ -711,7 +715,10 @@ public final class ChunkManager: @unchecked Sendable {
             self.singleStreamRetryItem = nil
             self.setRetrying(false)
             self.startStallCheck()
-            if self.isAutoConnections { self.startAdaptTimer() }
+            if self.isAutoConnections {
+                self.autoPolicy.resetCircuitBreaker()
+                self.startAdaptTimer()
+            }
             self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
             if self.singleStreamMode {
                 self.enterSingleStream()
@@ -766,6 +773,11 @@ public final class ChunkManager: @unchecked Sendable {
     /// failures (429/5xx). Test hook: transport failures must never freeze it.
     var isAutoPolicyFrozen: Bool {
         syncQueue.sync { autoPolicy.isFrozen }
+    }
+
+    /// Whether the adaptive policy's circuit breaker has tripped. Test hook.
+    var isAutoPolicyTripped: Bool {
+        syncQueue.sync { autoPolicy.isTripped }
     }
 
     /// The current adaptive connection cap. Test hook: lets tests observe the
@@ -1267,8 +1279,13 @@ public final class ChunkManager: @unchecked Sendable {
         guard isAutoConnections, !isPaused, !singleStreamMode else { return }
         let current = maxConcurrent
         let hasPending = pendingCount > 0
+        let wasTripped = autoPolicy.isTripped
         guard let next = autoPolicy.evaluate(currentConnections: current, hasPending: hasPending) else { return }
         let clamped = Swift.max(1, Swift.min(next, EngineConstants.maxAutoConnections))
+        if autoPolicy.isTripped, !wasTripped {
+            EngineLog.manager.warning("adaptive connections tripped, locking at \(clamped)")
+            stopAdaptTimer()
+        }
         guard clamped != current else { return }
         EngineLog.manager.notice("auto connections \(current) -> \(clamped)")
         maxConcurrent = clamped

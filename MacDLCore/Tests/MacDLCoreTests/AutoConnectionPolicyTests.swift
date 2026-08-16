@@ -164,6 +164,92 @@ import Foundation
         return policy
     }
 
+    // MARK: - Circuit breaker
+
+    @Test func monotonicClimbDoesNotTrip() {
+        var p = AutoConnectionPolicy(cooldown: 0, oscillationThreshold: 4, oscillationWindow: 60)
+        var t = t0
+        var conns = 1
+        settle(&p, speed: 1000)
+        for _ in 0..<8 {
+            if let next = p.evaluate(currentConnections: conns, hasPending: true, now: t) {
+                conns = next
+            }
+            t = t.addingTimeInterval(3)
+            settle(&p, speed: Int64(conns) * 1000)
+        }
+        // A steady climb in one direction never reverses, so it never trips.
+        #expect(p.isTripped == false)
+        #expect(conns > 4)
+    }
+
+    @Test func oscillationTripsCircuitBreaker() {
+        var p = AutoConnectionPolicy(cooldown: 0, oscillationThreshold: 4,
+                                     oscillationWindow: 60, tripConnectionCap: 4)
+        var t = t0
+        settle(&p, speed: 1000)
+
+        func cycle(up: Date, down: Date) {
+            _ = p.evaluate(currentConnections: 1, hasPending: true, now: up)
+            settle(&p, speed: 1000)
+            _ = p.evaluate(currentConnections: 2, hasPending: true, now: down)
+            p.forceConcurrencyCeiling(16)
+        }
+
+        cycle(up: t, down: t.addingTimeInterval(3))
+        #expect(p.isTripped == false)
+        cycle(up: t.addingTimeInterval(6), down: t.addingTimeInterval(9))
+        #expect(p.isTripped == false)
+
+        // The third up-probe is the fourth reversal, so it trips and locks down.
+        settle(&p, speed: 1000)
+        let tripped = p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(12))
+        #expect(p.isTripped == true)
+        #expect(tripped == 1)
+        // Locked down: further evaluations no longer adapt.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(15)) == nil)
+    }
+
+    @Test func resetCircuitBreakerUntrips() {
+        var p = AutoConnectionPolicy(cooldown: 0, oscillationThreshold: 2, oscillationWindow: 60)
+        var t = t0
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t) // up
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 2, hasPending: true, now: t.addingTimeInterval(3)) // down (rev 1)
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(6)) // up (rev 2 → trip)
+        #expect(p.isTripped == true)
+
+        p.resetCircuitBreaker()
+        #expect(p.isTripped == false)
+
+        // Adaptation resumes: it can probe upward again.
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(9)) == 2)
+    }
+
+    @Test func resetClearsTrip() {
+        var p = AutoConnectionPolicy(cooldown: 0, oscillationThreshold: 2, oscillationWindow: 60)
+        var t = t0
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t)
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 2, hasPending: true, now: t.addingTimeInterval(3))
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(6))
+        #expect(p.isTripped == true)
+
+        p.reset()
+        #expect(p.isTripped == false)
+
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(9)) == 2)
+    }
+
     // MARK: - Latency-weighted cold start
 
     @Test func initialCountWeightsRTT() {

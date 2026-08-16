@@ -99,6 +99,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the historical best before rolling back. A brief bandwidth dip no longer
   drops connections, while a sustained slowdown still returns to the best known
   count; upward probe scoring remains responsive through the existing EMA.
+- Adaptive connection circuit breaker: when the connection count keeps
+  reversing direction, the engine locks to a conservative count for the rest of
+  the download instead of oscillating. Pausing, resuming, changing the
+  connection mode or changing the speed limit gives the download a fresh chance.
 - Adaptive connections back off after repeated no-gain probes: when a speed
   limit or a saturated link caps throughput, the engine re-probes upward less
   and less often instead of churning, and skips the throttled cold-start

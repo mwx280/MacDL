@@ -50,6 +50,14 @@ public struct AutoConnectionPolicy: Sendable {
     /// Samples required before sustained throughput regression can trigger a
     /// connection rollback. Samples arrive roughly once per second.
     public let regressionWindowSize: Int
+    /// Direction reversals inside `oscillationWindow` that trip the circuit
+    /// breaker. Reversals (not raw changes) are counted so a healthy monotonic
+    /// climb to the optimum never trips it.
+    public let oscillationThreshold: Int
+    /// Sliding window over which direction reversals are counted.
+    public let oscillationWindow: TimeInterval
+    /// Connection count the policy locks to once tripped (never above this).
+    public let tripConnectionCap: Int
     /// Gain ratio at/above which the next probe jumps +3 connections.
     public let jumpThresholdHigh: Double
     /// Gain ratio at/above which the next probe jumps +2 connections.
@@ -77,6 +85,9 @@ public struct AutoConnectionPolicy: Sendable {
                 emaCoefficient: Double = 0.5,
                 regressThreshold: Double = 0.8,
                 regressionWindowSize: Int = 5,
+                oscillationThreshold: Int = 4,
+                oscillationWindow: TimeInterval = 60,
+                tripConnectionCap: Int = 4,
                 jumpThresholdHigh: Double = 1.3,
                 jumpThresholdLow: Double = 1.15,
                 reprobeInterval: TimeInterval = 30,
@@ -94,6 +105,9 @@ public struct AutoConnectionPolicy: Sendable {
         self.emaCoefficient = min(1, max(0, emaCoefficient))
         self.regressThreshold = min(1, max(0, regressThreshold))
         self.regressionWindowSize = max(1, regressionWindowSize)
+        self.oscillationThreshold = max(1, oscillationThreshold)
+        self.oscillationWindow = max(0, oscillationWindow)
+        self.tripConnectionCap = max(1, tripConnectionCap)
         self.jumpThresholdHigh = max(1, jumpThresholdHigh)
         self.jumpThresholdLow = max(1, jumpThresholdLow)
         self.reprobeInterval = max(0, reprobeInterval)
@@ -168,6 +182,11 @@ public struct AutoConnectionPolicy: Sendable {
     /// True while upward probing is frozen by a burst of retryable failures
     /// (429/5xx). Read-only; lets the engine and tests observe the state.
     public private(set) var isFrozen = false
+    /// True once the adaptive loop oscillated and locked itself down for the
+    /// rest of the download. Read-only; lets the engine and tests observe it.
+    public private(set) var isTripped = false
+    private var reversalTimes: [Date] = []
+    private var lastChangeDirection: Bool?
 
     /// Resets all adaptive state (used when auto mode is re-entered).
     public mutating func reset() {
@@ -189,6 +208,19 @@ public struct AutoConnectionPolicy: Sendable {
         lastFailureAt = nil
         isFrozen = false
         consecutiveNoGain = 0
+        isTripped = false
+        reversalTimes = []
+        lastChangeDirection = nil
+    }
+
+    /// Clears only the circuit breaker (trip + oscillation history), keeping
+    /// the learned best count and convergence state. Called on pause/resume,
+    /// connection-mode changes and speed-limit changes so the download gets a
+    /// fresh chance instead of staying locked down.
+    public mutating func resetCircuitBreaker() {
+        isTripped = false
+        reversalTimes = []
+        lastChangeDirection = nil
     }
 
     /// Smoothes a new aggregate-throughput sample (one per second). Uses an
@@ -260,6 +292,11 @@ public struct AutoConnectionPolicy: Sendable {
         // Without queued chunks there is nothing new to parallelize.
         guard hasPending else { return nil }
 
+        // Circuit breaker: once the loop has oscillated it stays locked down
+        // for the rest of the download, until reset by pause/resume, a
+        // connection-mode change or a speed-limit change.
+        guard !isTripped else { return nil }
+
         // Frozen: hold the count (dropping to the best known level) until the
         // error storm has passed.
         if isFrozen {
@@ -268,7 +305,7 @@ public struct AutoConnectionPolicy: Sendable {
                 failureTimes.removeAll()
             } else {
                 if currentConnections > bestConnections {
-                    return bestConnections
+                    return applyChange(bestConnections, from: currentConnections, now: now)
                 }
                 return nil
             }
@@ -286,7 +323,7 @@ public struct AutoConnectionPolicy: Sendable {
             isConverged = false
             convergedAt = nil
             clearRegressionWindow()
-            return bestConnections
+            return applyChange(bestConnections, from: currentConnections, now: now)
         }
 
         // Once converged, re-probe upward on a slow cadence so a network that
@@ -332,7 +369,7 @@ public struct AutoConnectionPolicy: Sendable {
                 ceiling = probePrevConnections
                 consecutiveNoGain += 1
                 clearRegressionWindow()
-                return probePrevConnections
+                return applyChange(probePrevConnections, from: currentConnections, now: now)
             }
         }
 
@@ -350,19 +387,22 @@ public struct AutoConnectionPolicy: Sendable {
         // faster on per-connection-throttled servers. Once a capped link has
         // burned several no-gain probes, back off to a single-connection step so
         // re-probes stay cheap.
-        let step: Int
-        if consecutiveNoGain >= noGainBackoffThreshold { step = 1 }
-        else if lastGainRatio >= jumpThresholdHigh { step = 3 }
-        else if lastGainRatio >= jumpThresholdLow { step = 2 }
-        else { step = 1 }
-        let next = Swift.min(currentConnections + step, ceiling)
+        let rawStep: Int
+        if consecutiveNoGain >= noGainBackoffThreshold { rawStep = 1 }
+        else if lastGainRatio >= jumpThresholdHigh { rawStep = 3 }
+        else if lastGainRatio >= jumpThresholdLow { rawStep = 2 }
+        else { rawStep = 1 }
+        // Defensive clamps: the probe step stays within 1...3 and the result
+        // never exceeds the configured connection ceiling.
+        let step = Swift.max(1, Swift.min(3, rawStep))
+        let next = Swift.min(Swift.min(currentConnections + step, ceiling), maxConnections)
         probePrevSpeed = smoothedSpeed
         probePrevConnections = currentConnections
         isProbing = true
         lastChangeAt = now
         stableCount = 0
         clearRegressionWindow()
-        return next
+        return applyChange(next, from: currentConnections, now: now)
     }
 
     /// Requires a complete window so a short dip cannot trigger a rollback.
@@ -377,6 +417,37 @@ public struct AutoConnectionPolicy: Sendable {
     private mutating func clearRegressionWindow() {
         regressionSamples.removeAll(keepingCapacity: true)
         regressionSampleTotal = 0
+    }
+
+    /// Records the direction of a connection change and trips the circuit
+    /// breaker once the loop reverses direction too many times inside
+    /// `oscillationWindow`. Reversals (not raw changes) are counted so a
+    /// healthy monotonic climb never trips it. On trip the in-flight probe is
+    /// abandoned and the policy locks to a conservative count.
+    private mutating func applyChange(_ newCount: Int, from current: Int, now: Date) -> Int {
+        let up = newCount > current
+        if let last = lastChangeDirection, last != up {
+            reversalTimes.append(now)
+            let window = oscillationWindow
+            reversalTimes.removeAll { now.timeIntervalSince($0) > window }
+            if reversalTimes.count >= oscillationThreshold {
+                isTripped = true
+                isProbing = false
+                stableCount = 0
+                isConverged = false
+                convergedAt = nil
+                return tripConnectionCount()
+            }
+        }
+        lastChangeDirection = up
+        return newCount
+    }
+
+    /// The connection count the policy locks to once tripped: the learned best,
+    /// capped at `tripConnectionCap` so a wildly oscillating download settles
+    /// conservatively.
+    private func tripConnectionCount() -> Int {
+        Swift.max(1, Swift.min(bestConnections, tripConnectionCap))
     }
 
     /// The re-probe cadence after convergence, backing off exponentially once a
