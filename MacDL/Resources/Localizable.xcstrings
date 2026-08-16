@@ -402,6 +402,22 @@
       }
     },
     "Appearance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外观"
+          }
+        }
+      }
+    },
     "Appearance description" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -415,22 +431,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "浅色、深色或跟随系统"
-          }
-        }
-      }
-    },
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appearance"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "外观"
           }
         }
       }
@@ -1186,6 +1186,23 @@
         }
       }
     },
+    "Download Completed description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify when a download finishes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载完成时发送通知"
+          }
+        }
+      }
+    },
     "Download failed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1199,6 +1216,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载失败"
+          }
+        }
+      }
+    },
+    "Download failed description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify when a download fails"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载失败时发送通知"
           }
         }
       }
@@ -1323,6 +1357,22 @@
       }
     },
     "Download Started" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download Started"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始下载"
+          }
+        }
+      }
+    },
     "Download Started description" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1336,22 +1386,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下载开始时发送通知"
-          }
-        }
-      }
-    },
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Download Started"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开始下载"
           }
         }
       }
@@ -1683,6 +1717,22 @@
 
     },
     "Hide Dock Icon on Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Dock Icon on Close"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭窗口后隐藏 Dock 图标"
+          }
+        }
+      }
+    },
     "Hide Dock Icon on Close description" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1696,22 +1746,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关闭主窗口后隐藏 Dock 图标"
-          }
-        }
-      }
-    },
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hide Dock Icon on Close"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭窗口后隐藏 Dock 图标"
           }
         }
       }
@@ -1972,6 +2006,22 @@
       }
     },
     "Language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言"
+          }
+        }
+      }
+    },
     "Language description" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1985,22 +2035,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择界面语言"
-          }
-        }
-      }
-    },
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Language"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "语言"
           }
         }
       }
@@ -3696,6 +3730,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重复链接提示"
+          }
+        }
+      }
+    },
+    "Redownload Prompt description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt when a link is already in the list"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接已在下载列表时提示"
           }
         }
       }

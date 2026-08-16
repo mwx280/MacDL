@@ -30,7 +30,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("checkmark.circle.fill", "Download Completed", color: .green) {
+                    prefRow("checkmark.circle.fill", "Download Completed", description: "Download Completed description", color: .green) {
                         Toggle("", isOn: $notifyCompleted)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -38,7 +38,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("xmark.circle.fill", "Download failed", color: .red) {
+                    prefRow("xmark.circle.fill", "Download failed", description: "Download failed description", color: .red) {
                         Toggle("", isOn: $notifyFailed)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
@@ -46,7 +46,7 @@ struct NotificationsPane: View {
 
                     divider
 
-                    prefRow("arrow.clockwise.circle", "Redownload Prompt", color: .blue) {
+                    prefRow("arrow.clockwise.circle", "Redownload Prompt", description: "Redownload Prompt description", color: .blue) {
                         Toggle("", isOn: $notifyRedownload)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
