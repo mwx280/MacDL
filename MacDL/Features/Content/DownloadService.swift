@@ -81,19 +81,17 @@ final class DownloadService {
             }
     }
 
-    @discardableResult
-    func downloadFromClipboard() -> Bool {
+    func downloadFromClipboard() {
         let text = NSPasteboard.general.string(forType: .string) ?? ""
-        return handleDownloadLinks(text)
+        handleDownloadLinks(text)
     }
 
-    @discardableResult
-    func handleDownloadLinks(_ text: String) -> Bool {
+    func handleDownloadLinks(_ text: String) {
         let links = Self.downloadLinks(from: text)
         guard !links.isEmpty else {
             notifier.notify(title: LanguageManager.shared.localized("No Download Link"),
                             body: LanguageManager.shared.localized("The clipboard doesn't contain a valid download link."))
-            return false
+            return
         }
         for link in links {
             if downloads.contains(where: { $0.url == link }) {
@@ -102,7 +100,6 @@ final class DownloadService {
                 addDownload(url: link)
             }
         }
-        return true
     }
 
     // MARK: - Download Actions

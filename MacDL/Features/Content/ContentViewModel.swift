@@ -125,13 +125,11 @@ final class ContentViewModel {
         DownloadService.downloadLinks(from: text)
     }
 
-    @discardableResult
-    func downloadFromClipboard() -> Bool {
+    func downloadFromClipboard() {
         service.downloadFromClipboard()
     }
 
-    @discardableResult
-    func handleDownloadLinks(_ text: String) -> Bool {
+    func handleDownloadLinks(_ text: String) {
         service.handleDownloadLinks(text)
     }
 

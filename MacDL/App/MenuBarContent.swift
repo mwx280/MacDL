@@ -5,11 +5,7 @@ struct MenuBarContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Button {
-            if ContentViewModel.shared.downloadFromClipboard() {
-                MacDLApp.showWindow()
-            }
-        } label: {
+        Button { ContentViewModel.shared.downloadFromClipboard() } label: {
             Label(title: { Text(verbatim: LanguageManager.shared.localized("Download from Clipboard")) }, icon: { Image(systemName: "arrow.down.doc") })
         }
 
