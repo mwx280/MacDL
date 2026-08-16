@@ -73,6 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Chunk-state reconstruction moved into the engine: `CompletedRange`/`PartialChunk`
+  and the rebuild/ensure/merge logic now live in `MacDLCore` (`Chunk.swift`), and
+  the app's `Download` model delegates to it. Single source of truth for chunk
+  semantics; the persisted JSON format is unchanged.
 - The launch notification is no longer posted at startup; the "Launch
   Notification" settings toggle is kept but currently has no effect.
 - Removed all Swift 6 concurrency-isolation build warnings: the engine classes

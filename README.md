@@ -96,7 +96,7 @@ swap in a fake engine and never touch the network or disk.
 | `ChunkDownloadTask.swift` | One range request. Event-driven writer (`NSCondition`, no polling) with a bounded buffer and backpressure. |
 | `ChunkSessionDelegate.swift` | Routes `URLSession` delegate callbacks to the owning chunk task. |
 | `TokenBucket.swift` | The speed-limit bucket shared by all chunks of a download, plus the global aggregate bucket. |
-| `Chunk.swift` | A byte range with progress; `Codable` so state survives restart. |
+| `Chunk.swift` | A byte range with progress; `Codable` so state survives restart. Owns chunk-state reconstruction: the compact resume format (`CompletedRange`/`PartialChunk`) and its rebuild/ensure/merge logic. |
 | `Source.swift` | One remote source (primary or mirror) with cooldown state and a throughput EWMA. |
 | `SourceScheduler.swift` | Smooth weighted round-robin across healthy sources. |
 | `SourceHistoryStore.swift` | Per-host download history (bandwidth/RTT) persisted across sessions. |
@@ -148,7 +148,7 @@ ContentView ──────────────► ContentViewModel ─�
 | `Features/Content/DownloadEngineCoordinator.swift` | Registers engine callbacks, throttles progress saves, maps errors to localized text. |
 | `Features/Content/PriorityDownloadCoordinator.swift` | Priority state machine: promote, auto-pause the others, restore when done. |
 | `Features/Content/ProgressPublisher.swift` | Publishes and updates the Finder `NSProgress` badge; owns cancellation. |
-| `Models/Download.swift` | Download model; compact persistence (merged completed ranges + per-chunk resume points). |
+| `Models/Download.swift` | Download model; compact persistence (merged completed ranges + per-chunk resume points). Chunk-state math delegates to the engine's `Chunk` extensions. |
 | `Models/DownloadPath.swift` | Single place that decides the `.macdl` staging and final destination paths. |
 | `Models/AppConfig.swift` | Resolves the real user Downloads folder under the sandbox. |
 | `Services/DownloadPersistence.swift` | Stores the list as JSON in Application Support, writes in the background, migrates legacy data. |
@@ -179,8 +179,10 @@ finishes, the next waiting download starts automatically.
 Chunk progress is not stored as the full chunk array. Instead it is compacted
 into merged contiguous completed ranges plus per-chunk resume offsets, so a
 finished 100 GB file persists as a handful of ranges instead of roughly 400,000
-chunk entries. Progress is saved every 5 seconds and flushed immediately on
-quit.
+chunk entries. The compacting and reconstruction are chunk semantics owned by
+the engine (`Chunk.completedRanges` / `Chunk.rebuildChunks`); the app model just
+stores and renders them. Progress is saved every 5 seconds and flushed
+immediately on quit.
 
 ## Requirements and build
 
@@ -221,13 +223,15 @@ MacDLTests/            App tests (XCTest + fake engine)
 
 ## Testing
 
-266 tests across two suites:
+295 tests across two suites:
 
-- **Engine (98)**: Swift Testing against a fake `URLProtocol`, no real network.
+- **Engine (121)**: Swift Testing against a fake `URLProtocol`, no real network.
   Covers chunk integrity, pause/resume, throttling, backoff, single-thread
   fallback, Range edge cases, multi-source failover, dynamic chunking,
-  checksum verification, Metalink parsing, source scheduling and FTP.
-- **App (168)**: XCTest with a fake engine, no real disk or notification
+  chunk-state reconstruction, stall detection and retrying, adaptive-policy
+  interactions, checksum verification, Metalink parsing, source scheduling and
+  FTP.
+- **App (174)**: XCTest with a fake engine, no real disk or notification
   center. Covers the download lifecycle, priority flow, duplicate policy,
   persistence round trips, Metalink failure handling, the update state machine
   and localization.
