@@ -122,6 +122,15 @@ final class DownloadNotifier: NSObject, UNUserNotificationCenterDelegate {
         send(title: title, body: body, id: UUID(), kind: "message", sound: false)
     }
 
+    /// Posts the "running in the background" notice when the app starts with
+    /// the main window suppressed, so the user knows the app is alive. Gated by
+    /// the Launch Notification setting.
+    func notifyLaunched() {
+        guard settings.notifyLaunch else { return }
+        notify(title: LanguageManager.shared.localized("MacDL is Running"),
+               body: LanguageManager.shared.localized("MacDL is running in the background"))
+    }
+
     func notifyCompleted(_ download: Download) {
         guard settings.notifyCompleted else { return }
         let dir = download.savePath ?? AppConfig.defaultDownloadDir
