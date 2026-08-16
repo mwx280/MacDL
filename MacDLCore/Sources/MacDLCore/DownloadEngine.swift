@@ -23,6 +23,11 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     private var onPromoted: ((UUID) -> Void)?
     private var onPriorityPaused: ((UUID) -> Void)?
     private var onPriorityResumed: ((UUID) -> Void)?
+    private var onNetworkChange: ((Bool) -> Void)?
+    // System link state, driven by `NetworkReachability` once monitoring starts.
+    // False by default so downloads are never held unless a real drop is seen.
+    private nonisolated(unsafe) var networkDown = false
+    private let reachability: NetworkReachability
     private let syncQueue = DispatchQueue(label: "com.xiaowu.downloadengine.sync")
 
     /// Start parameters retained for a queued download until it is promoted.
@@ -51,7 +56,44 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     }
 
     /// Creates an empty engine with no tracked downloads.
-    public init() {}
+    public init(reachability: NetworkReachability = NetworkReachability()) {
+        self.reachability = reachability
+    }
+
+    // MARK: - Network reachability
+
+    /// Starts monitoring the system link. While it is down, running downloads
+    /// hold their chunks instead of burning retries; when it returns, they are
+    /// kicked back to life.
+    public func startMonitoringNetwork() {
+        reachability.start { [weak self] _ in
+            self?.syncQueue.async { self?.handleReachabilityChange() }
+        }
+    }
+
+    /// Registers the callback fired when the system link state changes:
+    /// `true` = network available, `false` = link down.
+    public func setNetworkChangeHandler(_ handler: @escaping (Bool) -> Void) {
+        syncQueue.sync { onNetworkChange = handler }
+    }
+
+    /// Re-reads the reachability state and reacts: on a drop, mark the link
+    /// down; on a recovery, re-dispatch every manager that held chunks. Call on
+    /// syncQueue.
+    private func handleReachabilityChange() {
+        let satisfied = reachability.isSatisfied
+        let wasDown = networkDown
+        networkDown = !satisfied
+        if satisfied, wasDown {
+            EngineLog.app.notice("network recovered, resuming held downloads")
+            for (_, manager) in managers { manager.networkRecovered() }
+        } else if !satisfied, !wasDown {
+            EngineLog.app.notice("network link down, holding downloads")
+        }
+        if wasDown != networkDown {
+            onNetworkChange?(satisfied)
+        }
+    }
 
     // MARK: - Scheduling
 
@@ -169,6 +211,7 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
         guard let start = pendingStarts[id] else { return }
         let manager = ChunkManager(id: id, url: start.url, destinationURL: start.destinationURL, chunkSize: start.chunkSize, maxConcurrent: start.maxConcurrent, mirrors: start.mirrors)
         manager.setSpeedLimit(start.speedLimit)
+        manager.isNetworkDown = { [weak self] in self?.networkDown ?? false }
         applyHandlers(to: manager, id: id)
         managers[id]?.cancel()
         managers[id] = manager

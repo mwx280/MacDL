@@ -27,6 +27,12 @@ public protocol DownloadEngineProtocol {
     func endPriority(excluding skip: UUID?)
     /// Re-registers the priority-paused set after a restart.
     func registerPriorityPaused(_ ids: Set<UUID>)
+    /// Starts monitoring the system link; downloads hold chunks while it is down
+    /// and resume when it returns.
+    func startMonitoringNetwork()
+    /// Registers the callback fired when the system link state changes
+    /// (`true` = network available).
+    func setNetworkChangeHandler(_ handler: @escaping (Bool) -> Void)
     /// Resumes a paused download; false when nothing is tracked for the id.
     func resume(id: UUID) -> Bool
     /// Pauses the download.

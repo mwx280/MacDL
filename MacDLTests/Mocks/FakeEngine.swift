@@ -95,7 +95,21 @@ final class FakeEngine: DownloadEngineProtocol {
         priorityPausedIds.formUnion(ids)
     }
 
+    func startMonitoringNetwork() {
+        monitoredNetwork = true
+    }
+
+    func setNetworkChangeHandler(_ handler: @escaping (Bool) -> Void) {
+        networkChangeHandlers.append(handler)
+    }
+
     var isPriorityPaused: Set<UUID> { priorityPausedIds }
+    var monitoredNetwork = false
+    private var networkChangeHandlers: [(Bool) -> Void] = []
+
+    func fireNetworkChange(satisfied: Bool) {
+        for handler in networkChangeHandlers { handler(satisfied) }
+    }
 
     func resume(id: UUID) -> Bool {
         resumed.append(id)

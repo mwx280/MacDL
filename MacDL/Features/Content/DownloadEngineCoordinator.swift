@@ -27,6 +27,9 @@ final class DownloadEngineCoordinator {
     /// Called on the main thread when the engine restores a priority-paused
     /// download.
     var onPriorityResumed: ((UUID) -> Void)?
+    /// Called on the main thread when the system link state changes
+    /// (`true` = network available).
+    var onNetworkChange: ((Bool) -> Void)?
 
     private let engine: DownloadEngineProtocol
     private let store: DownloadStore
@@ -54,6 +57,9 @@ final class DownloadEngineCoordinator {
         engine.setPriorityResumedHandler { [weak self] id in
             self?.hopToMain { self?.onPriorityResumed?(id) }
         }
+        engine.setNetworkChangeHandler { [weak self] satisfied in
+            self?.hopToMain { self?.onNetworkChange?(satisfied) }
+        }
         capObserver = NotificationCenter.default.addObserver(
             forName: .maxConcurrentDownloadsChanged, object: nil, queue: .main) { [weak self] _ in
             self?.syncMaxConcurrentDownloads()
@@ -70,6 +76,12 @@ final class DownloadEngineCoordinator {
     /// scheduler (also re-syncs after the setting changes).
     func syncMaxConcurrentDownloads() {
         engine.setMaxConcurrentDownloads(settings.maxConcurrentDownloads)
+    }
+
+    /// Starts monitoring the system link so downloads hold while it is down and
+    /// resume when it returns.
+    func startMonitoringNetwork() {
+        engine.startMonitoringNetwork()
     }
 
     // MARK: - Task lifecycle

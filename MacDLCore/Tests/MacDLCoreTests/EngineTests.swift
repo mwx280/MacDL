@@ -351,6 +351,81 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(t.last == false)
     }
 
+    @Test func networkDownHoldsChunksUntilRecovery() {
+        // Reachability: while the local link is down, a failed chunk must be
+        // held (not retried, so it never burns its retry budget), the retrying
+        // state is shown, and the recovery kick re-dispatches it to completion.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.failAllTimes = 1 // first request fails with a network error
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-netdown.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        var networkDown = true
+        manager.isNetworkDown = { networkDown }
+        let lock = NSLock()
+        var retrying: [Bool] = []
+        manager.onRetrying = { r in lock.lock(); retrying.append(r); lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        // First probe fails (network error); while the link is down it must be
+        // held, not retried.
+        var deadline = Date().addingTimeInterval(10)
+        while FakeURLProtocol.requests.count < 1, Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+        Thread.sleep(forTimeInterval: 1.5) // past the 1s backoff that would have retried
+        #expect(FakeURLProtocol.requests.count == 1) // no retry churn while held
+        lock.lock(); let during = retrying; lock.unlock()
+        #expect(during.contains(true)) // shows the interrupted state while held
+        // Link returns: recovery kick re-dispatches and the download completes.
+        networkDown = false
+        manager.networkRecovered()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+    }
+
+    @Test func reachabilityDrivesEngineHoldAndRecovery() {
+        // End-to-end through the engine: the reachability monitor reports a link
+        // drop, downloads are held; when the link returns the engine kicks them
+        // and the download completes.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.failAllTimes = 1
+        let reachability = NetworkReachability()
+        let engine = DownloadEngine(reachability: reachability)
+        engine.startMonitoringNetwork()
+        let lock = NSLock()
+        var networkChanges: [Bool] = []
+        engine.setNetworkChangeHandler { s in lock.lock(); networkChanges.append(s); lock.unlock() }
+        // Link drops.
+        reachability.simulate(false)
+        var deadline = Date().addingTimeInterval(5)
+        while true {
+            lock.lock(); let changes = networkChanges; lock.unlock()
+            if changes.contains(false) { break }
+            if Date() >= deadline { break }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        lock.lock(); let downReported = networkChanges.contains(false); lock.unlock()
+        #expect(downReported)
+        // A download that fails while the link is down must be held.
+        let id = UUID()
+        let url = URL(string: "https://fake.example/f.bin")!
+        let sem = DispatchSemaphore(value: 0)
+        engine.setCompletionHandler(for: id) { _ in sem.signal() }
+        _ = engine.schedule(id: id, url: url,
+                            destinationURL: URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-reach.bin"),
+                            speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        deadline = Date().addingTimeInterval(10)
+        while FakeURLProtocol.requests.count < 1, Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+        Thread.sleep(forTimeInterval: 1.5)
+        #expect(FakeURLProtocol.requests.count == 1) // held while the link is down
+        // Link returns: the engine kicks the held download, which completes.
+        reachability.simulate(true)
+        #expect(waitSemaphore(sem, timeout: 30))
+        lock.lock(); let upReported = networkChanges.last == true; lock.unlock()
+        #expect(upReported)
+    }
+
     @Test func throttledDownloadDoesNotFalseStall() {
         // Regression: a speed-limited download with many concurrent chunks must
         // never be mistaken for a stalled connection. The shared token bucket

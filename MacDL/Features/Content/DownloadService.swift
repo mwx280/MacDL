@@ -51,6 +51,9 @@ final class DownloadService {
             guard let self else { return }
             if isProbing { self.probingDownloads.insert(id) } else { self.probingDownloads.remove(id) }
         }
+        // Watch the system link so the engine holds downloads while it is down
+        // and resumes them automatically when it returns.
+        coordinator.startMonitoringNetwork()
         coordinator.onPromotion = { [weak self] id in
             // The engine promoted a queued download: flip it to active so the
             // user sees it running.

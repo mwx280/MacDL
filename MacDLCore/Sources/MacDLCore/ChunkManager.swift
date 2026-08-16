@@ -115,6 +115,10 @@ public final class ChunkManager: @unchecked Sendable {
     /// `false` once bytes flow again or the download ends/pauses. Lets the app
     /// show "network interrupted, retrying" instead of a frozen counter.
     public var onRetrying: ((Bool) -> Void)?
+    /// Returns whether the local network link is currently down. Set by the
+    /// engine from reachability. While it returns true, the manager holds
+    /// chunks instead of burning retries, and waits for `networkRecovered()`.
+    public var isNetworkDown: (() -> Bool)?
 
     /// Creates a manager for one download. `maxConcurrent <= 0` selects auto
     /// mode: the engine picks the connection count from the probed file size
@@ -501,6 +505,19 @@ public final class ChunkManager: @unchecked Sendable {
             EngineLog.manager.error("chunk \(index) failed permanently after \(self.maxRetries) attempts")
             return false
         }
+        // While the local link is down (reachability), hold the chunk instead of
+        // burning a retry: requeue it pending without counting the attempt, and
+        // let the recovery kick re-dispatch it. The download shows the retrying
+        // state until the link returns.
+        if isNetworkFailure(error), isNetworkDown?() == true {
+            writtenBytes -= chunks[index].downloadedSize
+            chunks[index].status = .pending
+            markChunkDirty(index)
+            enqueuePending(index)
+            setRetrying(true)
+            EngineLog.manager.notice("chunk \(index) held, network is down")
+            return false
+        }
         retryCounts[index] = attempt
         writtenBytes -= chunks[index].downloadedSize
         chunks[index].status = .pending
@@ -880,6 +897,10 @@ public final class ChunkManager: @unchecked Sendable {
 
     private func dispatchNext() {
         guard !isPaused else { return }
+        // While the local link is down, hold every pending chunk: dispatching
+        // would only fail again. The engine's reachability recovery kick calls
+        // `networkRecovered()` when the link returns.
+        if isNetworkDown?() == true { return }
         let activeCount = activeTasks.count
         let canStart = max(0, maxConcurrent - activeCount)
         if canStart > 0, pendingHead < pendingIndices.count {
@@ -1017,6 +1038,15 @@ public final class ChunkManager: @unchecked Sendable {
         guard isRetrying != value else { return }
         isRetrying = value
         onRetrying?(value)
+    }
+
+    /// Called by the engine when the network link comes back up: re-dispatches
+    /// the chunks that were held while it was down.
+    public func networkRecovered() {
+        syncQueue.async {
+            guard !self.isPaused else { return }
+            self.dispatchNext()
+        }
     }
 
     private func checkDone() {
