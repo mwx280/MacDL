@@ -39,6 +39,10 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
     private(set) var isPaused = false
     private(set) var isCancelled = false
     private(set) var isCompleted = false
+    // Set when the engine's stall watchdog cancels the task. Distinct from a
+    // user cancel so the completion reports a retryable transport error instead
+    // of .cancelled.
+    private var stalled = false
     private var speedCheckTime: Date = .distantPast
     private var speedCheckBytes: Int64 = 0
 
@@ -131,6 +135,19 @@ public final class ChunkDownloadTask: NSObject, @unchecked Sendable {
         dataCondition.broadcast()
         dataCondition.unlock()
         bucket?.stop()
+        dataTask?.cancel()
+        cleanup()
+    }
+
+    /// Cancels the transfer as a stalled connection (no bytes for a while).
+    /// The completion then surfaces a retryable network timeout so the engine
+    /// re-dispatches the chunk instead of treating the cancel as a user action.
+    func cancelAsStall() {
+        dataCondition.lock()
+        guard !stalled else { dataCondition.unlock(); return }
+        stalled = true
+        dataCondition.broadcast()
+        dataCondition.unlock()
         dataTask?.cancel()
         cleanup()
     }
@@ -233,7 +250,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
     }
 
     public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        guard !isCancelled, !isPaused else { return }
+        guard !isCancelled, !isPaused, !stalled else { return }
         dataCondition.lock()
         pendingData.append(data)
         let overCap = pendingData.count > bufferCap
@@ -244,7 +261,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         // Buffer over its cap: wait (not poll) until the writer drains below it,
         // keeping memory bounded without a sleep loop.
         dataCondition.lock()
-        while !isCancelled && !isPaused && pendingData.count > bufferCap {
+        while !isCancelled && !isPaused && !stalled && pendingData.count > bufferCap {
             dataCondition.wait()
         }
         dataCondition.unlock()
@@ -268,10 +285,10 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
         while true {
             dataCondition.lock()
             // Sleep until data arrives or the response ends — no polling.
-            while pendingData.isEmpty && !isCancelled && !isPaused && !isCompleted && !responseComplete {
+            while pendingData.isEmpty && !isCancelled && !isPaused && !isCompleted && !responseComplete && !stalled {
                 dataCondition.wait()
             }
-            if isCancelled || isPaused || isCompleted {
+            if isCancelled || isPaused || isCompleted || stalled {
                 dataCondition.unlock()
                 return
             }
@@ -292,7 +309,7 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                 // downloads; it is shared and only throttles when a global limit
                 // is set (rate > 0).
                 if Self.globalBucket.take(Double(c.count)) == false { return }
-                if isCancelled || isPaused || isCompleted { return }
+                if isCancelled || isPaused || isCompleted || stalled { return }
                 guard let fh = fileHandle else { return }
                 fh.write(c)
                 bytesWritten += Int64(c.count)
@@ -335,7 +352,13 @@ extension ChunkDownloadTask: URLSessionDataDelegate {
                     dataCondition.unlock()
                     return
                 }
-                finish(with: .failure(DownloadError.cancelled))
+                if stalled {
+                    // The stall watchdog cancelled the task: surface a retryable
+                    // transport error so the engine retries the chunk.
+                    finish(with: .failure(DownloadError.network(URLError(.timedOut))))
+                } else {
+                    finish(with: .failure(DownloadError.cancelled))
+                }
             } else {
                 finish(with: .failure(error))
             }

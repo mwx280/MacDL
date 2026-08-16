@@ -68,6 +68,9 @@ public struct Download: Identifiable, Codable, Sendable {
     public var supportsResume: Bool?
     public var isPriorityDownload: Bool?
     public var pausedForPriority: Bool?
+    /// Transient: true while the engine reports a stalled transfer being
+    /// re-established. Never persisted; a relaunch restarts clean.
+    public var isRetrying: Bool = false
 
     public var progress: Double {
         totalSize > 0 ? min(Double(downloadedSize) / Double(totalSize), 1.0) : 0

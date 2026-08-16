@@ -34,4 +34,7 @@ public protocol DownloadEngineProtocol {
     /// Registers the chunk-size callback, fired when the probe picks a dynamic
     /// chunk size.
     func setChunkSizeHandler(for id: UUID, handler: @escaping (Int64) -> Void)
+    /// Registers the retrying callback: `true` while a stalled transfer is being
+    /// re-established, `false` once bytes flow again or the download ends.
+    func setRetryingHandler(for id: UUID, handler: @escaping (Bool) -> Void)
 }

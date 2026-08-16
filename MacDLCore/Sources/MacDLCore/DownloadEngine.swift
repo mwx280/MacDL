@@ -119,4 +119,10 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     public func setChunkSizeHandler(for id: UUID, handler: @escaping (Int64) -> Void) {
         syncQueue.sync { managers[id]?.onChunkSizeChanged = handler }
     }
+
+    /// Registers the retrying callback: `true` while a stalled transfer is being
+    /// re-established, `false` once bytes flow again or the download ends.
+    public func setRetryingHandler(for id: UUID, handler: @escaping (Bool) -> Void) {
+        syncQueue.sync { managers[id]?.onRetrying = handler }
+    }
 }

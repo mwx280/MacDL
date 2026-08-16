@@ -13,6 +13,13 @@ final class FakeURLProtocol: URLProtocol {
     // Fail the next N requests of any kind with a transport error and no HTTP
     // response (simulates an unreachable server), for probe-failure tests.
     nonisolated(unsafe) static var failAllTimes = 0
+    // Deliver no response and never finish for the next N requests (silent
+    // stall: simulates a half-open connection that sends nothing and errors
+    // nothing), for stall-detection tests.
+    nonisolated(unsafe) static var hangNextRequestTimes = 0
+    // Same, but only for whole-file (no Range) requests, exercising the
+    // single-stream stall path.
+    nonisolated(unsafe) static var hangWholeFileTimes = 0
     // When > 0, each request delivers its body in slices at this byte/second
     // rate (independently per connection), so N connections yield ~N× throughput.
     nonisolated(unsafe) static var perConnectionRate: Int64 = 0
@@ -78,6 +85,17 @@ final class FakeURLProtocol: URLProtocol {
         if Self.failAllTimes > 0 {
             Self.failAllTimes -= 1
             client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
+            return
+        }
+
+        // Silent stall: never deliver a response and never finish, so URLSession
+        // sees an in-flight request that produces neither data nor an error.
+        if Self.hangWholeFileTimes > 0, rangeHeader == nil {
+            Self.hangWholeFileTimes -= 1
+            return
+        }
+        if Self.hangNextRequestTimes > 0 {
+            Self.hangNextRequestTimes -= 1
             return
         }
 
@@ -192,6 +210,8 @@ final class FakeURLProtocol: URLProtocol {
         statusOverrideAfterStart = nil
         failWholeFileTimes = 0
         failAllTimes = 0
+        hangNextRequestTimes = 0
+        hangWholeFileTimes = 0
         perConnectionRate = 0
         perHostRates.removeAll()
         failingHosts.removeAll()

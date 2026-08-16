@@ -237,6 +237,89 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(failed)
     }
 
+    @Test func stalledProbeRecoversAndCompletes() {
+        // The probe request silently stalls (no response, no error — a
+        // half-open connection). The stall watchdog must cancel it and the
+        // retried probe must complete the download, instead of waiting out the
+        // URLSession request timeout.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.hangNextRequestTimes = 1
+        ChunkManager.stallTimeoutOverride = 0.3
+        ChunkManager.stallCheckIntervalOverride = 0.1
+        defer {
+            FakeURLProtocol.hangNextRequestTimes = 0
+            ChunkManager.stallTimeoutOverride = nil
+            ChunkManager.stallCheckIntervalOverride = nil
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-stallprobe.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+        // The hung request plus the successful retry.
+        #expect(FakeURLProtocol.requests.count >= 2)
+    }
+
+    @Test func stalledSingleStreamRetriesAndCompletes() {
+        // Single-stream mode: the whole-file GET silently stalls. The watchdog
+        // must cancel it and the one quick retry must complete the download.
+        FakeURLProtocol.statusOverrideAfterStart = 0 // server ignores Range
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.hangWholeFileTimes = 1
+        ChunkManager.stallTimeoutOverride = 0.3
+        ChunkManager.stallCheckIntervalOverride = 0.1
+        defer {
+            FakeURLProtocol.statusOverrideAfterStart = nil
+            FakeURLProtocol.hangWholeFileTimes = 0
+            ChunkManager.stallTimeoutOverride = nil
+            ChunkManager.stallCheckIntervalOverride = nil
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-stallsingle.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+    }
+
+    @Test func retryingCallbackTracksStallRecovery() {
+        // onRetrying must fire true when the stall is detected and clear once
+        // the retried transfer makes progress again (or completes).
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.hangNextRequestTimes = 1
+        ChunkManager.stallTimeoutOverride = 0.3
+        ChunkManager.stallCheckIntervalOverride = 0.1
+        defer {
+            FakeURLProtocol.hangNextRequestTimes = 0
+            ChunkManager.stallTimeoutOverride = nil
+            ChunkManager.stallCheckIntervalOverride = nil
+        }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-retrying.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let lock = NSLock()
+        var transitions: [Bool] = []
+        manager.onRetrying = { r in lock.lock(); transitions.append(r); lock.unlock() }
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 30))
+        #expect(ok)
+        lock.lock()
+        let t = transitions
+        lock.unlock()
+        #expect(t.contains(true))
+        #expect(t.last == false)
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+    }
+
     @Test func resumeAllChunksCompletedReportsDone() {
         // A download whose persisted chunks are all complete must still fire
         // the completion callback, or a crash between the last chunk write and

@@ -296,6 +296,26 @@ import MacDLCore
         #expect(!requests.contains { $0.identifier == a.id.uuidString + "-failed" })
     }
 
+    @Test func retryingHandlerUpdatesDownloadState() async {
+        // The engine's "stalled, retrying" signal must land on the model so the
+        // UI can show it; it is transient and starts false.
+        let engine = FakeEngine()
+        let vm = makeVM(engine: engine)
+        let url = "https://example.com/retry.bin"
+        vm.addDownload(url: url)
+        guard let id = vm.downloads.first(where: { $0.url == url })?.id else {
+            Issue.record("download not created")
+            return
+        }
+        #expect(vm.downloads.first { $0.id == id }?.isRetrying == false)
+        engine.fireRetrying(id: id, retrying: true)
+        await drainMain()
+        #expect(vm.downloads.first { $0.id == id }?.isRetrying == true)
+        engine.fireRetrying(id: id, retrying: false)
+        await drainMain()
+        #expect(vm.downloads.first { $0.id == id }?.isRetrying == false)
+    }
+
     private func drainMain() async {
         // Let the queued main-actor completion task run before asserting.
         for _ in 0..<8 { await Task.yield() }

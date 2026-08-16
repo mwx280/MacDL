@@ -58,6 +58,17 @@ public final class ChunkManager: @unchecked Sendable {
     private var singleStreamRetryItem: DispatchWorkItem?
     private var recoveryAttempts = 0
     private var recoveryWorkItem: DispatchWorkItem?
+    // Last moment the aggregate made progress (any chunk wrote bytes). Drives
+    // the stall watchdog: a download silent for `stallTimeout` is treated as a
+    // dropped connection and its active tasks are cancelled for a fast retry.
+    private var lastProgressTime = Date()
+    // Chunk indices cancelled by the stall watchdog; their failures must not be
+    // fed to the adaptive connection policy or the source cooldown counter.
+    private var stalledChunks = Set<Int>()
+    private var stallCheckWorkItem: DispatchWorkItem?
+    private var isStallChecking = false
+    // Current "retrying after a stall" state, edge-triggered via onRetrying.
+    private var isRetrying = false
 
     private let maxRetries = EngineConstants.maxChunkRetries
     private let bucket = TokenBucket(rate: 0)
@@ -67,6 +78,10 @@ public final class ChunkManager: @unchecked Sendable {
     nonisolated(unsafe) static var recoveryProbeBaseOverride: TimeInterval?
     /// Test hook overriding the source cooldown interval.
     nonisolated(unsafe) static var sourceCooldownOverride: TimeInterval?
+    /// Test hook overriding the stall timeout.
+    nonisolated(unsafe) static var stallTimeoutOverride: TimeInterval?
+    /// Test hook overriding the stall-check cadence.
+    nonisolated(unsafe) static var stallCheckIntervalOverride: TimeInterval?
 
     private let syncQueue = DispatchQueue(label: "com.xiaowu.chunkmanager.sync")
     private var logTimer: Timer?
@@ -95,6 +110,10 @@ public final class ChunkManager: @unchecked Sendable {
     /// Called once the probe picked a dynamic chunk size, so the app can persist
     /// it for resume.
     public var onChunkSizeChanged: ((Int64) -> Void)?
+    /// Edge-triggered: `true` while a stalled transfer is being re-established,
+    /// `false` once bytes flow again or the download ends/pauses. Lets the app
+    /// show "network interrupted, retrying" instead of a frozen counter.
+    public var onRetrying: ((Bool) -> Void)?
 
     /// Creates a manager for one download. `maxConcurrent <= 0` selects auto
     /// mode: the engine picks the connection count from the probed file size
@@ -126,6 +145,7 @@ public final class ChunkManager: @unchecked Sendable {
         startLogTimer()
         syncQueue.async {
             self.singleStreamRetries = 0
+            self.startStallCheck()
             if self.isFTP {
                 // FTP has no Range support: skip the probe and stream the whole
                 // file in one go.
@@ -144,6 +164,7 @@ public final class ChunkManager: @unchecked Sendable {
         syncQueue.async {
             self.singleStreamRetries = 0
             self.onPhaseChanged?(false)
+            self.startStallCheck()
             self.totalSize = totalSize
             self.chunks = existing
             var completed = 0
@@ -201,6 +222,7 @@ public final class ChunkManager: @unchecked Sendable {
         activeTasks[0] = task
         probeStartTime = Date()
         probeDataStartTime = nil
+        lastProgressTime = Date()
         task.start(resumeFrom: 0)
     }
 
@@ -316,6 +338,7 @@ public final class ChunkManager: @unchecked Sendable {
                 var willRetry = false
                 switch result {
                 case .success:
+                    self.stalledChunks.remove(index)
                     guard index < self.chunks.count else { return }
                     // Guard against short reads: a chunk that finished with fewer
                     // bytes than its range (server closed early / bucket stopped)
@@ -385,7 +408,8 @@ public final class ChunkManager: @unchecked Sendable {
                         }
                     }
                 case .failure(let error):
-                    willRetry = self.handleChunkFailure(index, error: error)
+                    let isStall = self.stalledChunks.remove(index) != nil
+                    willRetry = self.handleChunkFailure(index, error: error, isStall: isStall)
                 }
                 self.updateProgress()
                 self.notifyChunksChanged()
@@ -403,7 +427,7 @@ public final class ChunkManager: @unchecked Sendable {
     /// Returns true when a retry was scheduled (the caller should NOT immediately
     /// re-dispatch, so a 429/5xx storm doesn't double-open connections).
     @discardableResult
-    private func handleChunkFailure(_ index: Int, error: Error) -> Bool {
+    private func handleChunkFailure(_ index: Int, error: Error, isStall: Bool = false) -> Bool {
         guard index < chunks.count else { return false }
         // A 429 means the server rate-limits concurrent requests. Degrade to a
         // single connection immediately instead of letting the adaptive policy
@@ -412,8 +436,10 @@ public final class ChunkManager: @unchecked Sendable {
             handleRateLimit()
         }
         // Feed retryable failures (429/5xx/network) to the auto policy so a
-        // stressed server stops being probed upward.
-        if isAutoConnections, (error as? DownloadError)?.isRetryable != false {
+        // stressed server stops being probed upward. Stalls are a local-link
+        // problem, not server stress — skip them so a network drop does not
+        // freeze the connection count.
+        if isAutoConnections, (error as? DownloadError)?.isRetryable != false, !isStall {
             autoPolicy.recordFailure()
         }
         if let dlError = error as? DownloadError, !dlError.isRetryable {
@@ -432,7 +458,9 @@ public final class ChunkManager: @unchecked Sendable {
         // source instead of the failing one. Returns false (no backoff timer) so
         // the caller re-dispatches now. Without an alternative source the chunk
         // keeps the normal retry path (and fails once retries are exhausted).
-        if sources.count > 1, let si = chunkSource[index] {
+        // Stalls are excluded: a dropped local link is not a source-specific
+        // fault, so it must not cool the source down.
+        if sources.count > 1, let si = chunkSource[index], !isStall {
             let cooldown = Self.sourceCooldownOverride ?? EngineConstants.sourceCooldownInterval
             sources[si].recordFailure(now: Date(),
                                       threshold: EngineConstants.sourceFailureThreshold,
@@ -589,6 +617,8 @@ public final class ChunkManager: @unchecked Sendable {
             self.logTimer?.invalidate()
             self.logTimer = nil
             self.stopAdaptTimer()
+            self.stopStallCheck()
+            self.setRetrying(false)
             self.bucket.stop()
             self.recentChunkSpeeds.removeAll()
             // Freeze scheduling: cancel pending retries and clear the queue so
@@ -617,6 +647,8 @@ public final class ChunkManager: @unchecked Sendable {
             self.singleStreamRetries = 0
             self.singleStreamRetryItem?.cancel()
             self.singleStreamRetryItem = nil
+            self.setRetrying(false)
+            self.startStallCheck()
             if self.isAutoConnections { self.startAdaptTimer() }
             self.bucket.reset(rate: self.speedLimit > 0 ? Double(self.speedLimit) : 0)
             if self.singleStreamMode {
@@ -646,6 +678,8 @@ public final class ChunkManager: @unchecked Sendable {
             self.logTimer?.invalidate()
             self.logTimer = nil
             self.stopAdaptTimer()
+            self.stopStallCheck()
+            self.setRetrying(false)
             self.bucket.stop()
             for (_, item) in self.retryWorkItems { item.cancel() }
             self.retryWorkItems.removeAll()
@@ -758,6 +792,7 @@ public final class ChunkManager: @unchecked Sendable {
                     // Backfill the real size now that the stream finished, so the
                     // final progress report and persisted state carry the actual total.
                     self.singleStreamTotal = self.singleStreamBytes
+                    self.setRetrying(false)
                     self.onProgress?(self.singleStreamTotal, self.singleStreamTotal, self.downloadSpeed)
                     self.onCompletion?(.success(()))
                 case .failure(let error):
@@ -775,6 +810,7 @@ public final class ChunkManager: @unchecked Sendable {
                         self.singleStreamRetryItem = item
                         self.syncQueue.asyncAfter(deadline: .now() + EngineConstants.singleStreamRetryDelay, execute: item)
                     } else {
+                        self.setRetrying(false)
                         self.lastError = error
                         self.onCompletion?(.failure(error))
                     }
@@ -782,11 +818,13 @@ public final class ChunkManager: @unchecked Sendable {
             }
         }
         singleStreamTask = task
+        lastProgressTime = Date()
         task.start(resumeFrom: 0)
     }
 
     private func updateSingleStreamProgress() {
         let now = Date()
+        lastProgressTime = now
         if lastLogTime == .distantPast {
             lastLogTime = now
             lastLogBytes = singleStreamBytes
@@ -797,6 +835,7 @@ public final class ChunkManager: @unchecked Sendable {
             lastLogTime = now
             lastLogBytes = singleStreamBytes
             if isAutoConnections { autoPolicy.record(speed: downloadSpeed) }
+            if downloadSpeed > 0, isRetrying { setRetrying(false) }
         }
         let total = singleStreamTotal > 0 ? singleStreamTotal : 0
         onProgress?(singleStreamBytes, total, downloadSpeed)
@@ -839,6 +878,11 @@ public final class ChunkManager: @unchecked Sendable {
                 chunks[idx].status = .downloading
                 markChunkDirty(idx)
 
+                // A fresh request restarts the stall clock: give it a full
+                // stallTimeout before judging it idle, so a retry is not
+                // cancelled before its first bytes arrive.
+                lastProgressTime = Date()
+
                 let chunk = chunks[idx]
                 let task = ChunkDownloadTask(
                     chunkIndex: idx,
@@ -871,6 +915,68 @@ public final class ChunkManager: @unchecked Sendable {
         }
     }
 
+    // MARK: - Stall detection
+
+    /// Starts the periodic stall watchdog. Call on syncQueue.
+    private func startStallCheck() {
+        guard !isStallChecking else { return }
+        isStallChecking = true
+        scheduleStallCheck()
+    }
+
+    /// Stops the stall watchdog. Call on syncQueue.
+    private func stopStallCheck() {
+        isStallChecking = false
+        stallCheckWorkItem?.cancel()
+        stallCheckWorkItem = nil
+    }
+
+    /// Self-rearming tick on the sync queue (no RunLoop dependency). Called on
+    /// syncQueue; stops when the download pauses, cancels or finishes.
+    private func scheduleStallCheck() {
+        guard isStallChecking else { return }
+        stallCheckWorkItem?.cancel()
+        let interval = Self.stallCheckIntervalOverride ?? EngineConstants.stallCheckInterval
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.syncQueue.async {
+                self.checkForStalls()
+                if self.isStallChecking {
+                    self.scheduleStallCheck()
+                }
+            }
+        }
+        stallCheckWorkItem = item
+        syncQueue.asyncAfter(deadline: .now() + interval, execute: item)
+    }
+
+    /// A download that has delivered no bytes for `stallTimeout` is treated as
+    /// a silent network drop (half-open connection): cancel every active task so
+    /// the chunks retry instead of waiting out the URLSession request timeout.
+    /// Detection is download-level on purpose — an aggregate speed limit still
+    /// lets bytes flow (other chunks keep progressing), so throttling can never
+    /// trip it, while a local network drop stops the whole download at once.
+    /// Call on syncQueue.
+    private func checkForStalls() {
+        guard !isPaused, !activeTasks.isEmpty || singleStreamTask != nil else { return }
+        let timeout = Self.stallTimeoutOverride ?? EngineConstants.stallTimeout
+        let idle = Date().timeIntervalSince(lastProgressTime)
+        guard idle > timeout else { return }
+        EngineLog.manager.warning("transfer stalled (idle \(Int(idle))s), cancelling active tasks")
+        setRetrying(true)
+        stalledChunks = Set(activeTasks.keys)
+        for (_, task) in activeTasks { task.cancelAsStall() }
+        if let sst = singleStreamTask { sst.cancelAsStall() }
+    }
+
+    /// Edge-triggered "retrying after a stall" state, so the app is not spammed
+    /// with repeated callbacks. Call on syncQueue.
+    private func setRetrying(_ value: Bool) {
+        guard isRetrying != value else { return }
+        isRetrying = value
+        onRetrying?(value)
+    }
+
     private func checkDone() {
         let done = completedCount
         let failed = failedCount
@@ -878,6 +984,8 @@ public final class ChunkManager: @unchecked Sendable {
         logTimer?.invalidate()
         logTimer = nil
         stopAdaptTimer()
+        stopStallCheck()
+        setRetrying(false)
         recoveryWorkItem?.cancel()
         recoveryWorkItem = nil
         // Flush the final chunk state before reporting done so the app
@@ -971,6 +1079,7 @@ public final class ChunkManager: @unchecked Sendable {
 
     private func updateProgress() {
         let now = Date()
+        lastProgressTime = now
         if lastLogTime == .distantPast {
             lastLogTime = now
             lastLogBytes = writtenBytes
@@ -982,6 +1091,8 @@ public final class ChunkManager: @unchecked Sendable {
             lastLogTime = now
             lastLogBytes = writtenBytes
             if isAutoConnections { autoPolicy.record(speed: downloadSpeed) }
+            // Bytes are flowing again after a stall: drop the retrying state.
+            if downloadSpeed > 0, isRetrying { setRetrying(false) }
         }
         let total = chunks.last?.endOffset ?? totalSize
         onProgress?(writtenBytes, total, downloadSpeed)

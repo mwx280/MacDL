@@ -49,6 +49,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Notification tap opens the main window: tapping a download notification now
   brings up the main window (previously it did nothing), and the window-opening
   logic is centralized so the menu bar "Show Window" action reuses it.
+- Stall detection: a download whose aggregate throughput has been zero for a
+  few seconds (silent network drop / half-open connection) now cancels and
+  retries its active tasks instead of waiting out the URLSession request
+  timeout, so a dropped link is detected and re-established much faster. The
+  stall signal is kept separate from the adaptive connection policy and source
+  cooldown, so a local network drop never reads as server-side stress.
+- Retrying state callback: the engine reports when a stalled transfer is being
+  re-established, so the app can surface "network interrupted, retrying"
+  instead of a frozen counter.
 
 ### Changed
 

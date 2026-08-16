@@ -238,6 +238,12 @@ final class DownloadEngineCoordinator {
             }
         }
 
+        engine.setRetryingHandler(for: id) { [weak self] retrying in
+            self?.hopToMain {
+                self?.store.update(id) { $0.isRetrying = retrying }
+            }
+        }
+
         engine.setCompletionHandler(for: id) { [weak self] result in
             self?.hopToMain {
                 guard let self else { return }

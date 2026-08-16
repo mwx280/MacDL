@@ -37,6 +37,13 @@ public enum EngineConstants {
     public static let maxSingleStreamRetries = 1
     public static let singleStreamRetryDelay: TimeInterval = 2.0
 
+    // Stall detection: a download whose aggregate throughput has been zero for
+    // `stallTimeout` is treated as a silent network drop and its active tasks
+    // are cancelled so the chunks retry instead of waiting out the URLSession
+    // request timeout. Checked at `stallCheckInterval`.
+    public static let stallTimeout: TimeInterval = 5
+    public static let stallCheckInterval: TimeInterval = 2
+
     // Progress / logging cadence
     public static let speedReportInterval: TimeInterval = 1.0
     public static let statusLogInterval: TimeInterval = 3.0
