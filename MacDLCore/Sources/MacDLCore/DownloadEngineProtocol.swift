@@ -3,13 +3,23 @@ import Foundation
 /// Engine boundary so the app drives downloads (or a test double) without
 /// depending on the concrete ``DownloadEngine`` implementation.
 public protocol DownloadEngineProtocol {
-    /// Starts a download, resuming persisted chunks when provided.
+    /// Starts a download, resuming persisted chunks when provided. Bypasses the
+    /// global concurrency cap (resume/retry semantics).
     func start(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL])
+    /// Schedules a download against the global concurrency cap; returns true
+    /// when it started now (false = queued).
+    func schedule(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL]) -> Bool
+    /// Registers a download into the waiting queue without starting it.
+    func enqueue(id: UUID, url: URL, destinationURL: URL, speedLimit: Int64, chunkSize: Int64, maxConcurrent: Int, chunks: [Chunk], mirrors: [URL])
+    /// Sets the global cap on simultaneously running downloads.
+    func setMaxConcurrentDownloads(_ limit: Int)
+    /// Registers the callback fired when a queued download is promoted to running.
+    func setPromotionHandler(_ handler: @escaping (UUID) -> Void)
     /// Resumes a paused download; false when nothing is tracked for the id.
     func resume(id: UUID) -> Bool
     /// Pauses the download.
     func pause(id: UUID)
-    /// Cancels the download and drops its state.
+    /// Cancels the download and drops its state (running or queued).
     func cancel(id: UUID)
     /// Removes the manager without signalling it.
     func cleanup(id: UUID)
