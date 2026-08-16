@@ -498,6 +498,45 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(verifyPattern(in: dest, size: 1024 * 1024))
     }
 
+    @Test func startReplacingLiveManagerCompletesExactlyOnce() {
+        // Restarting a download whose id still has a live manager cancels the old
+        // manager and reuses the id. The replacement must finish byte-correct and
+        // deliver exactly one completion: the identity gate must not suppress the
+        // new manager's result (nor leak the old manager's late cancellation).
+        FakeURLProtocol.virtualFileSize = 1024 * 1024
+        FakeURLProtocol.latencyMs = 1000 // keep the first probe in flight long enough to replace it
+        defer { FakeURLProtocol.latencyMs = 0 }
+        let engine = DownloadEngine()
+        let id = UUID()
+        let url = URL(string: "https://fake.example/f.bin")!
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-replace.bin")
+        let lock = NSLock()
+        var results: [Result<Void, Error>] = []
+        engine.setCompletionHandler(for: id) { r in
+            lock.lock(); results.append(r); lock.unlock()
+        }
+        // First start: the probe goes in flight (latency holds it open).
+        engine.start(id: id, url: url, destinationURL: dest, speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        var deadline = Date().addingTimeInterval(10)
+        while FakeURLProtocol.requests.count < 1, Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+        // Replace the manager before the probe returns: the old probe is cancelled.
+        engine.start(id: id, url: url, destinationURL: dest, speedLimit: 0, chunkSize: 262144, maxConcurrent: 4, chunks: [], mirrors: [])
+        // Wait for the replacement download to finish byte-correct.
+        deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            lock.lock(); let hasSuccess = results.contains { if case .success = $0 { return true }; return false }; lock.unlock()
+            if hasSuccess { break }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        Thread.sleep(forTimeInterval: 0.5) // let any late completion settle
+        #expect(verifyPattern(in: dest, size: 1024 * 1024))
+        lock.lock(); let got = results; lock.unlock()
+        #expect(got.count == 1)
+        if let first = got.first, case .success = first { } else {
+            Issue.record("expected exactly one success completion, got \(got.count)")
+        }
+    }
+
     @Test func throttledDownloadDoesNotFalseStall() {
         // Regression: a speed-limited download with many concurrent chunks must
         // never be mistaken for a stalled connection. The shared token bucket
