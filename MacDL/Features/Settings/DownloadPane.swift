@@ -67,7 +67,7 @@ struct DownloadPane: View {
             }
 
             card {
-                prefRow("arrow.down", "Download Limit", description: "Download Limit description", color: .red) {
+                prefRow("arrow.down", "Global Speed Limit", description: "Global Speed Limit description", color: .red) {
                     Picker(selection: $maxDownloadSpeed) {
                         ForEach(speedOptions, id: \.self) { speed in
                             Text(speedLabel(speed))

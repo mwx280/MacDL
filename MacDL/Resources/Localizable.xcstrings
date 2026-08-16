@@ -1288,36 +1288,36 @@
         }
       }
     },
-    "Download Limit" : {
+    "Global Speed Limit" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Download Limit"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下载限速"
-          }
-        }
-      }
-    },
-    "Download Limit description" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Global speed cap"
+            "value" : "Global Speed Limit"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "全局速度上限"
+          }
+        }
+      }
+    },
+    "Global Speed Limit description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total speed shared by all downloads"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有下载任务共享的总速度上限"
           }
         }
       }
