@@ -514,6 +514,13 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         defer { FakeURLProtocol.latencyMs = 0 }
         let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-hilatency.bin")
         let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let lock = NSLock()
+        var builtChunks: [Chunk] = []
+        manager.onChunksChanged = { chunks in
+            lock.lock()
+            builtChunks = chunks
+            lock.unlock()
+        }
         let sem = DispatchSemaphore(value: 0)
         var ok = false
         manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
@@ -521,9 +528,13 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(waitSemaphore(sem, timeout: 60))
         #expect(ok)
         #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
-        // 256 KB probe + 4 chunks for the remaining 1.75 MB at a 512 KB dynamic
-        // chunk size = 5 requests total, with no short-read refetch of chunk 0.
-        #expect(FakeURLProtocol.requests.count == 5)
+        // The dynamic chunk size grows past the probe's 256 KB under this RTT,
+        // but chunk 0 must stay bounded to the probe's 256 KB range so the probe
+        // bytes are not treated as a short read and re-fetched.
+        lock.lock()
+        let firstChunkSize = builtChunks.first?.size
+        lock.unlock()
+        #expect(firstChunkSize == 262144)
     }
 
     @Test func rateLimitDegradesToSingleConnectionAndCompletes() {
