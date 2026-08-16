@@ -246,20 +246,16 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
         manager.onCompletion = { [weak self] result in
             guard let self else { return }
             self.syncQueue.sync {
-                // A late completion from a manager that is no longer the current
-                // one for this id must neither forward to the app nor promote a
-                // queued download. Identity is the reliable gate: a restart
-                // (`start`) cancels the old manager and reuses the same id, so a
-                // `discarded` check alone would leak the old manager's `.cancelled`
-                // as the new download's result.
-                let isCurrent = self.managers[id] === manager
+                // A cancelled/deleted download's late completion must neither
+                // forward to the app nor promote a queued download, and must not
+                // drop a replacement manager that reused the same id.
                 let wasDiscarded = self.discarded.remove(id) != nil
                 let userCompletion = self.handlers[id]?.onCompletion
-                if isCurrent {
+                if self.managers[id] === manager {
                     self.managers.removeValue(forKey: id)
                     self.handlers[id] = nil
                 }
-                guard isCurrent, !wasDiscarded else { return }
+                guard !wasDiscarded else { return }
                 userCompletion?(result)
                 for promoted in self.scheduler.finished(id) {
                     self.startNow(promoted)
