@@ -58,7 +58,7 @@ func card(@ViewBuilder content: () -> some View) -> some View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
 }
 
-func prefRow<C: View>(_ icon: String, _ label: String, description: String? = nil, suffix: String? = nil, color: Color = .secondary, @ViewBuilder control: () -> C) -> some View {
+func prefRow<C: View>(_ icon: String, _ label: String, description: String? = nil, verbatimDescription: String? = nil, suffix: String? = nil, color: Color = .secondary, @ViewBuilder control: () -> C) -> some View {
     HStack(spacing: 10) {
         Image(systemName: icon)
             .font(.body)
@@ -79,6 +79,12 @@ func prefRow<C: View>(_ icon: String, _ label: String, description: String? = ni
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            } else if let verbatimDescription {
+                Text(verbatim: verbatimDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
         }
         Spacer()

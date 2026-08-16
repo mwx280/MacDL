@@ -87,29 +87,9 @@ struct DownloadPane: View {
             }
 
             card {
-                VStack(spacing: 0) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "folder")
-                            .font(.body)
-                            .frame(width: 18)
-                            .foregroundStyle(.yellow)
-                        LocalizedText(key: "Download Location")
-                            .font(.body)
-                        Spacer()
-                        Button(LanguageManager.shared.localized("Select...")) { browsePath() }
-                            .controlSize(.small)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-
-                    Text(downloadPath)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 10)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                prefRow("folder", "Download Location", verbatimDescription: downloadPath, color: .yellow) {
+                    Button(LanguageManager.shared.localized("Select...")) { browsePath() }
+                        .controlSize(.small)
                 }
             }
         }
