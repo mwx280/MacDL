@@ -26,7 +26,14 @@ public final class DownloadEngine: @unchecked Sendable, DownloadEngineProtocol {
     private var onNetworkChange: ((Bool) -> Void)?
     // System link state, driven by `NetworkReachability` once monitoring starts.
     // False by default so downloads are never held unless a real drop is seen.
-    private nonisolated(unsafe) var networkDown = false
+    // Written on this engine's syncQueue but read from ChunkManager's own queue
+    // through the `isNetworkDown` closure, so every access goes through a lock.
+    private let networkLock = NSLock()
+    private var networkDownStorage = false
+    private var networkDown: Bool {
+        get { networkLock.lock(); defer { networkLock.unlock() }; return networkDownStorage }
+        set { networkLock.lock(); networkDownStorage = newValue; networkLock.unlock() }
+    }
     private let reachability: NetworkReachability
     private let syncQueue = DispatchQueue(label: "com.xiaowu.downloadengine.sync")
 
