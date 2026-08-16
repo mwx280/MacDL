@@ -974,10 +974,10 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         #expect(FakeURLProtocol.rateLimit429Count > 0)
     }
 
-    @Test func softRateLimitDegradesAndCompletes() {
+    @Test func softRateLimitCompletesWithoutCollapsing() {
         // A server that throttles (not 429s) requests beyond the first one: the
-        // engine must notice the slow chunk, halve its connections, and still
-        // assemble the file correctly.
+        // download must still complete byte-correct. Extra throttled connections
+        // still deliver bytes, so the connection count must not collapse to one.
         FakeURLProtocol.virtualFileSize = 4 * 1024 * 1024
         FakeURLProtocol.softLimitConcurrent = 1
         FakeURLProtocol.softLimitRate = 500 * 1024

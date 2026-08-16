@@ -43,9 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   FTP has no Range support.
 - Global bandwidth pool: a shared token bucket caps the aggregate throughput
   across all downloads from the global speed-limit setting.
-- Rate-limit degradation: a chunk throttled far below the fastest recent one
-  halves the connection count, and a hard `429` drops to one; both re-probe
-  upward with exponential backoff instead of staying stuck at a low count.
+- Rate-limit degradation: a hard `429` drops the download to one connection,
+  then re-probes upward with exponential backoff instead of staying stuck at a
+  low count.
 - Notification tap opens the main window: tapping a download notification now
   brings up the main window (previously it did nothing), and the window-opening
   logic is centralized so the menu bar "Show Window" action reuses it.
@@ -92,6 +92,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything; a speed limit does not), and each request's URLSession idle
   timeout is sized by the throttle rate so a throttled connection is never
   mistaken for a dead one.
+- Adaptive connections no longer collapse to one connection during a normal
+  download. The soft rate-limit detector that halved the connection count when a
+  chunk was slower than the fastest recent one mistook the per-connection
+  slowdown of a shared link for server throttling and kept halving (16→8→4→2→1).
+  Soft throttling is now handled by the adaptive no-gain backoff instead, and the
+  recovery backoff resets once a chunk completes so a transient `429` recovers
+  in about a minute instead of growing toward ten minutes.
 
 ### Changed
 

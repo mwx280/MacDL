@@ -38,7 +38,6 @@ public final class ChunkManager: @unchecked Sendable {
     private var sources: [Source] = []
     private var chunkSource: [Int: Int] = [:]
     private var chunkDispatchTime: [Int: Date] = [:]
-    private var recentChunkSpeeds: [Int64] = []
     private var sourceScheduler: SourceScheduler
     private var completedCount = 0
     private var failedCount = 0
@@ -73,8 +72,6 @@ public final class ChunkManager: @unchecked Sendable {
 
     private let maxRetries = EngineConstants.maxChunkRetries
     private let bucket = TokenBucket(rate: 0)
-    /// Number of recent chunk speeds kept for the soft rate-limit detector.
-    private static let chunkSpeedWindowSize = 8
     /// Test hook overriding the rate-limit recovery-probe base delay.
     nonisolated(unsafe) static var recoveryProbeBaseOverride: TimeInterval?
     /// Test hook overriding the source cooldown interval.
@@ -375,24 +372,16 @@ public final class ChunkManager: @unchecked Sendable {
                         // and folds its throughput into the source's EWMA weight.
                         if let si = self.chunkSource.removeValue(forKey: index) {
                             self.sources[si].recordSuccess()
+                            // A completed chunk proves the server is serving us
+                            // again: reset the rate-limit recovery backoff so a
+                            // transient 429 does not leave the download stuck at
+                            // a low connection count for a growing delay.
+                            self.recoveryAttempts = 0
                             if let start = self.chunkDispatchTime.removeValue(forKey: index) {
                                 let elapsed = Date().timeIntervalSince(start)
                                 if elapsed > 0.05 {
                                     let rate = Int64(Double(self.chunks[index].size) / elapsed)
                                     self.sources[si].recordThroughput(rate)
-                                    // Slide the rate into a short window and detect
-                                    // soft rate-limiting by relative gap: a chunk far
-                                    // slower than the fastest recent one (and absolutely
-                                    // slow) means the server throttles extra requests,
-                                    // not that the whole link is slow.
-                                    self.recentChunkSpeeds.append(rate)
-                                    if self.recentChunkSpeeds.count > Self.chunkSpeedWindowSize {
-                                        self.recentChunkSpeeds.removeFirst()
-                                    }
-                                    if let windowMax = self.recentChunkSpeeds.max(),
-                                       rate > 0, rate < windowMax / 5, rate < 1_000_000 {
-                                        self.handleSlowChunk()
-                                    }
                                 }
                             }
                         }
@@ -580,13 +569,6 @@ public final class ChunkManager: @unchecked Sendable {
         degradeConcurrency(to: 1)
     }
 
-    /// Soft rate-limiting (a chunk throttled far below the fastest one while
-    /// others run fast): halve the connection count, converging toward the level
-    /// the server actually tolerates instead of a hard drop to one.
-    private func handleSlowChunk() {
-        degradeConcurrency(to: max(1, maxConcurrent / 2))
-    }
-
     /// Lowers the connection cap, locks the adaptive policy at that ceiling and
     /// stops the adaptive timer so it does not probe back up into the limit.
     /// A recovery probe is scheduled with exponential backoff so a transient
@@ -672,9 +654,6 @@ public final class ChunkManager: @unchecked Sendable {
     public func setMaxConcurrent(_ maxConcurrent: Int) {
         EngineLog.manager.notice("setMaxConcurrent=\(maxConcurrent)")
         syncQueue.async {
-            // The speed window reflects the previous connection count; clear it
-            // so stale rates don't trigger a spurious soft rate-limit.
-            self.recentChunkSpeeds.removeAll()
             if maxConcurrent <= 0 {
                 if !self.isAutoConnections {
                     self.isAutoConnections = true
@@ -713,7 +692,6 @@ public final class ChunkManager: @unchecked Sendable {
             self.stopStallCheck()
             self.setRetrying(false)
             self.bucket.stop()
-            self.recentChunkSpeeds.removeAll()
             // Freeze scheduling: cancel pending retries and clear the queue so
             // nothing can start new chunk tasks while paused.
             for (_, item) in self.retryWorkItems { item.cancel() }
