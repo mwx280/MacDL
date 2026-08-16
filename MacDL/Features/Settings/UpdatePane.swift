@@ -4,6 +4,7 @@ import AppKit
 struct UpdatePane: View {
     @State private var model = UpdateModel.shared
     @AppStorage("autoUpdate") private var autoUpdate = true
+    @State private var updateChannel: UpdateChannel = UpdateChannel.buildChannel
 
     var body: some View {
         VStack(spacing: 16) {
@@ -19,6 +20,24 @@ struct UpdatePane: View {
 
                 divider
 
+                prefRow("square.stack", "Update Channel", description: "Update Channel description", color: .teal) {
+                    Picker(selection: $updateChannel) {
+                        ForEach(UpdateChannel.allCases, id: \.self) { channel in
+                            LocalizedText(key: channel.displayKey).tag(channel)
+                        }
+                    } label: { }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                    .frame(minWidth: 140, alignment: .trailing)
+                    .onChange(of: updateChannel) { _, new in
+                        SettingsStore.shared.updateChannel = new
+                        Task { await model.checkForUpdates() }
+                    }
+                }
+
+                divider
+
                 prefRow("arrow.triangle.2.circlepath", "Auto check and download updates", description: "Auto check and download updates description", color: .indigo) {
                     Toggle("", isOn: $autoUpdate)
                         .toggleStyle(.switch)
@@ -27,6 +46,9 @@ struct UpdatePane: View {
             }
         }
         .padding(20)
+        .onAppear {
+            updateChannel = SettingsStore.shared.updateChannel
+        }
     }
 
     @ViewBuilder

@@ -8,11 +8,11 @@ import Observation
 final class UpdateModel {
     static let shared = UpdateModel()
 
-    private let latestRelease: () async throws -> UpdateService.Release?
+    private let latestRelease: (UpdateChannel) async throws -> UpdateService.Release?
     private let downloadAsset: (UpdateService.Asset, @escaping @Sendable (Double) -> Void) async throws -> URL
     private let installer: (URL) async throws -> Void
 
-    init(latestRelease: @escaping () async throws -> UpdateService.Release? = { try await UpdateService.latestRelease() },
+    init(latestRelease: @escaping (UpdateChannel) async throws -> UpdateService.Release? = { try await UpdateService.latestRelease(channel: $0) },
          downloadAsset: @escaping (UpdateService.Asset, @escaping @Sendable (Double) -> Void) async throws -> URL = { asset, progress in
              try await UpdateService.download(asset, progress: progress)
          },
@@ -38,7 +38,7 @@ final class UpdateModel {
     func checkForUpdates() async {
         status = .checking
         do {
-            guard let release = try await latestRelease() else {
+            guard let release = try await latestRelease(SettingsStore.shared.updateChannel) else {
                 status = .upToDate
                 return
             }

@@ -29,7 +29,7 @@ import Foundation
     // MARK: - Check
 
     @Test func checkUpToDateWhenNoRelease() async {
-        let model = UpdateModel(latestRelease: { nil })
+        let model = UpdateModel(latestRelease: { _ in nil })
         await model.checkForUpdates()
         guard case .upToDate = model.status else {
             Issue.record("expected upToDate, got \(model.status)")
@@ -39,7 +39,7 @@ import Foundation
 
     @Test func checkUpToDateWhenSameVersion() async {
         let release = makeRelease(tag: "v" + UpdateService.currentVersion)
-        let model = UpdateModel(latestRelease: { release })
+        let model = UpdateModel(latestRelease: { _ in release })
         await model.checkForUpdates()
         guard case .upToDate = model.status else {
             Issue.record("expected upToDate, got \(model.status)")
@@ -49,7 +49,7 @@ import Foundation
 
     @Test func checkAvailableWhenNewer() async {
         let release = makeRelease(tag: "v9.9.9")
-        let model = UpdateModel(latestRelease: { release })
+        let model = UpdateModel(latestRelease: { _ in release })
         await model.checkForUpdates()
         guard case .available(let r) = model.status else {
             Issue.record("expected available, got \(model.status)")
@@ -60,7 +60,7 @@ import Foundation
 
     @Test func checkNoAssetShowsUpToDate() async {
         let release = makeRelease(tag: "v9.9.9", withAsset: false)
-        let model = UpdateModel(latestRelease: { release })
+        let model = UpdateModel(latestRelease: { _ in release })
         await model.checkForUpdates()
         guard case .upToDate = model.status else {
             Issue.record("expected upToDate (no installable package), got \(model.status)")
@@ -70,7 +70,7 @@ import Foundation
 
     @Test func checkFailsOnError() async {
         struct TestError: Error {}
-        let model = UpdateModel(latestRelease: { throw TestError() })
+        let model = UpdateModel(latestRelease: { _ in throw TestError() })
         await model.checkForUpdates()
         guard case .failed = model.status else {
             Issue.record("expected failed, got \(model.status)")
@@ -84,7 +84,7 @@ import Foundation
         let release = makeRelease(tag: "v9.9.9")
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent("update-test-\(UUID().uuidString).dmg")
         let model = UpdateModel(
-            latestRelease: { release },
+            latestRelease: { _ in release },
             downloadAsset: { _, progress in progress(0.5); return dest },
             installer: { _ in }
         )
@@ -100,7 +100,7 @@ import Foundation
     @Test func downloadFailsSetsFailed() async {
         struct TestError: Error {}
         let release = makeRelease(tag: "v9.9.9")
-        let model = UpdateModel(latestRelease: { release }, downloadAsset: { _, _ in throw TestError() })
+        let model = UpdateModel(latestRelease: { _ in release }, downloadAsset: { _, _ in throw TestError() })
         await model.download(release)
         guard case .failed = model.status else {
             Issue.record("expected failed, got \(model.status)")
@@ -110,7 +110,7 @@ import Foundation
 
     @Test func installFailureSetsFailed() async {
         struct TestError: Error {}
-        let model = UpdateModel(latestRelease: { nil }, downloadAsset: { _, _ in throw TestError() }, installer: { _ in throw TestError() })
+        let model = UpdateModel(latestRelease: { _ in nil }, downloadAsset: { _, _ in throw TestError() }, installer: { _ in throw TestError() })
         await model.install(URL(fileURLWithPath: "/tmp/x.dmg"))
         guard case .failed = model.status else {
             Issue.record("expected failed, got \(model.status)")

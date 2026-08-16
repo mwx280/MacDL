@@ -1,11 +1,13 @@
 import Foundation
 import AppKit
 
-// Checks the GitHub releases feed (preview channel only), downloads the DMG
-// asset and installs it by mounting, replacing the running app and relaunching.
+// Checks the GitHub releases feed for the selected update channel, downloads
+// the DMG asset and installs it by mounting, replacing the running app and
+// relaunching.
 enum UpdateService {
     static let repo = "mwx280/MacDL"
     private static let releasesURL = URL(string: "https://api.github.com/repos/\(repo)/releases")!
+    private static let latestReleaseURL = URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
 
     static var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
@@ -65,10 +67,23 @@ enum UpdateService {
         }
     }
 
-    /// Fetches the newest release. `releases/latest` skips prereleases, and the
-    /// preview channel is all prereleases, so the full list is used instead.
-    static func latestRelease() async throws -> Release? {
-        var req = URLRequest(url: releasesURL)
+    /// Fetches the newest release for a channel. Stable uses `releases/latest`
+    /// (which skips prereleases and returns 404 when only prereleases exist);
+    /// preview uses the full list so it can pick up prereleases.
+    static func latestRelease(channel: UpdateChannel) async throws -> Release? {
+        switch channel {
+        case .preview:
+            let releases: [Release]? = try await fetch(releasesURL)
+            return releases?.first
+        case .stable:
+            return try await fetch(latestReleaseURL)
+        }
+    }
+
+    /// Fetches and decodes a release payload. A 404 means no release exists for
+    /// the channel, so it returns nil instead of throwing.
+    private static func fetch<T: Decodable>(_ url: URL) async throws -> T? {
+        var req = URLRequest(url: url)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         req.setValue("MacDL", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 15
@@ -78,7 +93,7 @@ enum UpdateService {
             if http.statusCode == 404 { return nil }
             throw UpdateError.httpStatus(http.statusCode)
         }
-        return try JSONDecoder().decode([Release].self, from: data).first
+        return try JSONDecoder().decode(T.self, from: data)
     }
 
     /// The best installable package for a release: prefer a .dmg asset.

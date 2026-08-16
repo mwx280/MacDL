@@ -54,6 +54,19 @@ final class SettingsStore {
         set { defaults.set(newValue, forKey: "autoUpdate") }
     }
 
+    /// The release channel the updater follows. Unset means "follow the build":
+    /// preview builds follow preview, stable builds follow stable.
+    var updateChannel: UpdateChannel {
+        get {
+            if let raw = defaults.string(forKey: "updateChannel"),
+               let channel = UpdateChannel(rawValue: raw) {
+                return channel
+            }
+            return UpdateChannel.buildChannel
+        }
+        set { defaults.set(newValue.rawValue, forKey: "updateChannel") }
+    }
+
     var notifyStart: Bool {
         get { defaults.object(forKey: "notifyStart") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "notifyStart") }
