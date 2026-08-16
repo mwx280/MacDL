@@ -23,6 +23,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     worse.
   - Strong throughput gains make the probe jump +2/+3 connections instead of
     one, converging faster on large files.
+- Connection cap raised from 8 to 16 per download.
+- Dynamic chunk sizing: the chunk size is chosen from the file size, probe
+  latency and single-connection rate instead of a fixed 256 KB, so large files
+  are not chopped into hundreds of thousands of chunks.
+- Multi-source / mirror downloads: one download can span several mirrors.
+  Chunks are scheduled across sources weighted by each one's measured
+  throughput, and a failing source is cooled down while its chunks fail over to
+  healthier sources.
+- Per-host download history: bandwidth and RTT from past sessions seed the
+  cold-start connection count and chunk size, so repeated sources start near
+  their learned optimum without re-probing from scratch.
+- Checksum verification: a download carrying an expected SHA-256 is verified
+  before the staging file is renamed; a mismatch is discarded and reported as
+  failed.
+- Metalink support: `.metalink` / `.meta4` links expand into mirror URLs plus a
+  checksum and file size.
+- FTP downloads: `ftp://` links stream the whole file single-threaded, since
+  FTP has no Range support.
+- Global bandwidth pool: a shared token bucket caps the aggregate throughput
+  across all downloads from the global speed-limit setting.
+- Rate-limit degradation: a chunk throttled far below the fastest recent one
+  halves the connection count, and a hard `429` drops to one; both re-probe
+  upward with exponential backoff instead of staying stuck at a low count.
 
 ### Changed
 
@@ -54,6 +77,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Engine now completes a resumed download whose persisted chunks are already
   all complete, so a crash between the last chunk write and the rename does not
   strand the task at 100%.
+- A download whose sources are all cooling down no longer drops its pending
+  head and hangs; failover keeps retry counts across sources so two failing
+  sources cannot hand a chunk back and forth forever.
+- A failed or unparsable Metalink now surfaces an error entry instead of
+  silently downloading the `.metalink` document itself.
 
 ## [0.2.0] - 2026-08-05
 

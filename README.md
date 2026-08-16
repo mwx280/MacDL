@@ -27,9 +27,24 @@ fast and the app quietly stays out of your way.
   downloads going. Optionally hides the Dock icon when the window closes.
 - **Multi-threaded chunked downloads**: up to 16 parallel connections per
   download; all chunks share a single `URLSession`, so HTTP/2 can reuse one
-  connection. An "Adaptive" connection mode (default) picks the starting count
-  from the file size and adapts it to observed throughput — it adds connections
-  only while they keep making the transfer faster and converges at the best count.
+  connection. Chunk size is chosen dynamically from the file size, latency and
+  measured rate. An "Adaptive" connection mode (default) picks the starting
+  count from the file size and adapts it to observed throughput — it adds
+  connections only while they keep making the transfer faster and converges at
+  the best count, reusing per-host history from past sessions for a faster cold
+  start.
+- **Multi-source / mirror downloads**: one download can span several mirrors.
+  Chunks are scheduled across sources weighted by each one's measured
+  throughput, and a failing source is cooled down while its chunks fail over to
+  healthier sources.
+- **Metalink**: `.metalink` / `.meta4` links are fetched and expanded into
+  multiple mirror URLs plus a SHA-256 checksum and file size, so a single link
+  covers mirrors and verification.
+- **Checksum verification**: a download that carries an expected SHA-256 is
+  verified before the staging file is renamed; a mismatch is discarded and
+  reported as failed.
+- **FTP downloads**: `ftp://` links stream the whole file single-threaded, since
+  FTP has no Range support.
 - **Automatic resume detection**: a `Range` probe at start discovers the real
   file size and whether the server answers `206`. Servers without Range support
   automatically fall back to a single-threaded download.
@@ -72,11 +87,18 @@ swap in a fake engine and never touch the network or disk.
 |------|------|
 | `DownloadEngine.swift` | Facade. One `ChunkManager` per download; every control call goes through a single serial queue. |
 | `DownloadEngineProtocol.swift` | Protocol boundary so tests can inject a fake. |
-| `ChunkManager.swift` | Coordinates one download: Range probe, chunk scheduling up to the connection cap, retries with exponential backoff, single-thread fallback when Range is unsupported. |
+| `ChunkManager.swift` | Coordinates one download: Range probe, dynamic chunking, multi-source scheduling, retries with backoff, failover and single-thread fallback when Range is unsupported. |
+| `AutoConnectionPolicy.swift` | Pure adaptive-connection decision logic: cold-start count, informed jumps, rate-limit freeze and convergence. |
+| `ChunkingPolicy.swift` | Pure chunk-size selection from file size, RTT and single-connection rate. |
 | `ChunkDownloadTask.swift` | One range request. Event-driven writer (`NSCondition`, no polling) with a bounded buffer and backpressure. |
 | `ChunkSessionDelegate.swift` | Routes `URLSession` delegate callbacks to the owning chunk task. |
-| `TokenBucket.swift` | The speed-limit bucket shared by all chunks of a download. |
+| `TokenBucket.swift` | The speed-limit bucket shared by all chunks of a download, plus the global aggregate bucket. |
 | `Chunk.swift` | A byte range with progress; `Codable` so state survives restart. |
+| `Source.swift` | One remote source (primary or mirror) with cooldown state and a throughput EWMA. |
+| `SourceScheduler.swift` | Smooth weighted round-robin across healthy sources. |
+| `SourceHistoryStore.swift` | Per-host download history (bandwidth/RTT) persisted across sessions. |
+| `ChecksumVerifier.swift` | Streaming SHA-256 to verify a finished file against an expected checksum. |
+| `MetalinkParser.swift` | Parses Metalink (RFC 5854 / v4) documents into mirror URLs plus checksum. |
 | `EngineConstants.swift` | Central tuning knobs: timeouts, buffer sizes, retry backoff, reporting cadence. |
 | `DownloadError.swift` | Errors the engine reports to the app: `cancelled`, `fileDeleted`, `rangeNotSatisfiable`, `fileChanged`, `httpStatus`, `network`. |
 | `EngineLog.swift` | `os.Logger` categories, mirrored to a log file inside the container. |
@@ -86,11 +108,13 @@ swap in a fake engine and never touch the network or disk.
 1. A probe request with `Range: bytes=0-262143` reveals the total file size
    from the `Content-Range` response header and whether the server returns
    `206`.
-2. The file is split into fixed 256 KB chunks and scheduled up to the
-   `maxConcurrent` cap.
+2. The file is split into dynamically sized chunks (128 KB – 4 MB, based on
+   file size, latency and measured rate) and scheduled across sources up to the
+   `maxConcurrent` cap, weighted by each source's throughput.
 3. Failed chunks retry with exponential backoff (1s, 2s, 4s … capped at 10s, at
    most 3 attempts). `429`, `5xx` and network errors are retried; permanent
-   errors are not.
+   errors are not. A `429` degrades the connection count immediately, and a
+   persistently throttling server is re-probed with exponential backoff.
 4. If the server ignores the Range header (returns `200`), the engine falls
    back to a whole-file single-threaded download, retrying once quickly on
    failure.
@@ -194,14 +218,16 @@ MacDLTests/            App tests (XCTest + fake engine)
 
 ## Testing
 
-219 tests across two suites:
+265 tests across two suites:
 
-- **Engine (52)**: Swift Testing against a fake `URLProtocol`, no real network.
+- **Engine (97)**: Swift Testing against a fake `URLProtocol`, no real network.
   Covers chunk integrity, pause/resume, throttling, backoff, single-thread
-  fallback and Range edge cases.
-- **App (167)**: XCTest with a fake engine, no real disk or notification
+  fallback, Range edge cases, multi-source failover, dynamic chunking,
+  checksum verification, Metalink parsing, source scheduling and FTP.
+- **App (168)**: XCTest with a fake engine, no real disk or notification
   center. Covers the download lifecycle, priority flow, duplicate policy,
-  persistence round trips, the update state machine and localization.
+  persistence round trips, Metalink failure handling, the update state machine
+  and localization.
 
 CI (GitHub Actions) runs the engine tests first, then builds and tests the
 app.
