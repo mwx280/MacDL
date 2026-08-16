@@ -135,10 +135,11 @@ final class DownloadService {
                             savePath: savePath, saveBookmark: saveBookmark, dlLimit: dlLimit,
                             connections: connections, allowDuplicate: allowDuplicate)
                     } else {
-                        self.addResolvedDownload(
-                            primary: nil, url: url, mirrors: [], checksum: nil, filename: nil,
-                            savePath: savePath, saveBookmark: saveBookmark, dlLimit: dlLimit,
-                            connections: connections, allowDuplicate: allowDuplicate)
+                        // A failed or unparsable Metalink must surface an error,
+                        // not silently download the .metalink document itself.
+                        self.addInvalidMetalinkDownload(url: url, savePath: savePath,
+                                                        saveBookmark: saveBookmark,
+                                                        dlLimit: dlLimit, connections: connections)
                     }
                 }
             }
@@ -209,13 +210,37 @@ final class DownloadService {
     }
 
     /// Fetches and parses a Metalink document off the main thread.
+    /// Test hook: `fetchMetalinkOverride` lets tests avoid a real network fetch.
+    nonisolated(unsafe) static var fetchMetalinkOverride: ((URL) async -> MetalinkFile?)?
+
     private static func fetchMetalink(_ url: URL) async -> MetalinkFile? {
+        if let override = fetchMetalinkOverride { return await override(url) }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             return MetalinkParser.parse(data)
         } catch {
             return nil
         }
+    }
+
+    /// Records a failed Metalink add as an error entry so the user sees what
+    /// went wrong instead of a .metalink file landing in the download list.
+    private func addInvalidMetalinkDownload(url: String, savePath: String?, saveBookmark: Data?,
+                                            dlLimit: Int, connections: Int?) {
+        let name = URL(string: url)?.lastPathComponent ?? "download-\(downloads.count + 1)"
+        let d = Download(
+            filename: name,
+            url: url,
+            status: .error,
+            savePath: savePath,
+            saveBookmark: saveBookmark,
+            downloadLimit: dlLimit > 0 ? dlLimit : nil,
+            errorMessage: LanguageManager.shared.localized("Invalid metalink"),
+            errorKey: "Invalid metalink",
+            maxConcurrentChunks: connections ?? settings.maxConnections
+        )
+        store.append(d)
+        store.save()
     }
 
     private func startNextWaitingDownload() {

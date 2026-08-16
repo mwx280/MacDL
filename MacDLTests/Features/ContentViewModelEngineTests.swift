@@ -416,4 +416,20 @@ import MacDLCore
         #expect(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent("a.bin").path))
     }
 
+    @Test func metalinkFetchFailureMarksError() async {
+        // A Metalink that cannot be fetched/parsed must surface an error entry,
+        // never a download of the .metalink document itself.
+        DownloadService.fetchMetalinkOverride = { _ in nil }
+        defer { DownloadService.fetchMetalinkOverride = nil }
+        let engine = FakeEngine()
+        let vm = makeVM(engine: engine)
+        let url = "https://example.com/broken.metalink"
+        vm.addDownload(url: url)
+        await waitForCondition { vm.downloads.contains { $0.url == url } }
+        let d = vm.downloads.first { $0.url == url }
+        #expect(d?.status == .error)
+        #expect(d?.errorKey == "Invalid metalink")
+        #expect(engine.started.isEmpty)
+    }
+
 }
