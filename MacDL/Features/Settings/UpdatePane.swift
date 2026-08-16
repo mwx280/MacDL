@@ -14,6 +14,7 @@ struct UpdatePane: View {
                         Text(UpdateService.currentVersion)
                             .font(.callout.monospacedDigit())
                             .foregroundStyle(.secondary)
+                        checkForUpdatesButton
                         updateControl
                     }
                 }
@@ -51,17 +52,29 @@ struct UpdatePane: View {
         }
     }
 
+    /// Always-available manual check, so the user can re-trigger an update
+    /// check even after a previous one reported "up to date".
+    private var checkForUpdatesButton: some View {
+        Button {
+            Task { await model.checkForUpdates() }
+        } label: {
+            Label(LanguageManager.shared.localized("Detect Updates"), systemImage: "arrow.clockwise")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(isChecking)
+    }
+
+    private var isChecking: Bool {
+        if case .checking = model.status { return true }
+        return false
+    }
+
     @ViewBuilder
     private var updateControl: some View {
         switch model.status {
         case .idle:
-            Button {
-                Task { await model.checkForUpdates() }
-            } label: {
-                Text(LanguageManager.shared.localized("Detect Updates"))
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            EmptyView()
 
         case .checking:
             HStack(spacing: 5) {
