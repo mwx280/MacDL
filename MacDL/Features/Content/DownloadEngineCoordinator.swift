@@ -156,9 +156,24 @@ final class DownloadEngineCoordinator {
         case .fileChanged:
             return LanguageManager.shared.localized("File changed on server, resume not possible")
         case .httpStatus(let code):
-            return String(format: LanguageManager.shared.localized("HTTP %ld"), code)
+            let reason = LanguageManager.shared.localized(Self.httpStatusReason(code))
+            return "\(reason) (HTTP \(code))"
         case .network(let e):
             return String(format: LanguageManager.shared.localized("Network error: %@"), e.localizedDescription)
+        }
+    }
+
+    /// Human-readable catalog key for a bare HTTP status code, so users see a
+    /// plain-language reason instead of just "HTTP 404".
+    private static func httpStatusReason(_ code: Int) -> String {
+        switch code {
+        case 401: return "Authentication required"
+        case 403: return "Access denied"
+        case 404: return "File not found"
+        case 408: return "Request timed out"
+        case 429: return "Too many requests"
+        case 500...599: return "Server error"
+        default: return "HTTP error"
         }
     }
 
