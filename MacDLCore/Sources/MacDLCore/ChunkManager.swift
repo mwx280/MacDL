@@ -223,6 +223,7 @@ public final class ChunkManager: @unchecked Sendable {
         // Pick a chunk size suited to this file's size and latency before
         // splitting, so large files are not chopped into hundreds of thousands
         // of tiny chunks.
+        let probeSize = chunks.first?.size ?? chunkSize
         let dynamicChunkSize = ChunkingPolicy.chunkSize(
             totalSize: total, rtt: historyRTT ?? measuredRTT,
             singleConnRate: historyBandwidth ?? 0)
@@ -230,7 +231,11 @@ public final class ChunkManager: @unchecked Sendable {
             chunkSize = dynamicChunkSize
             onChunkSizeChanged?(dynamicChunkSize)
         }
-        let built = buildChunks(totalSize: total, chunkSize: chunkSize)
+        // The probe only fetched the first `probeSize` bytes (the original chunk
+        // size). Keep chunk 0 bounded to that range so its already-downloaded
+        // bytes complete cleanly even when the dynamic size grew; the larger
+        // size applies to the remaining chunks.
+        let built = buildChunks(totalSize: total, probeSize: probeSize, chunkSize: chunkSize)
         chunks = built
         completedCount = 0
         failedCount = 0
@@ -1041,5 +1046,25 @@ public final class ChunkManager: @unchecked Sendable {
     /// Splits `totalSize` bytes into fixed-size ``Chunk`` values.
     public func buildChunks(totalSize: Int64, chunkSize: Int64) -> [Chunk] {
         Chunk.chunks(totalSize: totalSize, chunkSize: chunkSize)
+    }
+
+    /// Splits the file after the probe: chunk 0 keeps the probe's range
+    /// (`probeSize`, the original chunk size), and the remaining bytes split at
+    /// the (possibly dynamic) `chunkSize`.
+    private func buildChunks(totalSize: Int64, probeSize: Int64, chunkSize: Int64) -> [Chunk] {
+        let firstEnd = min(max(0, probeSize), totalSize)
+        var result = [Chunk(index: 0, startOffset: 0, endOffset: firstEnd,
+                            downloadedSize: 0, status: .pending)]
+        let cs = max(Int64(1), chunkSize)
+        var offset = firstEnd
+        var index = 1
+        while offset < totalSize {
+            let end = min(offset + cs, totalSize)
+            result.append(Chunk(index: index, startOffset: offset, endOffset: end,
+                                downloadedSize: 0, status: .pending))
+            offset = end
+            index += 1
+        }
+        return result
     }
 }

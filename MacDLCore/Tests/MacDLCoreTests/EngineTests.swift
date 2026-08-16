@@ -484,7 +484,9 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
     @Test func fastMirrorServesMoreChunks() {
         // The slow primary and a fast mirror: the throughput-weighted scheduler
         // must steer most chunks to the fast mirror once its throughput is known.
-        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        // A large file keeps enough chunks for the fast mirror to overtake the
+        // primary even if the dynamic chunk size grows on a slow CI runner.
+        FakeURLProtocol.virtualFileSize = 8 * 1024 * 1024
         FakeURLProtocol.perHostRates = ["slow.example": 100 * 1024, "fast.example": 2 * 1024 * 1024]
         defer { FakeURLProtocol.perHostRates.removeAll() }
         let slow = URL(string: "https://slow.example/f.bin")!
@@ -497,10 +499,31 @@ func verifyPattern(in dest: URL, size: Int64) -> Bool {
         manager.start()
         #expect(waitSemaphore(sem, timeout: 60))
         #expect(ok)
-        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+        #expect(verifyPattern(in: dest, size: 8 * 1024 * 1024))
         let fastRequests = FakeURLProtocol.requests.filter { $0.url?.host == "fast.example" }.count
         let slowRequests = FakeURLProtocol.requests.filter { $0.url?.host == "slow.example" }.count
         #expect(fastRequests > slowRequests)
+    }
+
+    @Test func highLatencyDynamicChunkingDoesNotRefetchProbe() {
+        // RTT high enough to grow the chunk size beyond the probe's 256 KB must
+        // not make the probe chunk look like a short read: chunk 0 keeps its
+        // probe range and completes without a second request.
+        FakeURLProtocol.virtualFileSize = 2 * 1024 * 1024
+        FakeURLProtocol.latencyMs = 60
+        defer { FakeURLProtocol.latencyMs = 0 }
+        let dest = URL(fileURLWithPath: NSTemporaryDirectory() + "/eng-hilatency.bin")
+        let manager = makeChunkManager(url: URL(string: "https://fake.example/f.bin")!, dest: dest)
+        let sem = DispatchSemaphore(value: 0)
+        var ok = false
+        manager.onCompletion = { r in if case .success = r { ok = true }; sem.signal() }
+        manager.start()
+        #expect(waitSemaphore(sem, timeout: 60))
+        #expect(ok)
+        #expect(verifyPattern(in: dest, size: 2 * 1024 * 1024))
+        // 256 KB probe + 4 chunks for the remaining 1.75 MB at a 512 KB dynamic
+        // chunk size = 5 requests total, with no short-read refetch of chunk 0.
+        #expect(FakeURLProtocol.requests.count == 5)
     }
 
     @Test func rateLimitDegradesToSingleConnectionAndCompletes() {
