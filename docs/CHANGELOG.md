@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate-limit degradation: a chunk throttled far below the fastest recent one
   halves the connection count, and a hard `429` drops to one; both re-probe
   upward with exponential backoff instead of staying stuck at a low count.
+- Notification tap opens the main window: tapping a download notification now
+  brings up the main window (previously it did nothing), and the window-opening
+  logic is centralized so the menu bar "Show Window" action reuses it.
 
 ### Changed
 
@@ -82,6 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sources cannot hand a chunk back and forth forever.
 - A failed or unparsable Metalink now surfaces an error entry instead of
   silently downloading the `.metalink` document itself.
+- A dynamic chunk size larger than the probe's initial 256 KB no longer makes
+  the probe chunk look like a short read: chunk 0 keeps its probe range and
+  completes without a second request.
 
 ## [0.2.0] - 2026-08-05
 

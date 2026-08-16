@@ -63,7 +63,8 @@ fast and the app quietly stays out of your way.
   links ask whether to re-download.
 - **Finder progress**: active tasks show live progress in the Dock and Finder.
 - **Notifications**: separate toggles for started / completed / failed, with a
-  "Redownload" action on failures.
+  "Redownload" action on failures. Tapping a download notification opens the
+  main window.
 - **Auto-update**: checks GitHub Releases and can download and install a new
   DMG with one click (installation is never automatic).
 - **Bilingual UI**: English and 简体中文, switchable at runtime.
@@ -220,9 +221,9 @@ MacDLTests/            App tests (XCTest + fake engine)
 
 ## Testing
 
-265 tests across two suites:
+266 tests across two suites:
 
-- **Engine (97)**: Swift Testing against a fake `URLProtocol`, no real network.
+- **Engine (98)**: Swift Testing against a fake `URLProtocol`, no real network.
   Covers chunk integrity, pause/resume, throttling, backoff, single-thread
   fallback, Range edge cases, multi-source failover, dynamic chunking,
   checksum verification, Metalink parsing, source scheduling and FTP.
