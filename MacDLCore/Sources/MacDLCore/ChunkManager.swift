@@ -1299,7 +1299,9 @@ public final class ChunkManager: @unchecked Sendable {
         let clamped = Swift.max(1, Swift.min(next, EngineConstants.maxAutoConnections, connectionBudgetCap))
         if autoPolicy.isTripped, !wasTripped {
             EngineLog.manager.warning("adaptive connections tripped, locking at \(clamped)")
-            stopAdaptTimer()
+            // The timer keeps running: the policy now self-limits during its
+            // trip recovery interval and re-arms itself to climb back once a
+            // recovered network proves stable.
         }
         guard clamped != current else { return }
         EngineLog.manager.notice("auto connections \(current) -> \(clamped)")

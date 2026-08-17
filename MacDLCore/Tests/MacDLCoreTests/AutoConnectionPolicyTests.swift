@@ -269,6 +269,52 @@ import Foundation
         #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(9)) == 2)
     }
 
+    @Test func trippedPolicyReArmsAfterRecoveryInterval() {
+        var p = AutoConnectionPolicy(cooldown: 0, oscillationThreshold: 2,
+                                     oscillationWindow: 60, tripRecoveryInterval: 30)
+        var t = t0
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t) // up
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 2, hasPending: true, now: t.addingTimeInterval(3)) // down (rev 1)
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(6)) // up (rev 2 → trip)
+        #expect(p.isTripped == true)
+
+        // Still locked before the recovery interval elapses.
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(20)) == nil)
+
+        // After the recovery interval the policy re-arms (inside evaluate) and
+        // climbs again.
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(6 + 30)) == 2)
+        #expect(p.isTripped == false)
+    }
+
+    @Test func trippedPolicyRestartsWithSingleSteps() {
+        // After recovery the climb restarts conservatively: the gain ratio is
+        // reset so the next probe advances a single connection, not a big jump.
+        var p = AutoConnectionPolicy(cooldown: 3, oscillationThreshold: 2,
+                                     oscillationWindow: 60, tripRecoveryInterval: 10)
+        var t = t0
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t)
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 2, hasPending: true, now: t.addingTimeInterval(3))
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        _ = p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(6))
+        #expect(p.isTripped == true)
+
+        // Recover and confirm a single-step (not a multi-connection jump).
+        p.forceConcurrencyCeiling(16)
+        settle(&p, speed: 1000)
+        let recovered = p.evaluate(currentConnections: 1, hasPending: true, now: t.addingTimeInterval(6 + 10))
+        #expect(recovered == 2)
+    }
+
     // MARK: - Latency-weighted cold start
 
     @Test func initialCountWeightsRTT() {

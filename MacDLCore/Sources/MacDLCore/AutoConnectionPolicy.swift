@@ -58,6 +58,10 @@ public struct AutoConnectionPolicy: Sendable {
     public let oscillationWindow: TimeInterval
     /// Connection count the policy locks to once tripped (never above this).
     public let tripConnectionCap: Int
+    /// Quiet period after a trip before the policy re-arms and gently probes
+    /// upward again, so a network that recovered mid-download can climb back
+    /// without immediately re-oscillating.
+    public let tripRecoveryInterval: TimeInterval
     /// Gain ratio at/above which the next probe jumps +3 connections.
     public let jumpThresholdHigh: Double
     /// Gain ratio at/above which the next probe jumps +2 connections.
@@ -88,6 +92,7 @@ public struct AutoConnectionPolicy: Sendable {
                 oscillationThreshold: Int = 4,
                 oscillationWindow: TimeInterval = 60,
                 tripConnectionCap: Int = 4,
+                tripRecoveryInterval: TimeInterval = 120,
                 jumpThresholdHigh: Double = 1.3,
                 jumpThresholdLow: Double = 1.15,
                 reprobeInterval: TimeInterval = 30,
@@ -108,6 +113,7 @@ public struct AutoConnectionPolicy: Sendable {
         self.oscillationThreshold = max(1, oscillationThreshold)
         self.oscillationWindow = max(0, oscillationWindow)
         self.tripConnectionCap = max(1, tripConnectionCap)
+        self.tripRecoveryInterval = max(0, tripRecoveryInterval)
         self.jumpThresholdHigh = max(1, jumpThresholdHigh)
         self.jumpThresholdLow = max(1, jumpThresholdLow)
         self.reprobeInterval = max(0, reprobeInterval)
@@ -193,11 +199,15 @@ public struct AutoConnectionPolicy: Sendable {
     /// True while upward probing is frozen by a burst of retryable failures
     /// (429/5xx). Read-only; lets the engine and tests observe the state.
     public private(set) var isFrozen = false
-    /// True once the adaptive loop oscillated and locked itself down for the
-    /// rest of the download. Read-only; lets the engine and tests observe it.
+    /// True once the adaptive loop oscillated and locked itself down. The lock
+    /// releases after `tripRecoveryInterval` so a recovered network can climb
+    /// back. Read-only; lets the engine and tests observe the state.
     public private(set) var isTripped = false
     private var reversalTimes: [Date] = []
     private var lastChangeDirection: Bool?
+    /// When the circuit breaker last tripped. After `tripRecoveryInterval`
+    /// passes, the policy re-arms instead of staying locked forever.
+    private var trippedAt: Date?
 
     /// Resets all adaptive state (used when auto mode is re-entered).
     public mutating func reset() {
@@ -223,6 +233,7 @@ public struct AutoConnectionPolicy: Sendable {
         isTripped = false
         reversalTimes = []
         lastChangeDirection = nil
+        trippedAt = nil
     }
 
     /// Clears only the circuit breaker (trip + oscillation history), keeping
@@ -233,6 +244,7 @@ public struct AutoConnectionPolicy: Sendable {
         isTripped = false
         reversalTimes = []
         lastChangeDirection = nil
+        trippedAt = nil
     }
 
     /// Smoothes a new aggregate-throughput sample (one per second). Uses an
@@ -304,10 +316,21 @@ public struct AutoConnectionPolicy: Sendable {
         // Without queued chunks there is nothing new to parallelize.
         guard hasPending else { return nil }
 
-        // Circuit breaker: once the loop has oscillated it stays locked down
-        // for the rest of the download, until reset by pause/resume, a
-        // connection-mode change or a speed-limit change.
-        guard !isTripped else { return nil }
+        // Circuit breaker: a loop that oscillated locks the count down so it
+        // stops churning. Unlike a permanent lock, after `tripRecoveryInterval`
+        // passes the policy re-arms and gently probes upward again (single-step),
+        // so a network that recovered mid-download can climb back without
+        // immediately re-tripping.
+        if isTripped {
+            guard let at = trippedAt, now.timeIntervalSince(at) >= tripRecoveryInterval else { return nil }
+            resetCircuitBreaker()
+            // A trip means the loop recently oscillated: restart from the
+            // conservative trip count with single-connection steps rather than
+            // re-entering the aggressive jump path.
+            lastGainRatio = 0
+            consecutiveNoGain = 0
+            bestStreak = 0
+        }
 
         // Frozen: hold the count (dropping to the best known level) until the
         // error storm has passed.
@@ -456,6 +479,7 @@ public struct AutoConnectionPolicy: Sendable {
             reversalTimes.removeAll { now.timeIntervalSince($0) > window }
             if reversalTimes.count >= oscillationThreshold {
                 isTripped = true
+                trippedAt = now
                 isProbing = false
                 stableCount = 0
                 isConverged = false
