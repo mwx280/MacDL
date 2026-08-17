@@ -82,7 +82,7 @@ public struct AutoConnectionPolicy: Sendable {
                 errorFreezeThreshold: Int = 3,
                 errorFreezeWindow: TimeInterval = 15,
                 errorFreezeRelease: TimeInterval = 30,
-                emaCoefficient: Double = 0.5,
+                emaCoefficient: Double = 0.3,
                 regressThreshold: Double = 0.8,
                 regressionWindowSize: Int = 5,
                 oscillationThreshold: Int = 4,
@@ -146,10 +146,14 @@ public struct AutoConnectionPolicy: Sendable {
         else if singleConnRate < 5_242_880 { byRate = 4 }
         else { byRate = 2 }
         var count = byRate
-        // Low measured single-connection rate + high latency: window-limited,
-        // more connections multiply throughput.
-        if singleConnRate < 1_048_576, rtt >= 0.15 { count = max(count, 6) }
-        else if singleConnRate < 1_048_576, rtt >= 0.05 { count = max(count, 4) }
+        // Moderate RTT still benefits from a floor: window-limited single
+        // connections multiply throughput with a few more connections.
+        if singleConnRate < 1_048_576, rtt >= 0.05, rtt < 0.15 { count = max(count, 4) }
+        // Very high RTT is BDP-limited, not bandwidth-limited. Overshooting to
+        // the max connection count on such a link causes TCP contention and
+        // unstable aggregate throughput, so cap the one-shot estimate and let
+        // the adaptive staircase explore upward from a saner starting point.
+        if rtt >= 0.15 { count = min(count, rtt >= 0.5 ? 8 : 12) }
         // Small files have too few chunks to parallelize.
         if fileSize < 1_048_576 { count = min(count, 2) }
         else if fileSize < 16 * 1_048_576 { count = min(count, 4) }
@@ -162,6 +166,13 @@ public struct AutoConnectionPolicy: Sendable {
     private var smoothedSpeed: Int64 = 0
     private var bestSpeed: Int64 = 0
     private var bestConnections: Int = 1
+    /// Consecutive non-probing evaluations where smoothed speed beat the best.
+    /// Prevents a transient spike at a high connection count from promoting
+    /// `bestConnections` and dead-coding the regression rollback.
+    private var bestStreak = 0
+    /// Non-probing evaluations above `bestSpeed` before `bestConnections` is
+    /// promoted to the current count.
+    private let bestPromoteStreak = 3
     private var ceiling = Int.max
     private var isProbing = false
     private var probePrevSpeed: Int64 = 0
@@ -194,6 +205,7 @@ public struct AutoConnectionPolicy: Sendable {
         smoothedSpeed = 0
         bestSpeed = 0
         bestConnections = 1
+        bestStreak = 0
         ceiling = Int.max
         isProbing = false
         probePrevSpeed = 0
@@ -349,7 +361,19 @@ public struct AutoConnectionPolicy: Sendable {
 
         if smoothedSpeed > bestSpeed {
             bestSpeed = smoothedSpeed
-            bestConnections = currentConnections
+            // Only promote `bestConnections` after a sustained, non-probing run
+            // above the previous best. A transient spike at a high connection
+            // count must not rewrite `bestConnections`, or the regression
+            // rollback (`currentConnections > bestConnections`) can never fire.
+            if !isProbing {
+                bestStreak += 1
+                if bestStreak >= bestPromoteStreak {
+                    bestConnections = currentConnections
+                    bestStreak = 0
+                }
+            }
+        } else if !isProbing {
+            bestStreak = 0
         }
 
         if isProbing {

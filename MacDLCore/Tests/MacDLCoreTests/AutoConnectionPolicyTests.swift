@@ -145,6 +145,25 @@ import Foundation
         #expect(p.evaluate(currentConnections: 2, hasPending: true, now: t0.addingTimeInterval(3)) == 1)
     }
 
+    @Test func transientSpikeDoesNotPromoteBestConnections() {
+        // A single high-speed spike at a high connection count must not rewrite
+        // `bestConnections`, or the regression rollback could never fire.
+        var p = AutoConnectionPolicy(cooldown: 3, regressionWindowSize: 5)
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 1, hasPending: true, now: t0) == 2) // best = 1 conn
+        p.forceConcurrencyCeiling(16)
+
+        // Jump straight to a high count with one strong sample.
+        settle(&p, speed: 1000)
+        #expect(p.evaluate(currentConnections: 8, hasPending: true, now: t0.addingTimeInterval(3)) == 9)
+        settle(&p, speed: 100_000) // one spike, far above best
+
+        // The spike raises `bestSpeed` but not `bestConnections` (needs a
+        // streak), so a sustained collapse can still roll back from 9 → 1.
+        for _ in 0..<5 { p.record(speed: 500) }
+        #expect(p.evaluate(currentConnections: 9, hasPending: true, now: t0.addingTimeInterval(6)) == 1)
+    }
+
     @Test func regressionThresholdIsStrict() {
         var p = regressionCandidate()
         for _ in 0..<5 { p.record(speed: 800) }
@@ -273,6 +292,15 @@ import Foundation
         #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 800 * 1024, fileSize: 32 * 1_048_576, rtt: 0.2) == 12)
         // Tiny file never over-allocates even on a slow link.
         #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 1_000, rtt: 0) == 2)
+    }
+
+    @Test func informedEstimateCapsOnVeryHighLatency() {
+        // A slow single connection on a very high RTT link is BDP-limited, not
+        // bandwidth-limited: overshooting to the max causes TCP contention, so
+        // the estimate is capped and the adaptive staircase explores upward.
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 32 * 1_048_576, rtt: 1.3) == 8)
+        // Moderate high RTT keeps a higher (but still capped) ceiling.
+        #expect(AutoConnectionPolicy.informedInitialConnectionCount(singleConnRate: 300 * 1024, fileSize: 32 * 1_048_576, rtt: 0.3) == 12)
     }
 
     // MARK: - Error freeze
