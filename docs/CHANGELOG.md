@@ -102,6 +102,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-adding a download from the clipboard reports its actual state in the
   notification ("Download Completed" / "Paused Download" / "Failed Download")
   instead of always "Already in Download List".
+- Adding a duplicate of a completed download now redownloads the existing task
+  from scratch instead of creating a second entry: the finished file (and any
+  stale staging) is removed and the same row restarts.
 
 ### Changed
 
@@ -109,10 +112,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the historical best before rolling back. A brief bandwidth dip no longer
   drops connections, while a sustained slowdown still returns to the best known
   count; upward probe scoring remains responsive through the existing EMA.
+- The learned best connection count is promoted only after a sustained,
+  non-probing run above the previous best instead of on every speed spike. A
+  transient spike at a high connection count can no longer rewrite the best
+  count and dead-code the regression rollback, which previously left the
+  download stuck at 16 connections on a high-latency link. The EMA smoothing
+  coefficient was lowered so short speed spikes are damped, and the informed
+  one-shot connection estimate now caps itself on very high RTT links where a
+  slow single connection is bandwidth-delay-product limited rather than
+  bandwidth limited.
 - Adaptive connection circuit breaker: when the connection count keeps
-  reversing direction, the engine locks to a conservative count for the rest of
-  the download instead of oscillating. Pausing, resuming, changing the
-  connection mode or changing the speed limit gives the download a fresh chance.
+  reversing direction, the engine locks to a conservative count instead of
+  oscillating. The lock releases automatically after a quiet period so a
+  network that recovered mid-download can climb back, and pausing, resuming,
+  changing the connection mode or changing the speed limit still gives the
+  download a fresh chance immediately.
 - Source scheduling: an unmeasured mirror now serves only one trial chunk until
   its throughput is sampled, so a slow mirror no longer eats half the file at
   cold start. A persistently failing source backs off its cooldown
